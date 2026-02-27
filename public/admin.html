@@ -1,0 +1,1284 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>PixelPlein</title>
+<link rel="icon" type="image/svg+xml" href="/favicon.svg">
+<style>
+/* ─── Reset ──────────────────────────────────────────────────────────────── */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+/* ─── Design tokens ──────────────────────────────────────────────────────── */
+:root {
+  --bg:        #0d0d12;
+  --surface:   #14141c;
+  --surface2:  #1c1c28;
+  --surface3:  #222230;
+  --border:    #272736;
+  --border2:   #32324a;
+  --accent:    #6c63ff;
+  --accent-lo: rgba(108,99,255,0.12);
+  --accent2:   #ff6584;
+  --text:      #e2e2f0;
+  --muted:     #7070a0;
+  --green:     #3ecf8e;
+  --red:       #e05c5c;
+  --yellow:    #f5a623;
+  --nav-w:     220px;
+  --radius:    10px;
+}
+
+/* ─── Base ───────────────────────────────────────────────────────────────── */
+html, body {
+  height: 100%;
+}
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+  font-size: 14px;
+  line-height: 1.5;
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+}
+
+/* ─── App shell ──────────────────────────────────────────────────────────── */
+.app-shell {
+  display: flex;
+  flex: 1;
+  min-height: 0;
+  height: 100vh;
+  overflow: hidden;
+}
+
+/* ─── Left nav ───────────────────────────────────────────────────────────── */
+.nav {
+  width: var(--nav-w);
+  flex-shrink: 0;
+  background: var(--surface);
+  border-right: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  overflow-y: auto;
+}
+
+.nav-logo {
+  padding: 18px 18px 12px;
+  font-size: 15px;
+  font-weight: 800;
+  color: #fff;
+  letter-spacing: 0.02em;
+  border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.nav-logo-icon {
+  width: 30px; height: 30px;
+  background: var(--accent);
+  border-radius: 8px;
+  display: flex; align-items: center; justify-content: center;
+  padding: 5px;
+  flex-shrink: 0;
+}
+.nav-logo-icon svg { width: 100%; height: 100%; display: block; }
+.nav-icon .icon { width: 16px; height: 16px; display: block; }
+.empty-state-icon .icon { width: 32px; height: 32px; display: block; }
+
+.nav-section {
+  padding: 18px 10px 8px;
+  flex: 1;
+}
+.nav-section-label {
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  color: var(--muted);
+  padding: 0 8px;
+  margin-bottom: 6px;
+}
+
+.nav-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 9px 10px;
+  border-radius: 8px;
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background 0.12s, color 0.12s;
+  user-select: none;
+  margin-bottom: 2px;
+  border: none;
+  background: none;
+  width: 100%;
+  text-align: left;
+}
+.nav-item:hover { background: var(--surface2); color: var(--text); }
+.nav-item.active { background: var(--accent-lo); color: #fff; font-weight: 600; }
+.nav-item.active .nav-icon { opacity: 1; }
+.nav-icon { font-size: 16px; opacity: 0.6; flex-shrink: 0; width: 20px; text-align: center; }
+
+/* Screen status dots in nav */
+.nav-screen-dots {
+  display: flex;
+  gap: 6px;
+  margin-top: 2px;
+  padding: 0 10px 12px;
+}
+.nav-screen-chip {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 11px;
+  color: var(--muted);
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  padding: 3px 8px;
+  flex: 1;
+  justify-content: center;
+}
+.nav-screen-chip.online { color: var(--green); border-color: rgba(62,207,142,0.3); }
+.status-dot {
+  width: 7px; height: 7px;
+  border-radius: 50%;
+  flex-shrink: 0;
+  background: var(--red);
+}
+.status-dot.online { background: var(--green); box-shadow: 0 0 5px var(--green); }
+
+/* ─── Main content area ──────────────────────────────────────────────────── */
+.main {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  overflow: hidden;
+}
+
+/* ─── Global save bar ────────────────────────────────────────────────────── */
+.save-bar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 24px;
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
+  min-height: 52px;
+}
+.save-bar-title {
+  font-size: 15px;
+  font-weight: 700;
+  color: #fff;
+  flex: 1;
+}
+.save-bar-dirty {
+  font-size: 12px;
+  color: var(--yellow);
+  display: none;
+}
+.save-bar-dirty.visible { display: inline; }
+#toast {
+  display: none;
+  padding: 6px 14px;
+  border-radius: 8px;
+  font-size: 12px;
+  font-weight: 600;
+}
+.toast-ok  { background: rgba(62,207,142,0.15); color: var(--green); border: 1px solid rgba(62,207,142,0.4); }
+.toast-err { background: rgba(224,92,92,0.15);  color: var(--red);   border: 1px solid rgba(224,92,92,0.4); }
+
+/* ─── Pages ──────────────────────────────────────────────────────────────── */
+.page { display: none; flex: 1; overflow-y: auto; min-height: 0; }
+.page.active { display: flex; flex-direction: column; }
+
+/* ─── Common inner layouts ───────────────────────────────────────────────── */
+.page-body {
+  padding: 28px 28px;
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+  max-width: 1100px;
+}
+.page-body.wide { max-width: none; padding: 0; flex: 1; overflow: hidden; }
+
+/* ─── Buttons ────────────────────────────────────────────────────────────── */
+button { font-family: inherit; cursor: pointer; transition: opacity 0.12s, background 0.12s; }
+button:hover { opacity: 0.88; }
+
+.btn {
+  padding: 8px 18px;
+  border-radius: 8px;
+  border: none;
+  font-size: 13px;
+  font-weight: 600;
+}
+.btn-primary   { background: var(--accent); color: #fff; border: none; }
+.btn-secondary { background: var(--surface2); border: 1px solid var(--border); color: var(--text); }
+.btn-danger    { background: var(--surface2); border: 1px solid var(--red); color: var(--red); }
+.btn-sm        { padding: 5px 12px; font-size: 12px; border-radius: 6px; }
+.btn-primary.has-changes { box-shadow: 0 0 0 2px var(--accent), 0 0 14px rgba(108,99,255,0.3); }
+
+.action-row { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+
+/* ─── Form fields ────────────────────────────────────────────────────────── */
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+.field label, .field-label {
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.07em;
+  color: var(--muted);
+}
+input[type="text"],
+input[type="number"],
+input[type="url"],
+textarea,
+select {
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  border-radius: 7px;
+  color: var(--text);
+  padding: 8px 11px;
+  font-size: 13px;
+  font-family: inherit;
+  width: 100%;
+  transition: border-color 0.15s;
+}
+input:focus, textarea:focus, select:focus {
+  outline: none;
+  border-color: var(--accent);
+}
+textarea { resize: vertical; }
+select { cursor: pointer; }
+input[type="range"] {
+  accent-color: var(--accent);
+  cursor: pointer;
+  height: 4px;
+  flex: 1;
+}
+input[type="checkbox"] { cursor: pointer; accent-color: var(--accent); }
+
+.range-row { display: flex; align-items: center; gap: 10px; }
+.range-val {
+  min-width: 46px;
+  text-align: right;
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+  color: var(--muted);
+}
+
+/* ─── Cards / sections ───────────────────────────────────────────────────── */
+.card {
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 18px 20px;
+}
+.card-title {
+  font-size: 13px;
+  font-weight: 700;
+  color: #fff;
+  margin-bottom: 14px;
+  padding-bottom: 10px;
+  border-bottom: 1px solid var(--border);
+}
+
+details.section {
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  overflow: hidden;
+  margin-bottom: 10px;
+}
+details.section > summary {
+  cursor: pointer;
+  padding: 11px 16px;
+  font-size: 13px;
+  font-weight: 600;
+  color: #fff;
+  list-style: none;
+  background: var(--surface2);
+  user-select: none;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+details.section > summary::after { content: '›'; margin-left: auto; transition: transform 0.2s; }
+details.section[open] > summary::after { transform: rotate(90deg); }
+details.section > summary::-webkit-details-marker { display: none; }
+details.section[open] > summary { border-bottom: 1px solid var(--border); }
+details.section > .section-body { padding: 14px 16px; display: flex; flex-direction: column; gap: 10px; }
+
+.check-row { display: flex; align-items: center; gap: 8px; font-size: 13px; }
+.check-row label { cursor: pointer; color: var(--text); }
+
+/* ─── Two-column grid ────────────────────────────────────────────────────── */
+.two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; }
+@media (max-width: 760px) { .two-col { grid-template-columns: 1fr; } }
+
+/* ─── Screens page ───────────────────────────────────────────────────────── */
+.screens-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 20px;
+}
+@media (max-width: 860px) { .screens-grid { grid-template-columns: 1fr; } }
+
+.screen-card {
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  overflow: hidden;
+}
+.screen-card-header {
+  padding: 14px 18px 12px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  border-bottom: 1px solid var(--border);
+  background: var(--surface);
+}
+.screen-num {
+  font-size: 20px;
+  font-weight: 800;
+  line-height: 1;
+}
+.screen-num.s1 { color: var(--accent); }
+.screen-num.s2 { color: var(--accent2); }
+.screen-card-name {
+  font-size: 14px;
+  font-weight: 700;
+  color: #fff;
+}
+.screen-card-meta {
+  font-size: 11px;
+  color: var(--muted);
+  margin-top: 1px;
+}
+.screen-status-badge {
+  margin-left: auto;
+  padding: 4px 10px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 700;
+  background: rgba(224,92,92,0.15);
+  color: var(--red);
+  border: 1px solid rgba(224,92,92,0.3);
+}
+.screen-status-badge.online {
+  background: rgba(62,207,142,0.12);
+  color: var(--green);
+  border-color: rgba(62,207,142,0.3);
+}
+
+.screen-card-body { padding: 16px 18px; display: flex; flex-direction: column; gap: 14px; }
+
+.playlist-assign-box {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 12px 14px;
+}
+.playlist-assign-label {
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.07em;
+  color: var(--muted);
+  margin-bottom: 6px;
+}
+.playlist-assign-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.playlist-assign-row select { flex: 1; margin: 0; }
+.playlist-none-hint {
+  font-size: 11px;
+  color: var(--yellow);
+  margin-top: 5px;
+}
+
+.screen-stats-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+.screen-stat {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 7px;
+  padding: 8px 12px;
+  font-size: 11px;
+}
+.screen-stat-label { color: var(--muted); margin-bottom: 2px; }
+.screen-stat-value { color: #fff; font-weight: 600; font-variant-numeric: tabular-nums; }
+
+/* Quick controls */
+.quick-controls { display: flex; flex-direction: column; gap: 10px; }
+.quick-label { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.07em; color: var(--muted); margin-bottom: 2px; }
+.quick-hint  { font-size: 11px; color: var(--muted); }
+
+/* Health widgets */
+.health-row { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; }
+@media (max-width: 760px) { .health-row { grid-template-columns: repeat(2,1fr); } }
+.health-stat {
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 14px 16px;
+}
+.health-stat-val { font-size: 26px; font-weight: 800; color: #fff; line-height: 1.1; font-variant-numeric: tabular-nums; }
+.health-stat-key { font-size: 11px; color: var(--muted); margin-top: 3px; text-transform: uppercase; letter-spacing: 0.07em; }
+
+.groups-list { display: flex; flex-direction: column; gap: 3px; }
+.group-row { display: flex; justify-content: space-between; font-size: 12px; padding: 3px 0; }
+.group-name { color: var(--text); }
+.group-count {
+  color: var(--muted);
+  background: var(--surface);
+  padding: 1px 8px;
+  border-radius: 999px;
+  font-variant-numeric: tabular-nums;
+}
+
+.cache-bar-wrap { display: flex; flex-direction: column; gap: 6px; margin-top: 6px; }
+progress { width: 100%; height: 6px; border-radius: 3px; border: none; }
+progress::-webkit-progress-bar   { background: var(--surface); border-radius: 3px; }
+progress::-webkit-progress-value { background: var(--accent); border-radius: 3px; }
+progress::-moz-progress-bar      { background: var(--accent); border-radius: 3px; }
+.cache-row { display: flex; justify-content: space-between; font-size: 12px; color: var(--muted); }
+
+/* adv toggle group (reused in advanced section) */
+.adv-toggle-group { display: flex; flex-wrap: wrap; gap: 6px; }
+.adv-toggle {
+  padding: 4px 10px;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  background: var(--surface2);
+  color: var(--muted);
+  font-size: 12px;
+  font-family: inherit;
+  cursor: pointer;
+  transition: all 0.12s;
+}
+.adv-toggle.on { background: var(--accent); border-color: var(--accent); color: #fff; }
+
+.adv-linked-bar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 14px;
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  font-size: 13px;
+}
+.adv-linked-bar label { cursor: pointer; flex: 1; color: var(--text); }
+.adv-two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 28px; }
+@media (max-width: 760px) { .adv-two-col { grid-template-columns: 1fr; } }
+.adv-screen-title {
+  font-size: 13px; font-weight: 700; margin-bottom: 12px;
+  padding-bottom: 6px; border-bottom: 1px solid var(--border);
+}
+.s1-title { color: var(--accent); }
+.s2-title { color: var(--accent2); }
+.adv-field { margin-bottom: 12px; }
+.adv-field:last-child { margin-bottom: 0; }
+.adv-field > label {
+  display: block; font-size: 11px; font-weight: 700;
+  text-transform: uppercase; letter-spacing: 0.07em; color: var(--muted); margin-bottom: 5px;
+}
+.adv-range-row { display: flex; align-items: center; gap: 10px; }
+.adv-range-val { min-width: 52px; text-align: right; font-size: 12px; color: var(--muted); font-variant-numeric: tabular-nums; }
+.adv-linked-note { font-size: 12px; color: var(--muted); padding: 8px 0; border-top: 1px solid var(--border); }
+
+/* ─── Content / Slides page ──────────────────────────────────────────────── */
+.content-split {
+  display: flex;
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+}
+.content-lib {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  border-right: 1px solid var(--border);
+}
+.content-lib-toolbar {
+  padding: 12px 16px;
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  flex-shrink: 0;
+}
+.content-lib-body {
+  flex: 1;
+  overflow-y: auto;
+  padding: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.slide-card {
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 11px 14px;
+  font-size: 12px;
+}
+.slide-card.slide-disabled { opacity: 0.5; }
+.slide-card-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 5px;
+}
+.slide-type-badge {
+  font-size: 10px; font-weight: 700; padding: 2px 8px; border-radius: 999px;
+  text-transform: uppercase; letter-spacing: 0.06em;
+  display: inline-flex; align-items: center; gap: 4px;
+}
+.slide-type-badge .icon { width: 10px; height: 10px; display: block; }
+.slide-type-video      { background: rgba(108,99,255,0.18); color: var(--accent); }
+.slide-type-text-card  { background: rgba(62,207,142,0.18); color: var(--green); }
+.slide-type-qr         { background: rgba(245,166,35,0.18);  color: var(--yellow); }
+.slide-type-webpage    { background: rgba(255,101,132,0.18); color: var(--accent2); }
+.slide-type-image      { background: rgba(56,189,248,0.18);  color: #38bdf8; }
+.slide-type-article    { background: rgba(168,85,247,0.18);  color: #a855f7; }
+.slide-card-actions { display: flex; gap: 4px; }
+.sc-btn {
+  padding: 3px 9px; border-radius: 5px; border: 1px solid var(--border);
+  background: var(--surface); color: var(--text); font-size: 11px; font-family: inherit; cursor: pointer;
+}
+.sc-btn:hover { background: var(--border); }
+.sc-btn-del { color: var(--red); border-color: var(--red); }
+.sc-btn-del:hover { background: rgba(224,92,92,0.15); }
+.sc-btn-playsoon { color: var(--green); border-color: rgba(62,207,142,0.4); }
+.sc-btn-playsoon:hover { background: rgba(62,207,142,0.1); }
+.slide-card-label { font-size: 12px; color: var(--text); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.slide-tag { font-size: 10px; padding: 1px 6px; border-radius: 999px; display: inline-block; margin-top: 3px; }
+.tag-disabled { background: rgba(112,112,160,0.2); color: var(--muted); }
+.tag-missing  { background: rgba(224,92,92,0.2);  color: var(--red); }
+
+/* Slide modal */
+.modal-backdrop {
+  display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.65);
+  z-index: 9999; align-items: center; justify-content: center;
+}
+.modal-backdrop.open { display: flex; }
+.modal {
+  background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius);
+  padding: 24px; width: min(500px, 95vw); max-height: 90vh; overflow-y: auto;
+  display: flex; flex-direction: column; gap: 14px;
+}
+.modal-title { font-size: 15px; font-weight: 700; color: #fff; }
+.sf-field { display: flex; flex-direction: column; gap: 5px; }
+.sf-field label { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.07em; color: var(--muted); }
+.sf-field input[type="text"], .sf-field input[type="number"], .sf-field select, .sf-field textarea {
+  background: var(--surface2); border: 1px solid var(--border); border-radius: 7px;
+  color: var(--text); padding: 8px 11px; font-size: 13px; font-family: inherit;
+}
+.sf-field textarea { resize: vertical; }
+.sf-field .check-row { font-size: 13px; }
+.modal-footer { display: flex; gap: 8px; justify-content: flex-end; margin-top: 4px; }
+
+/* ─── Playlists page ─────────────────────────────────────────────────────── */
+.playlists-split {
+  display: flex;
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+}
+.pl-sidebar {
+  width: 260px;
+  flex-shrink: 0;
+  border-right: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+.pl-sidebar-header {
+  padding: 12px 14px;
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-shrink: 0;
+}
+.pl-sidebar-title { font-size: 12px; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: 0.08em; }
+.pl-list { flex: 1; overflow-y: auto; padding: 8px; display: flex; flex-direction: column; gap: 4px; }
+.pl-chip {
+  padding: 10px 12px;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  background: var(--surface2);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  transition: border-color 0.12s, background 0.12s;
+}
+.pl-chip:hover { border-color: var(--accent); }
+.pl-chip.active { border-color: var(--accent); background: var(--accent-lo); }
+.pl-chip-name { font-size: 13px; font-weight: 600; color: var(--text); flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.pl-chip-count { font-size: 11px; color: var(--muted); background: var(--surface); border: 1px solid var(--border); padding: 1px 7px; border-radius: 999px; flex-shrink: 0; }
+.pl-chip-badges { display: flex; gap: 4px; }
+.pl-badge-sync { font-size: 10px; padding: 1px 6px; border-radius: 999px; background: var(--accent-lo); color: var(--accent); border: 1px solid rgba(108,99,255,0.3); }
+.pl-used-by { font-size: 10px; color: var(--muted); margin-top: 2px; }
+
+.pl-editor {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+.pl-editor-top {
+  padding: 14px 18px;
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.pl-editor-name-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.pl-name-input {
+  flex: 1;
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  border-radius: 7px;
+  color: #fff;
+  padding: 8px 12px;
+  font-size: 14px;
+  font-weight: 700;
+  font-family: inherit;
+}
+.pl-name-input:focus { outline: none; border-color: var(--accent); }
+.pl-meta-row {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+.pl-meta-group {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  color: var(--muted);
+}
+.pl-meta-group input[type="number"] {
+  width: 56px;
+  padding: 4px 8px;
+  font-size: 12px;
+}
+.pl-coord-toggle {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  color: var(--muted);
+  padding: 4px 10px;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  background: var(--surface2);
+  cursor: pointer;
+  user-select: none;
+  transition: all 0.12s;
+}
+.pl-coord-toggle:has(input:checked) {
+  border-color: var(--accent);
+  color: var(--accent);
+  background: var(--accent-lo);
+}
+
+.pl-body-split {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+}
+.pl-col {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+.pl-col + .pl-col { border-left: 1px solid var(--border); }
+.pl-col-head {
+  padding: 9px 14px;
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--muted);
+  border-bottom: 1px solid var(--border);
+  background: var(--surface);
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.pl-col-cnt {
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  padding: 0px 6px;
+  font-size: 10px;
+}
+.pl-slide-list { flex: 1; overflow-y: auto; padding: 8px; display: flex; flex-direction: column; gap: 4px; }
+.pl-slide-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 7px 9px;
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  border-radius: 7px;
+  font-size: 11px;
+}
+.pl-drag-handle { cursor: grab; color: var(--muted); font-size: 13px; flex-shrink: 0; }
+.pl-slide-name { flex: 1; color: var(--text); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.pl-item-badge { font-size: 9px !important; padding: 1px 5px !important; flex-shrink: 0; }
+
+/* ─── Overlays page ──────────────────────────────────────────────────────── */
+.overlays-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 24px;
+}
+@media (max-width: 700px) { .overlays-grid { grid-template-columns: 1fr; } }
+
+/* ─── Photos page ────────────────────────────────────────────────────────── */
+.upload-section {
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 18px;
+  background: var(--surface2);
+}
+.upload-row { display: flex; gap: 10px; align-items: flex-end; flex-wrap: wrap; margin-bottom: 14px; }
+.upload-group-wrap { display: flex; flex-direction: column; gap: 4px; flex: 1; min-width: 160px; }
+.upload-group-wrap label { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.07em; color: var(--muted); }
+
+#upload-zone {
+  border: 2px dashed var(--border2);
+  border-radius: var(--radius);
+  padding: 32px;
+  text-align: center;
+  color: var(--muted);
+  cursor: pointer;
+  transition: border-color 0.15s, background 0.15s;
+  font-size: 14px;
+}
+#upload-zone:hover, #upload-zone.drag-over {
+  border-color: var(--accent);
+  background: var(--accent-lo);
+  color: var(--text);
+}
+#upload-progress { width: 100%; margin-top: 10px; display: none; height: 4px; border-radius: 2px; }
+#upload-status   { font-size: 12px; color: var(--muted); margin-top: 6px; min-height: 18px; }
+
+.filter-bar-wrap { display: flex; flex-direction: column; gap: 6px; }
+.filter-bar-label { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.07em; color: var(--muted); }
+#photos-filter-bar { display: flex; flex-wrap: wrap; gap: 6px; }
+.filter-btn {
+  padding: 5px 13px; border-radius: 999px; border: 1px solid var(--border);
+  background: var(--surface2); color: var(--muted); font-size: 12px; font-family: inherit; cursor: pointer;
+  transition: all 0.12s;
+}
+.filter-btn.active { background: var(--accent); border-color: var(--accent); color: #fff; }
+.filter-btn:hover:not(.active) { border-color: var(--accent); color: var(--text); }
+
+#photos-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  gap: 10px;
+}
+.photos-empty { color: var(--muted); font-size: 13px; padding: 24px; text-align: center; grid-column: 1/-1; }
+
+.photo-card { border-radius: var(--radius); overflow: hidden; background: var(--surface2); border: 1px solid var(--border); }
+.photo-thumb { position: relative; aspect-ratio: 4/3; overflow: hidden; background: #111; }
+.photo-thumb img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.photo-thumb-placeholder { display: flex; align-items: center; justify-content: center; width: 100%; height: 100%; font-size: 11px; color: var(--muted); }
+
+.photo-status-badge {
+  position: absolute; top: 6px; left: 6px;
+  padding: 2px 6px; border-radius: 999px; font-size: 10px; font-weight: 700; text-transform: uppercase;
+}
+.status-queued     { background: rgba(245,166,35,0.2); color: var(--yellow); }
+.status-processing { background: rgba(108,99,255,0.2); color: var(--accent); }
+.status-failed     { background: rgba(224,92,92,0.2);  color: var(--red); }
+
+.photo-overlay {
+  position: absolute; inset: 0;
+  display: flex; align-items: flex-end; justify-content: space-between;
+  padding: 8px;
+  background: linear-gradient(to top, rgba(0,0,0,0.7) 0%, transparent 60%);
+  opacity: 0; transition: opacity 0.15s;
+}
+.photo-thumb:hover .photo-overlay { opacity: 1; }
+
+.photo-hero-btn, .photo-delete-btn {
+  width: 30px; height: 30px; border-radius: 50%; border: none;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 15px; cursor: pointer; padding: 0; transition: background 0.12s, transform 0.1s;
+}
+.photo-hero-btn         { background: rgba(255,255,255,0.15); color: #fff; }
+.photo-hero-btn.active  { background: rgba(255,200,0,0.3);   color: #ffd700; }
+.photo-hero-btn:hover   { background: rgba(255,200,0,0.4);   transform: scale(1.1); }
+.photo-delete-btn       { background: rgba(224,92,92,0.2);   color: var(--red); }
+.photo-delete-btn:hover { background: rgba(224,92,92,0.4);   transform: scale(1.1); }
+.photo-hero-btn .icon, .photo-delete-btn .icon { width: 16px; height: 16px; display: block; }
+.sc-btn .icon { width: 12px; height: 12px; display: inline-block; vertical-align: middle; }
+.pl-drag-handle .icon { width: 14px; height: 14px; display: block; }
+.icon-xs { width: 10px !important; height: 10px !important; }
+
+.photo-info { padding: 7px 9px; }
+.photo-name  { display: block; font-size: 11px; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.photo-group { display: block; font-size: 10px; color: var(--muted); margin-top: 2px; }
+
+/* ─── Sidebar action buttons ─────────────────────────────────────────────── */
+.sidebar-links { padding: 8px 10px 18px; display: flex; flex-direction: column; gap: 6px; margin-top: auto; }
+.sidebar-btn {
+  display: block; width: 100%; padding: 8px 12px; border-radius: var(--radius);
+  border: 1px solid var(--border); background: var(--surface2); color: var(--muted);
+  font-size: 12px; font-weight: 500; cursor: pointer; text-align: center; text-decoration: none;
+  font-family: inherit; transition: background 0.12s, color 0.12s;
+}
+.sidebar-btn:hover { background: var(--border); color: var(--text); }
+.sidebar-btn.danger { color: var(--red); border-color: rgba(224,92,92,0.4); }
+.sidebar-btn.danger:hover { background: rgba(224,92,92,0.1); }
+
+/* ─── Empty / hint states ────────────────────────────────────────────────── */
+.empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  padding: 40px 20px;
+  color: var(--muted);
+  font-size: 13px;
+  text-align: center;
+}
+.empty-state-icon { font-size: 32px; opacity: 0.4; }
+
+.muted { color: var(--muted) !important; }
+
+/* ─── Section label ──────────────────────────────────────────────────────── */
+.section-label {
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--muted);
+  margin-bottom: 10px;
+}
+
+</style>
+</head>
+<body>
+
+<div class="app-shell">
+
+   <!-- ─── Left navigation ─────────────────────────────────────────────────── -->
+  <nav class="nav">
+    <div class="nav-logo">
+      <div class="nav-logo-icon"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="white" aria-hidden="true"><rect x="1" y="1" width="10" height="10" rx="2.5"/><rect x="13" y="1" width="10" height="10" rx="2.5"/><rect x="1" y="13" width="10" height="10" rx="2.5"/><rect x="13" y="13" width="10" height="10" rx="2.5"/></svg></div>
+      PixelPlein
+    </div>
+
+    <div class="nav-section">
+      <div class="nav-section-label">Manage</div>
+      <button class="nav-item active" data-page="screens">
+        <span class="nav-icon"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" class="icon" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M9 17.25v1.007a3 3 0 0 1-.879 2.122L7.5 21h9l-.621-.621A3 3 0 0 1 15 18.257V17.25m6-12V15a2.25 2.25 0 0 1-2.25 2.25H5.25A2.25 2.25 0 0 1 3 15V5.25m18 0A2.25 2.25 0 0 0 18.75 3H5.25A2.25 2.25 0 0 0 3 5.25m18 0H3"/></svg></span> Screens
+      </button>
+      <button class="nav-item" data-page="playlists">
+        <span class="nav-icon"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" class="icon" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M5.25 5.653c0-.856.917-1.398 1.667-.986l11.54 6.347a1.125 1.125 0 0 1 0 1.972l-11.54 6.347a1.125 1.125 0 0 1-1.667-.986V5.653Z"/></svg></span> Playlists
+      </button>
+      <button class="nav-item" data-page="content">
+        <span class="nav-icon"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" class="icon" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M3.375 19.5h17.25m-17.25 0a1.125 1.125 0 0 1-1.125-1.125M3.375 19.5h1.5C5.496 19.5 6 18.996 6 18.375m-3.75.125v-1.875m0 0a1.125 1.125 0 0 1 1.125-1.125M3.375 15H18.75M3.375 15h.75M3.375 15a1.125 1.125 0 0 0-1.125 1.125M3 16.125V5.625m0 10.5V15m0-9.375A1.125 1.125 0 0 1 4.125 4.5h15.75A1.125 1.125 0 0 1 21 5.625v12.75c0 .621-.504 1.125-1.125 1.125M21 18.375V15m0 0a1.125 1.125 0 0 0-1.125-1.125M21 15h-1.5m1.5 0v-9.375M18.75 15h-.75m-12.75-9h15M6 6.75v1.5m12-1.5v1.5M6 12.75v1.5m12-1.5v1.5"/></svg></span> Content
+      </button>
+      <button class="nav-item" data-page="photos">
+        <span class="nav-icon"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" class="icon" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="m2.25 15.75 5.159-5.159a2.25 2.25 0 0 1 3.182 0l5.159 5.159m-1.5-1.5 1.409-1.409a2.25 2.25 0 0 1 3.182 0l2.909 2.909m-18 3.75h16.5a1.5 1.5 0 0 0 1.5-1.5V6a1.5 1.5 0 0 0-1.5-1.5H3.75A1.5 1.5 0 0 0 2.25 6v12a1.5 1.5 0 0 0 1.5 1.5Zm10.5-11.25h.008v.008h-.008V8.25Zm.375 0a.375.375 0 1 1-.75 0 .375.375 0 0 1 .75 0Z"/></svg></span> Photos
+      </button>
+      <button class="nav-item" data-page="overlays">
+        <span class="nav-icon"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" class="icon" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M3.75 6A2.25 2.25 0 0 1 6 3.75h2.25A2.25 2.25 0 0 1 10.5 6v2.25a2.25 2.25 0 0 1-2.25 2.25H6a2.25 2.25 0 0 1-2.25-2.25V6ZM3.75 15.75A2.25 2.25 0 0 1 6 13.5h2.25a2.25 2.25 0 0 1 2.25 2.25V18a2.25 2.25 0 0 1-2.25 2.25H6A2.25 2.25 0 0 1 3.75 18v-2.25ZM13.5 6a2.25 2.25 0 0 1 2.25-2.25H18A2.25 2.25 0 0 1 20.25 6v2.25A2.25 2.25 0 0 1 18 10.5h-2.25a2.25 2.25 0 0 1-2.25-2.25V6ZM13.5 15.75a2.25 2.25 0 0 1 2.25-2.25H18a2.25 2.25 0 0 1 2.25 2.25V18A2.25 2.25 0 0 1 18 20.25h-2.25A2.25 2.25 0 0 1 13.5 18v-2.25Z"/></svg></span> Overlays
+      </button>
+      <button class="nav-item" data-page="advanced">
+        <span class="nav-icon"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" class="icon" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M9.594 3.94c.09-.542.56-.94 1.11-.94h2.593c.55 0 1.02.398 1.11.94l.213 1.281c.063.374.313.686.645.87.074.04.147.083.22.127.325.196.72.257 1.075.124l1.217-.456a1.125 1.125 0 0 1 1.37.49l1.296 2.247a1.125 1.125 0 0 1-.26 1.431l-1.003.827c-.293.241-.438.613-.43.992a7.723 7.723 0 0 1 0 .255c-.008.378.137.75.43.991l1.004.827c.424.35.534.955.26 1.43l-1.298 2.247a1.125 1.125 0 0 1-1.369.491l-1.217-.456c-.355-.133-.75-.072-1.076.124a6.47 6.47 0 0 1-.22.128c-.331.183-.581.495-.644.869l-.213 1.281c-.09.543-.56.94-1.11.94h-2.594c-.55 0-1.019-.398-1.11-.94l-.213-1.281c-.062-.374-.312-.686-.644-.87a6.52 6.52 0 0 1-.22-.127c-.325-.196-.72-.257-1.076-.124l-1.217.456a1.125 1.125 0 0 1-1.369-.49l-1.297-2.247a1.125 1.125 0 0 1 .26-1.431l1.004-.827c.292-.24.437-.613.43-.991a6.932 6.932 0 0 1 0-.255c.007-.38-.138-.751-.43-.992l-1.004-.827a1.125 1.125 0 0 1-.26-1.43l1.297-2.247a1.125 1.125 0 0 1 1.37-.491l1.216.456c.356.133.751.072 1.076-.124.072-.044.146-.086.22-.128.332-.183.582-.495.644-.869l.214-1.28Z"/><path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z"/></svg></span> Advanced
+      </button>
+      <button class="nav-item" data-page="settings">
+        <span class="nav-icon"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" class="icon" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M11.25 3.75h1.5m-1.5 16.5h1.5m-7.5-8.25h1.5m10.5 0h1.5M6.15 6.15l1.06 1.06m9.58 9.58 1.06 1.06m0-11.7-1.06 1.06m-9.58 9.58-1.06 1.06M12 15.75a3.75 3.75 0 1 0 0-7.5 3.75 3.75 0 0 0 0 7.5Z"/></svg></span> Settings
+      </button>
+    </div>
+
+    <div class="nav-screen-dots" id="nav-screen-chips"></div>
+
+    <div class="sidebar-links">
+      <div id="sidebar-screen-links" style="display:flex;flex-direction:column;gap:6px"></div>
+      <a class="sidebar-btn" href="/preview.html" target="_blank">Live Preview</a>
+      <button class="sidebar-btn danger" id="btn-reload-screens">Reload Screens</button>
+    </div>
+  </nav>
+
+  <!-- ─── Main ────────────────────────────────────────────────────────────── -->
+  <div class="main">
+
+    <!-- Global save bar -->
+    <div class="save-bar">
+      <span class="save-bar-title" id="page-title">Screens</span>
+      <span class="save-bar-dirty" id="save-dirty">Unsaved changes</span>
+      <div id="toast"></div>
+      <button class="btn btn-secondary btn-sm" id="btn-revert">Revert</button>
+      <button class="btn btn-primary btn-sm" id="btn-save">Save &amp; Apply</button>
+      <button class="btn btn-secondary btn-sm" id="btn-fallback" style="display:none">Safe Fallback</button>
+    </div>
+
+    <!-- ── Screens page ──────────────────────────────────────────────────── -->
+    <div class="page active" data-page="screens">
+      <div class="page-body" style="max-width:1000px">
+
+        <!-- Health stats -->
+        <div>
+          <div class="section-label">System Health</div>
+          <div class="health-row">
+            <div class="health-stat">
+              <div class="health-stat-val" id="health-total">–</div>
+              <div class="health-stat-key">Total Photos</div>
+            </div>
+            <div class="health-stat">
+              <div class="health-stat-val" id="health-ready">–</div>
+              <div class="health-stat-key">Ready</div>
+            </div>
+            <div class="health-stat">
+              <div class="health-stat-val" id="health-new">–</div>
+              <div class="health-stat-key">Last Hour</div>
+            </div>
+            <div class="health-stat">
+              <div class="health-stat-val" id="health-queued">–</div>
+              <div class="health-stat-key">Processing</div>
+            </div>
+          </div>
+          <div class="cache-bar-wrap" style="margin-top:10px">
+            <div style="display:flex;justify-content:space-between;font-size:11px;color:var(--muted)">
+              <span>Cache coverage</span>
+              <span id="health-cache-pct">–</span>
+            </div>
+            <progress id="health-cache-bar" max="1" value="1"></progress>
+          </div>
+        </div>
+
+        <!-- Screen cards -->
+        <div>
+          <div class="section-label">Screen Configuration</div>
+          <div class="screens-grid" id="screens-grid-container"></div>
+        </div>
+
+        <!-- Quick controls (shared) -->
+        <div class="card">
+          <div class="card-title">Quick Controls (both screens)</div>
+          <div class="quick-controls">
+
+            <div class="field">
+              <label for="q-group">Active focus group</label>
+              <select id="q-group"><option value="auto">Auto (all groups)</option></select>
+              <div class="quick-hint">Which event group to feature. Auto shows all groups equally.</div>
+            </div>
+
+            <div class="field">
+              <label>Pace</label>
+              <div class="range-row">
+                <span class="muted" style="font-size:11px">Slow</span>
+                <input type="range" id="q-pace" min="0" max="100" step="1" value="50">
+                <span class="muted" style="font-size:11px">Fast</span>
+                <span class="range-val" id="q-pace-val">50%</span>
+              </div>
+              <div class="quick-hint">How quickly layouts cycle and photos transition. Slow feels relaxed; fast keeps energy high.</div>
+            </div>
+
+            <div class="field">
+              <label>Story focus</label>
+              <div class="range-row">
+                <span class="muted" style="font-size:11px">Mixed</span>
+                <input type="range" id="q-story-focus" min="0" max="100" step="1" value="50">
+                <span class="muted" style="font-size:11px">Focused</span>
+                <span class="range-val" id="q-story-focus-val">50%</span>
+              </div>
+              <div class="quick-hint">With a group selected: how much to mix in photos from other groups. In auto mode: how long the hero photo lingers before rotating to a new one.</div>
+            </div>
+
+            <div class="field">
+              <label>Screen energy</label>
+              <div class="range-row">
+                <span class="muted" style="font-size:11px">Calm</span>
+                <input type="range" id="q-energy" min="0" max="100" step="1" value="25">
+                <span class="muted" style="font-size:11px">Active</span>
+                <span class="range-val" id="q-energy-val">25%</span>
+              </div>
+              <div class="quick-hint">How often mosaic tiles swap out during a layout cycle. Has no effect on fullscreen or side-by-side layouts.</div>
+            </div>
+
+            <div class="field">
+              <label>Recency bias <span class="range-val" id="q-recency-val" style="margin-left:6px">60%</span></label>
+              <div class="range-row">
+                <span class="muted" style="font-size:11px">Fair</span>
+                <input type="range" id="q-recency" min="0" max="100" step="1" value="60">
+                <span class="muted" style="font-size:11px">Fresh</span>
+              </div>
+              <div class="quick-hint">How strongly newer photos are favoured. <strong>Fair</strong> gives all photos equal weight. <strong>Fresh</strong> aggressively surfaces recent uploads — photos from the last few minutes appear far more often than older ones.</div>
+            </div>
+
+            <div class="field">
+              <label style="display:flex;align-items:center;gap:8px;cursor:pointer">
+                <input type="checkbox" id="q-ken-burns" checked>
+                Ken Burns motion
+              </label>
+              <div class="quick-hint">Slow zoom and pan on fullscreen, hero, and side-by-side photos. Disable if the motion feels distracting.</div>
+            </div>
+
+          </div>
+        </div>
+
+        <!-- Photo Groups -->
+        <div class="card">
+          <div class="card-title">Photo Groups</div>
+          <div id="health-groups"><div class="muted" style="font-size:12px">Loading…</div></div>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- ── Playlists page ────────────────────────────────────────────────── -->
+    <div class="page" data-page="playlists">
+      <div class="page-body wide">
+        <div class="playlists-split">
+
+          <!-- Sidebar: playlist list -->
+          <div class="pl-sidebar">
+            <div class="pl-sidebar-header">
+              <span class="pl-sidebar-title">Playlists</span>
+              <button class="btn btn-primary btn-sm" id="btn-new-playlist">+ New</button>
+            </div>
+            <div id="playlists-list" class="pl-list">
+              <div class="empty-state"><span class="empty-state-icon"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" class="icon" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M5.25 5.653c0-.856.917-1.398 1.667-.986l11.54 6.347a1.125 1.125 0 0 1 0 1.972l-11.54 6.347a1.125 1.125 0 0 1-1.667-.986V5.653Z"/></svg></span><span>No playlists yet.</span></div>
+            </div>
+          </div>
+
+          <!-- Editor -->
+          <div class="pl-editor" id="playlist-editor">
+            <div class="empty-state" style="flex:1;justify-content:center">
+              <span class="empty-state-icon"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" class="icon" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M5.25 5.653c0-.856.917-1.398 1.667-.986l11.54 6.347a1.125 1.125 0 0 1 0 1.972l-11.54 6.347a1.125 1.125 0 0 1-1.667-.986V5.653Z"/></svg></span>
+              <span>Select a playlist on the left,<br>or create a new one.</span>
+            </div>
+          </div>
+
+        </div>
+      </div>
+    </div>
+
+    <!-- ── Content page ──────────────────────────────────────────────────── -->
+    <div class="page" data-page="content">
+      <div class="page-body wide">
+        <div class="content-split">
+
+          <div class="content-lib">
+            <div class="content-lib-toolbar">
+              <select id="slides-create-type" style="width:auto;padding:6px 10px;font-size:12px">
+                <option value="image">Image</option>
+                <option value="text-card">Text Card</option>
+                <option value="article">Article</option>
+                <option value="video">Video</option>
+                <option value="qr">QR Code</option>
+                <option value="webpage">Webpage</option>
+              </select>
+              <button class="btn btn-primary btn-sm" id="slides-create-btn">+ Create Slide</button>
+              <input type="file" id="slides-video-input" accept="video/*" style="display:none">
+              <input type="file" id="slides-image-input" accept="image/jpeg,image/png,image/gif,image/webp,image/avif" style="display:none">
+              <span id="slides-video-status" style="font-size:12px;color:var(--muted)"></span>
+            </div>
+            <div id="slides-library-grid" class="content-lib-body">
+              <div class="empty-state"><span class="empty-state-icon"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" class="icon" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M3.375 19.5h17.25m-17.25 0a1.125 1.125 0 0 1-1.125-1.125M3.375 19.5h1.5C5.496 19.5 6 18.996 6 18.375m-3.75.125v-1.875m0 0a1.125 1.125 0 0 1 1.125-1.125M3.375 15H18.75M3.375 15h.75M3.375 15a1.125 1.125 0 0 0-1.125 1.125M3 16.125V5.625m0 10.5V15m0-9.375A1.125 1.125 0 0 1 4.125 4.5h15.75A1.125 1.125 0 0 1 21 5.625v12.75c0 .621-.504 1.125-1.125 1.125M21 18.375V15m0 0a1.125 1.125 0 0 0-1.125-1.125M21 15h-1.5m1.5 0v-9.375M18.75 15h-.75m-12.75-9h15M6 6.75v1.5m12-1.5v1.5M6 12.75v1.5m12-1.5v1.5"/></svg></span><span>No slides yet. Create one above.</span></div>
+            </div>
+          </div>
+
+        </div>
+      </div>
+    </div>
+
+    <!-- ── Photos page ───────────────────────────────────────────────────── -->
+    <div class="page" data-page="photos">
+      <div class="page-body">
+
+        <div class="upload-section">
+          <div class="upload-row">
+            <div class="upload-group-wrap">
+              <label for="upload-group">Group / category</label>
+              <input type="text" id="upload-group" list="groups-datalist" placeholder="e.g. ceremony, dancefloor…">
+              <datalist id="groups-datalist"></datalist>
+            </div>
+          </div>
+          <div id="upload-zone">
+            Drop photos here, or click to browse
+            <input type="file" id="upload-input" multiple accept="image/*" style="display:none">
+          </div>
+          <progress id="upload-progress" max="1" value="0"></progress>
+          <div id="upload-status"></div>
+        </div>
+
+        <div class="filter-bar-wrap">
+          <div class="filter-bar-label">Filter by group</div>
+          <div id="photos-filter-bar"></div>
+        </div>
+
+        <div id="photos-grid">
+          <div class="photos-empty">Loading photos…</div>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- ── Overlays page ─────────────────────────────────────────────────── -->
+    <div class="page" data-page="overlays">
+      <div class="page-body" style="max-width:880px">
+
+        <p style="font-size:13px;color:var(--muted);margin-bottom:4px">
+          Persistent overlays sit on top of photo and slide content at all times.
+          Assign a playlist to screens in the <strong style="color:var(--text)">Screens</strong> page.
+        </p>
+
+        <div class="overlays-grid" id="overlays-grid"></div>
+      </div>
+    </div>
+
+    <!-- ── Advanced page ─────────────────────────────────────────────────── -->
+    <div class="page" data-page="advanced">
+      <div class="page-body">
+
+        <div class="adv-linked-bar">
+          <input type="checkbox" id="adv-linked-toggle" checked>
+          <label for="adv-linked-toggle">Linked screens — changes apply to both screens simultaneously</label>
+        </div>
+
+        <div id="adv-form-container"></div>
+
+      </div>
+    </div>
+
+    <!-- ── Settings page ─────────────────────────────────────────────────── -->
+    <div class="page" data-page="settings">
+      <div class="page-body" style="max-width:900px">
+        <details class="section" open>
+          <summary>Event</summary>
+          <div class="section-body">
+            <div class="field">
+              <label for="settings-event-name">Event name</label>
+              <input id="settings-event-name" type="text" placeholder="e.g. Summer Gala 2026">
+            </div>
+          </div>
+        </details>
+
+        <details class="section" open>
+          <summary>Screens &amp; Display</summary>
+          <div class="section-body">
+            <div class="field">
+              <label for="settings-screen-count">Number of screens</label>
+              <select id="settings-screen-count">
+                <option value="1">1</option>
+                <option value="2">2</option>
+                <option value="3">3</option>
+                <option value="4">4</option>
+              </select>
+            </div>
+            <div class="two-col">
+              <div class="field">
+                <label for="settings-display-width">Display width</label>
+                <input id="settings-display-width" type="number" min="320" step="1">
+              </div>
+              <div class="field">
+                <label for="settings-display-height">Display height</label>
+                <input id="settings-display-height" type="number" min="240" step="1">
+              </div>
+            </div>
+            <div class="quick-hint">Used for photo processing. Changing this does not reprocess existing photos.</div>
+          </div>
+        </details>
+
+        <details class="section" open>
+          <summary>Theme</summary>
+          <div class="section-body">
+            <div class="field">
+              <label for="theme-select">Visual theme (applied to all screens)</label>
+              <select id="theme-select">
+                <option value="">Default (no theme)</option>
+              </select>
+              <div class="quick-hint" id="theme-hint" style="margin-top:4px"></div>
+            </div>
+          </div>
+        </details>
+
+        <details class="section" open>
+          <summary>Admin PIN</summary>
+          <div class="section-body">
+            <div class="quick-hint" id="pin-status-label">No PIN set</div>
+            <div class="two-col">
+              <div class="field">
+                <label for="set-pin-new">New PIN</label>
+                <input id="set-pin-new" type="password" inputmode="numeric" autocomplete="new-password" placeholder="4-8 digits">
+              </div>
+              <div class="field">
+                <label for="set-pin-confirm">Confirm PIN</label>
+                <input id="set-pin-confirm" type="password" inputmode="numeric" autocomplete="new-password" placeholder="Repeat PIN">
+              </div>
+            </div>
+            <div class="action-row">
+              <button class="btn btn-primary btn-sm" id="btn-set-pin">Set PIN</button>
+              <button class="btn btn-danger btn-sm" id="btn-clear-pin" style="display:none">Clear PIN</button>
+            </div>
+          </div>
+        </details>
+      </div>
+    </div>
+
+  </div><!-- /.main -->
+</div><!-- /.app-shell -->
+
+<!-- ── Slide edit modal ──────────────────────────────────────────────────── -->
+<div class="modal-backdrop" id="slides-modal">
+  <div class="modal">
+    <div class="modal-title">Edit Slide</div>
+    <div id="slides-modal-body"></div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary btn-sm" id="slides-modal-cancel">Cancel</button>
+      <button class="btn btn-primary btn-sm"   id="slides-modal-save">Save</button>
+    </div>
+  </div>
+</div>
+
+<script type="module" src="/admin/app.js"></script>
+</body>
+</html>

@@ -1,0 +1,79 @@
+/* ─── Camp theme ─────────────────────────────────────────────────────────────
+   Warm rustic campfire aesthetic.
+   All rules use CSS custom properties so default behaviour is preserved when
+   this theme is NOT active (all vars have 0px / transparent fallbacks in the
+   layout files).
+──────────────────────────────────────────────────────────────────────────── */
+
+/* ── Google Fonts: Playfair Display (serif heading) + Lato (body) ─────────── */
+@import url('https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700;900&family=Lato:wght@400;700&display=swap');
+
+:root {
+  /* ── Layout & tiles ───────────────────────────────────────────────────── */
+  --screen-bg:          #1a1208;         /* deep charcoal-brown */
+  --screen-padding:     16px;            /* inset all layouts from the screen edge */
+  --tile-gap:           6px;
+  --tile-radius:        4px;
+  --tile-shadow:        0 2px 12px rgba(0,0,0,0.6);
+  --tile-border:        2px solid rgba(180,130,60,0.35);
+
+  /* ── Polaroid frame ───────────────────────────────────────────────────── */
+  --polaroid-bg:        #1a1208;
+  --polaroid-card-bg:   #f5ead6;         /* aged kraft paper */
+  --polaroid-card-radius: 3px;
+  --polaroid-card-shadow: 0 6px 24px rgba(0,0,0,0.65), 0 1px 3px rgba(0,0,0,0.4);
+
+  /* ── Text-card / QR / Article ─────────────────────────────────────────── */
+  --textcard-bg:         #2b1f0e;        /* dark wood */
+  --textcard-color:      #f0ddb8;        /* warm cream */
+  --textcard-accent:     #c8843a;        /* amber ember */
+  --textcard-font:       'Playfair Display', Georgia, serif;
+  --textcard-title-size: clamp(2.2rem, 5.5vw, 4.8rem);
+  --textcard-body-size:  clamp(1rem, 2.2vw, 1.6rem);
+
+  --qr-bg:              #f5ead6;
+  --qr-color:           #2b1f0e;
+  --qr-muted-color:     #7a5c35;
+
+  /* ── Ticker ───────────────────────────────────────────────────────────── */
+  --ticker-bg:             rgba(26, 18, 8, 0.92);
+  --ticker-height:         28px;
+  --ticker-color:          #f0ddb8;
+  --ticker-font-size:      17px;
+  --ticker-font-weight:    600;
+  --ticker-font-family:    'Lato', 'Segoe UI', system-ui, sans-serif;
+  --ticker-letter-spacing: 0.04em;
+  --ticker-radius:         0px;
+  --ticker-offset-y:       0px;
+  /* No inset — corner accents (z-index 9000) draw over the ticker naturally */
+  --ticker-inset-x:        0px;
+
+  /* ── Corner bug ───────────────────────────────────────────────────────── */
+  --bug-bg:          rgba(26, 18, 8, 0.82);
+  --bug-radius:      5px;
+  --bug-padding:     5px 11px;
+  --bug-color:       #f0ddb8;
+  --bug-font-size:   15px;
+  --bug-font-weight: 700;
+  --bug-font-family: 'Lato', 'Segoe UI', system-ui, sans-serif;
+  /* Nudge bug down enough to clear the corner accent triangle */
+  --bug-offset-top:    20px;
+  --bug-offset-bottom: 0px;
+  --bug-offset-left:   20px;
+  --bug-offset-right:  20px;
+
+  /* ── QR bug ───────────────────────────────────────────────────────────── */
+  --qr-bug-bg:               rgba(26, 18, 8, 0.82);
+  --qr-bug-radius:           8px;
+  --qr-bug-padding:          10px;
+  --qr-bug-size:             min(10vw, 96px);
+  --qr-bug-label-color:      #f0ddb8;
+  --qr-bug-label-size:       11px;
+  --qr-bug-label-font-family: 'Lato', 'Segoe UI', system-ui, sans-serif;
+  /* Per-edge offsets: 0 — base positions already sit in the mat;
+     corner accents (z-index 9000) draw over naturally */
+  --qr-bug-offset-top:    0px;
+  --qr-bug-offset-bottom: 0px;
+  --qr-bug-offset-left:   0px;
+  --qr-bug-offset-right:  0px;
+}

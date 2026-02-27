@@ -1,0 +1,32 @@
+<!-- Camp theme: decorative corner accents overlay -->
+<style>
+  #theme-frame {
+    /* Elevate above slides but below any UI chrome */
+    z-index: 9000 !important;
+    background-image: url("/themes/camp/assets/frame.png") !important;
+    background-size: fill !important;
+  }
+  
+  /* Subtle vignette */
+  #theme-frame .vignette {
+    position: absolute;
+    inset: 0;
+    background: radial-gradient(
+      ellipse at center,
+      transparent 55%,
+      rgba(10, 6, 2, 0.45) 100%
+    );
+  }
+
+  /* Bottom bar with logo, center */
+  #logo-bottom-bar {
+    position: absolute;
+    width: 45vw;
+    bottom: 0;
+    left: 50%;
+    transform: translateX(-50%);
+    z-index: 9001 !important; /* Above the frame */
+  }
+</style>
+
+<div class="vignette"></div>

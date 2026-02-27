@@ -1,0 +1,132 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>PixelPlein — Live Preview</title>
+<link rel="icon" type="image/svg+xml" href="/favicon.svg">
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body {
+    width: 100%; height: 100%;
+    background: #080810;
+    color: #e0e0ee;
+    font-family: 'Segoe UI', system-ui, sans-serif;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+  }
+
+  header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 10px 20px;
+    background: #14141c;
+    border-bottom: 1px solid #272736;
+    flex-shrink: 0;
+    font-size: 13px;
+  }
+  header h1 { font-size: 14px; font-weight: 600; letter-spacing: 0.03em; }
+  header a  { color: #6c63ff; text-decoration: none; font-size: 13px; }
+  header a:hover { text-decoration: underline; }
+
+  .screens {
+    flex: 1;
+    display: flex;
+    gap: 4px;
+    padding: 12px;
+    min-height: 0;
+  }
+
+  .screen-wrap {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    min-width: 0;
+  }
+
+  .screen-label {
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: #7070a0;
+    text-align: center;
+  }
+
+  .iframe-container {
+    flex: 1;
+    position: relative;
+    overflow: hidden;
+    border-radius: 8px;
+    border: 1px solid #272736;
+    background: #000;
+  }
+
+  /*
+   * The iframe renders at 1920×1080 and is then scaled down to fit the container.
+   * We use a CSS scale transform anchored at the top-left.
+   * The actual scaling factor is set by JS once the container size is known.
+   */
+  .iframe-container iframe {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 1920px;
+    height: 1080px;
+    border: none;
+    transform-origin: top left;
+    /* scale set by JS */
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>PixelPlein — Live Preview</h1>
+  <a href="/admin.html">Back to Admin</a>
+</header>
+
+<div class="screens">
+  <div class="screen-wrap">
+    <div class="screen-label">Screen 1</div>
+    <div class="iframe-container" id="container-1">
+      <iframe src="/screen.html?screen=1" id="iframe-1" title="Screen 1"></iframe>
+    </div>
+  </div>
+  <div class="screen-wrap">
+    <div class="screen-label">Screen 2</div>
+    <div class="iframe-container" id="container-2">
+      <iframe src="/screen.html?screen=2" id="iframe-2" title="Screen 2"></iframe>
+    </div>
+  </div>
+</div>
+
+<script>
+  function scaleIframes() {
+    [1, 2].forEach(id => {
+      const container = document.getElementById(`container-${id}`);
+      const iframe    = document.getElementById(`iframe-${id}`);
+      if (!container || !iframe) return;
+
+      const scaleX = container.clientWidth  / 1920;
+      const scaleY = container.clientHeight / 1080;
+      const scale  = Math.min(scaleX, scaleY);
+
+      iframe.style.transform = `scale(${scale})`;
+
+      // Center the scaled iframe within the container
+      const scaledW = 1920 * scale;
+      const scaledH = 1080 * scale;
+      iframe.style.left = `${(container.clientWidth  - scaledW) / 2}px`;
+      iframe.style.top  = `${(container.clientHeight - scaledH) / 2}px`;
+    });
+  }
+
+  scaleIframes();
+  window.addEventListener('resize', scaleIframes);
+</script>
+</body>
+</html>

@@ -1,0 +1,29 @@
+# Dependencies
+node_modules/
+
+# Runtime data & uploads
+photos/
+videos/
+cache/
+
+# Config (may contain secrets like admin PIN hash or personal event data)
+config.json
+
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+
+# Editor
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Logs
+*.log
+npm-debug.log*
+
+# Environment
+.env
+.env.*
