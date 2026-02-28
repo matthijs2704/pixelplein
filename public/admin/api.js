@@ -13,12 +13,20 @@ export function storePin(pin) {
   else sessionStorage.removeItem(PIN_KEY);
 }
 
+// Hook called when any API request receives a 401 — set by app.js at boot.
+let _onUnauthorized = null;
+export function setUnauthorizedHandler(fn) { _onUnauthorized = fn; }
+
 async function apiFetch(url, opts = {}) {
   const pin = getStoredPin();
   if (pin) {
     opts.headers = { ...opts.headers, 'X-Admin-Pin': pin };
   }
   const res = await fetch(url, opts);
+  if (res.status === 401) {
+    if (_onUnauthorized) _onUnauthorized();
+    throw new Error('PIN required');
+  }
   if (!res.ok) {
     const text = await res.text().catch(() => '');
     throw new Error(`HTTP ${res.status}${text ? ': ' + text : ''}`);

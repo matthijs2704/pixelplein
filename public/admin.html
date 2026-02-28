@@ -1267,6 +1267,22 @@ progress::-moz-progress-bar      { background: var(--accent); border-radius: 3px
   </div><!-- /.main -->
 </div><!-- /.app-shell -->
 
+<!-- ── PIN login overlay ─────────────────────────────────────────────────── -->
+<div class="modal-backdrop" id="pin-overlay" style="z-index:10000">
+  <div class="modal" style="width:min(340px,95vw);gap:18px">
+    <div class="modal-title">Admin PIN required</div>
+    <div class="sf-field">
+      <label for="pin-overlay-input">PIN</label>
+      <input id="pin-overlay-input" type="password" inputmode="numeric"
+             autocomplete="current-password" placeholder="Enter PIN" style="font-size:18px;letter-spacing:0.15em;text-align:center">
+    </div>
+    <div id="pin-overlay-error" style="color:#f87171;font-size:12px;display:none"></div>
+    <div class="modal-footer">
+      <button class="btn btn-primary btn-sm" id="pin-overlay-submit">Unlock</button>
+    </div>
+  </div>
+</div>
+
 <!-- ── Slide edit modal ──────────────────────────────────────────────────── -->
 <div class="modal-backdrop" id="slides-modal">
   <div class="modal">

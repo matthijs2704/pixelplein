@@ -1,6 +1,6 @@
 // Admin entry point: init, page routing, WebSocket, orchestration
 
-import { loadConfig, saveConfig, loadStats, loadSlides, loadPlaylists } from './api.js';
+import { loadConfig, saveConfig, loadStats, loadSlides, loadPlaylists, storePin, getStoredPin, setUnauthorizedHandler } from './api.js';
 import { extractGroups }                                                  from './health.js';
 import { esc as _esc, fmtAgo as _fmtAgo, activeScreenIds as _activeScreenIds } from '/shared/utils.js';
 import { initQuickTab, refreshFromConfig as quickRefresh, updateGroups as quickUpdateGroups } from './tabs/quick.js';
@@ -92,12 +92,7 @@ function _bindThemeSelect() {
   document.getElementById('theme-select')?.addEventListener('change', async (e) => {
     const themeId = e.target.value || null;
     try {
-      const res = await fetch('/api/config', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ theme: themeId }),
-      });
-      if (!res.ok) throw new Error((await res.json()).error || 'Save failed');
+      await saveConfig({ theme: themeId });
       config.theme = themeId;
       _updateThemeHint(themeId || '');
       showToast('Theme applied');
@@ -535,6 +530,62 @@ function _setText(id, val) {
 
 
 // ---------------------------------------------------------------------------
+// PIN overlay
+// ---------------------------------------------------------------------------
+
+function _showPinOverlay() {
+  const overlay = document.getElementById('pin-overlay');
+  if (!overlay) return;
+  overlay.classList.add('open');
+  const input = document.getElementById('pin-overlay-input');
+  if (input) { input.value = ''; input.focus(); }
+  _setPinOverlayError('');
+}
+
+function _hidePinOverlay() {
+  document.getElementById('pin-overlay')?.classList.remove('open');
+}
+
+function _setPinOverlayError(msg) {
+  const el = document.getElementById('pin-overlay-error');
+  if (!el) return;
+  el.textContent = msg;
+  el.style.display = msg ? 'block' : 'none';
+}
+
+async function _submitPinOverlay() {
+  const input = document.getElementById('pin-overlay-input');
+  const pin   = input?.value.trim() || '';
+  if (!pin) { _setPinOverlayError('Enter your PIN'); return; }
+
+  storePin(pin);
+  _hidePinOverlay();
+
+  // Re-boot app state with the new PIN in sessionStorage
+  try {
+    await doLoadConfig();
+    await doLoadStats();
+    await doLoadSlides();
+    await doLoadThemes();
+  } catch {
+    // If still getting 401s the unauthorized handler will re-show the overlay
+  }
+}
+
+function _bindPinOverlay() {
+  document.getElementById('pin-overlay-submit')?.addEventListener('click', _submitPinOverlay);
+  document.getElementById('pin-overlay-input')?.addEventListener('keydown', e => {
+    if (e.key === 'Enter') _submitPinOverlay();
+  });
+
+  // Register the hook so any future 401 re-shows the overlay
+  setUnauthorizedHandler(() => {
+    _setPinOverlayError('Incorrect PIN — try again');
+    _showPinOverlay();
+  });
+}
+
+// ---------------------------------------------------------------------------
 // Boot
 // ---------------------------------------------------------------------------
 
@@ -549,8 +600,21 @@ async function boot() {
   initSettingsTab(getConfig, onChanged);
 
   _bindThemeSelect();
+  _bindPinOverlay();
   bindButtons();
   connectWs();
+
+  // Check whether the server has a PIN configured. If so and we have nothing
+  // stored yet, show the overlay before attempting any authenticated requests.
+  try {
+    const status = await fetch('/api/auth/status').then(r => r.json());
+    if (status.pinSet && !getStoredPin()) {
+      _showPinOverlay();
+      return; // _submitPinOverlay will call doLoadConfig/Stats/Slides
+    }
+  } catch {
+    // server unreachable — proceed anyway, 401 handler will catch it
+  }
 
   await doLoadConfig();
   await doLoadStats();
