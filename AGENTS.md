@@ -18,6 +18,12 @@ PixelPlein is a live event photo display system. It consists of:
 
 There is **no build step** — the server runs as-is with `node`, and the frontend is served as native ES modules.
 
+### Git Commits
+
+- Commit each logical change separately — one fix or feature per commit.
+- Use plain, lowercase commit messages that describe what changed, not why (e.g. `fix layout cycle crash when pool has 4-5 photos`).
+- Do not use AI-sounding or overly formal language in commit messages.
+
 ### No Linter or Formatter
 
 There is no ESLint, Prettier, or other code quality tool installed. Adhere strictly to existing conventions (see below) instead.
