@@ -19,6 +19,7 @@ config.json
 .idea/
 *.swp
 *.swo
+*.af~lock~
 
 # Logs
 *.log
