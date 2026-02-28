@@ -3,6 +3,7 @@
 const express = require('express');
 const state   = require('../../state');
 const {
+  MAX_SCREENS,
   getConfig,
   getPublicConfig,
   saveConfig,
@@ -32,7 +33,7 @@ router.post('/config', (req, res) => {
 
   for (const [id, patch] of Object.entries(body.screens || {}).filter(([id]) => {
     const n = Number(id);
-    return Number.isInteger(n) && n >= 1 && n <= 4;
+    return Number.isInteger(n) && n >= 1 && n <= MAX_SCREENS;
   })) {
     const key = String(Number(id));
     config.screens[key] = sanitizeScreenConfig(patch, config.screens[key] || defaultScreenConfig());

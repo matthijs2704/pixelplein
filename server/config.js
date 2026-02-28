@@ -325,8 +325,6 @@ function sanitizeConfig(input, validThemeIds) {
     next.theme = null;
   } else if (typeof raw.theme === 'string' && (!validThemeIds || validThemeIds.has(raw.theme))) {
     next.theme = raw.theme;
-  } else if (typeof raw.theme === 'string' && !validThemeIds) {
-    next.theme = raw.theme;
   }
 
   next.slides = Array.isArray(raw.slides) ? raw.slides : [];
@@ -398,8 +396,6 @@ function sanitizeGlobalConfig(input, target, validThemeIds) {
       target.theme = null;
     } else if (typeof v === 'string' && (!validThemeIds || validThemeIds.has(v))) {
       target.theme = v;
-    } else if (typeof v === 'string' && !validThemeIds) {
-      target.theme = v;
     }
   }
 
@@ -452,6 +448,7 @@ function getPublicConfig() {
 function getConfig() { return config; }
 
 module.exports = {
+  MAX_SCREENS,
   defaultScreenConfig,
   defaultSlide,
   defaultPlaylist,

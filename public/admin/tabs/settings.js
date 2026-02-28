@@ -1,4 +1,5 @@
-import { setPin, loadPinStatus } from '../api.js';
+import { setPin, loadPinStatus, storePin } from '../api.js';
+import { showToast as _toast } from '../app.js';
 
 let _getConfig = null;
 let _onChanged = null;
@@ -67,6 +68,7 @@ function _bind() {
 
     try {
       await setPin(pin);
+      storePin(pin);
       _pinSet = true;
       _syncPinButtons();
       _setVal('set-pin-new', '');
@@ -80,6 +82,7 @@ function _bind() {
   document.getElementById('btn-clear-pin')?.addEventListener('click', async () => {
     try {
       await setPin('');
+      storePin('');
       _pinSet = false;
       _syncPinButtons();
       _setVal('set-pin-new', '');
@@ -118,12 +121,4 @@ function _getVal(id) {
   return document.getElementById(id)?.value || '';
 }
 
-function _toast(msg, isErr = false) {
-  const t = document.getElementById('toast');
-  if (!t) return;
-  t.textContent = msg;
-  t.className = 'toast' + (isErr ? ' toast-err' : ' toast-ok');
-  t.style.display = 'block';
-  clearTimeout(t._timer);
-  t._timer = setTimeout(() => { t.style.display = 'none'; }, 3000);
-}
+

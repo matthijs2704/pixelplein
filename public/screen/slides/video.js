@@ -21,25 +21,41 @@ export function buildVideoSlide(slide) {
 
   const playCount = typeof slide.playCount === 'number' ? slide.playCount : 1;
 
+  // Safety cap: looping (playCount=0) or very long videos are bounded to at
+  // most 5 minutes so they cannot permanently block the slide cycle.
+  const MAX_DURATION_MS = 5 * 60 * 1000;
+
   function play() {
     return new Promise(resolve => {
       let playsLeft = playCount === 0 ? Infinity : playCount;
+      let done = false;
+
+      const safetyTimer = setTimeout(() => {
+        if (!done) { done = true; resolve(); }
+      }, MAX_DURATION_MS);
+
+      function finish() {
+        if (done) return;
+        done = true;
+        clearTimeout(safetyTimer);
+        resolve();
+      }
 
       function onEnded() {
         playsLeft -= 1;
         if (playsLeft <= 0) {
           video.removeEventListener('ended', onEnded);
-          resolve();
+          finish();
         } else {
           video.currentTime = 0;
-          video.play().catch(() => resolve());
+          video.play().catch(finish);
         }
       }
 
       video.addEventListener('ended', onEnded);
-      video.addEventListener('error', () => resolve(), { once: true });
+      video.addEventListener('error', finish, { once: true });
 
-      video.play().catch(() => resolve());
+      video.play().catch(finish);
     });
   }
 

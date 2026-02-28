@@ -82,7 +82,8 @@ setInterval(() => {
   // Periodically halve all show-counts so long-running events don't accumulate
   // unbounded numbers. Halving preserves relative order while preventing overflow.
   if (showCounts.size > 0) {
-    const maxCount = Math.max(...showCounts.values());
+    let maxCount = 0;
+    for (const c of showCounts.values()) { if (c > maxCount) maxCount = c; }
     if (maxCount > 200) {
       for (const [id, c] of showCounts) showCounts.set(id, Math.floor(c / 2));
     }

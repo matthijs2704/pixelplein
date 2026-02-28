@@ -1,5 +1,7 @@
 // Admin tab: Overlays — per-screen persistent overlay config
 
+import { activeScreenIds as _activeScreenIds } from '/shared/utils.js';
+
 let _getConfig = null;
 let _onChanged = null;
 
@@ -16,9 +18,17 @@ export function refreshOverlaysTab() {
 
 export function refreshFromConfig() {
   if (!_getConfig) return;
-  _renderForms();
-  _bindControls();
   const cfg = _getConfig();
+
+  // If the user is actively editing an overlay field, skip the full DOM
+  // replacement so their in-progress input is not wiped by a push update.
+  const overlaysRoot = document.getElementById('overlays-grid');
+  const focused = overlaysRoot && overlaysRoot.contains(document.activeElement);
+  if (!focused) {
+    _renderForms();
+    _bindControls();
+  }
+
   for (const id of _activeScreenIds(cfg)) {
     _applyToForm(id, cfg.screens[id] || {});
   }
@@ -175,31 +185,24 @@ function _bindScreen(screenId) {
     _onChanged?.();
   }
 
-  const ids = [
-    `ov-${prefix}-ticker-enabled`, `ov-${prefix}-ticker-text`,
-    `ov-${prefix}-ticker-position`, `ov-${prefix}-ticker-speed`,
-    `ov-${prefix}-bug-enabled`, `ov-${prefix}-bug-text`,
-    `ov-${prefix}-bug-corner`, `ov-${prefix}-bug-image`,
-    `ov-${prefix}-qrbug-enabled`, `ov-${prefix}-qrbug-url`,
-    `ov-${prefix}-qrbug-corner`, `ov-${prefix}-qrbug-label`,
+  // Checkboxes and selects fire 'change'; text/number inputs fire 'input'
+  const changeIds = [
+    `ov-${prefix}-ticker-enabled`, `ov-${prefix}-ticker-position`,
+    `ov-${prefix}-bug-enabled`,    `ov-${prefix}-bug-corner`,
+    `ov-${prefix}-qrbug-enabled`,  `ov-${prefix}-qrbug-corner`,
+  ];
+  const inputIds = [
+    `ov-${prefix}-ticker-text`, `ov-${prefix}-ticker-speed`,
+    `ov-${prefix}-bug-text`,    `ov-${prefix}-bug-image`,
+    `ov-${prefix}-qrbug-url`,   `ov-${prefix}-qrbug-label`,
   ];
 
-  for (const id of ids) {
-    document.getElementById(id)?.addEventListener('input', read);
+  for (const id of changeIds) {
     document.getElementById(id)?.addEventListener('change', read);
   }
-}
-
-function _activeScreenIds(cfg) {
-  const count = Math.max(1, Math.min(4, Number(cfg?.screenCount || 2)));
-  const ids = Object.keys(cfg?.screens || {})
-    .filter(id => Number(id) >= 1 && Number(id) <= 4)
-    .sort((a, b) => Number(a) - Number(b));
-  for (let i = 1; i <= count; i++) {
-    const id = String(i);
-    if (!ids.includes(id)) ids.push(id);
+  for (const id of inputIds) {
+    document.getElementById(id)?.addEventListener('input', read);
   }
-  return ids.slice(0, count).sort((a, b) => Number(a) - Number(b));
 }
 
 function _setVal(id, val) { const el = document.getElementById(id); if (el) el.value = val; }

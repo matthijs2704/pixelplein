@@ -16,7 +16,8 @@ const photosRouter  = require('./features/photos/routes');
 const screensRouter = require('./features/screens/routes');
 const { slidesRouter, playlistRouter } = require('./features/slides/routes');
 const themesRouter  = require('./features/themes/routes');
-const authRouter = require('./features/auth/routes');
+const authRouter    = require('./features/auth/routes');
+const { requirePin } = require('./features/auth/routes');
 const { THEMES_DIR } = require('./features/themes/store');
 
 // Ensure required directories exist
@@ -56,13 +57,13 @@ app.use('/cache/qr',         express.static(QR_CACHE_DIR));
 app.use('/themes',           express.static(THEMES_DIR));
 app.use(express.static(path.join(__dirname, '..', 'public')));
 
-// API routes
-app.use('/api/photos',     photosRouter);
-app.use('/api/slides',     slidesRouter);
-app.use('/api/playlists',  playlistRouter);
-app.use('/api/themes',     themesRouter);
+// API routes — /api/auth is public (status + pin setup); everything else requires PIN when set
 app.use('/api/auth',       authRouter);
-app.use('/api',            screensRouter);
+app.use('/api/photos',     requirePin, photosRouter);
+app.use('/api/slides',     requirePin, slidesRouter);
+app.use('/api/playlists',  requirePin, playlistRouter);
+app.use('/api/themes',     themesRouter);  // read-only theme listing, no PIN needed
+app.use('/api',            requirePin, screensRouter);
 
 // ---------------------------------------------------------------------------
 // WebSocket server
@@ -80,7 +81,7 @@ startWatcher();
 // Initial scan
 // ---------------------------------------------------------------------------
 
-scanPhotos().catch(err => {
+scanPhotos(true).catch(err => {
   console.error('Initial scan failed:', err.message);
 });
 

@@ -4,6 +4,7 @@ import { TEMPLATE_DEFS } from '../templates.js';
 import { applySmartFit }  from '../fit.js';
 import { crossFadeSlot, startKenBurns }  from '../transitions.js';
 import { pickPhotos, pickNewestPhotos, arrangePhotosForSlots } from '../photos.js';
+import { shuffle } from '../../shared/utils.js';
 
 /**
  * Build a mosaic layout element from a named template.
@@ -132,8 +133,7 @@ export async function runMosaicTransitions(slotEls, cfg, cycleStart, pickMorePho
     if (!swappable.length) break;
 
     // Shuffle and take up to swapCount
-    const targets = swappable
-      .sort(() => Math.random() - 0.5)
+    const targets = shuffle(swappable)
       .slice(0, Math.min(swapCount, swappable.length));
 
     const newPhotos = pickMorePhotos(targets.length);

@@ -1,6 +1,8 @@
 // Admin tab: Slides — slide library management and playlist editor
 
 import { icon } from '/shared/icons.js';
+import { esc as _esc } from '/shared/utils.js';
+import { showToast as _showToast } from '../app.js';
 
 // ---------------------------------------------------------------------------
 // State
@@ -708,20 +710,4 @@ export async function createNewPlaylist() {
 // Helpers
 // ---------------------------------------------------------------------------
 
-function _esc(str) {
-  return String(str)
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;');
-}
 
-function _showToast(msg, isErr = false) {
-  const t = document.getElementById('toast');
-  if (!t) return;
-  t.textContent = msg;
-  t.className   = 'toast' + (isErr ? ' toast-err' : ' toast-ok');
-  t.style.display = 'block';
-  clearTimeout(t._timer);
-  t._timer = setTimeout(() => { t.style.display = 'none'; }, 3000);
-}

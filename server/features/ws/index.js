@@ -6,6 +6,7 @@ const { handleMessage, handleClose, pruneHeroLocks, serializeHeroLocks } = requi
 const { getReadyPhotos } = require('../photos/serialize');
 const { getConfig, getPublicConfig } = require('../../config');
 const { buildStats } = require('../screens/routes');
+const state = require('../../state');
 
 function createWss(httpServer) {
   const wss = new WebSocketServer({ server: httpServer });
@@ -59,9 +60,9 @@ function createWss(httpServer) {
 
   // Prune expired hero locks every 5 s
   setInterval(() => {
-    const before = require('../../state').heroLocks.size;
+    const before = state.heroLocks.size;
     pruneHeroLocks();
-    if (require('../../state').heroLocks.size !== before) {
+    if (state.heroLocks.size !== before) {
       broadcast({ type: 'hero_locks', locks: serializeHeroLocks() });
     }
   }, 5_000);

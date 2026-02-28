@@ -5,9 +5,7 @@
 // config.playlists and call saveConfig() after mutations.
 // ---------------------------------------------------------------------------
 
-const { v4: uuidv4 } = require('crypto').webcrypto
-  ? { v4: () => require('crypto').randomUUID() }
-  : { v4: () => require('crypto').randomUUID() };
+const crypto = require('crypto');
 
 const { getConfig, saveConfig, defaultSlide, defaultPlaylist } = require('../../config');
 
@@ -24,7 +22,7 @@ function getSlideById(id) {
 }
 
 function createSlide(type, overrides = {}) {
-  const slide = { id: require('crypto').randomUUID(), ...defaultSlide(type), ...overrides };
+  const slide = { id: crypto.randomUUID(), ...defaultSlide(type), ...overrides };
   getConfig().slides.push(slide);
   saveConfig();
   return slide;
@@ -65,7 +63,7 @@ function getPlaylistById(id) {
 }
 
 function createPlaylist(overrides = {}) {
-  const playlist = { id: require('crypto').randomUUID(), ...defaultPlaylist(), ...overrides };
+  const playlist = { id: crypto.randomUUID(), ...defaultPlaylist(), ...overrides };
   getConfig().playlists.push(playlist);
   saveConfig();
   return playlist;

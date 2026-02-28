@@ -61,3 +61,33 @@ export function shuffle(arr) {
   }
   return arr;
 }
+
+/**
+ * HTML-escape a string for safe insertion into attribute values or text nodes.
+ * @param {string|*} str
+ * @returns {string}
+ */
+export function esc(str) {
+  return String(str ?? '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;');
+}
+
+/**
+ * Return the sorted list of active screen IDs for a config object.
+ * @param {{ screenCount?: number, screens?: object }} cfg
+ * @returns {string[]}
+ */
+export function activeScreenIds(cfg) {
+  const count = Math.max(1, Math.min(4, Number(cfg?.screenCount || 2)));
+  const ids = Object.keys(cfg?.screens || {})
+    .filter(id => Number(id) >= 1 && Number(id) <= 4)
+    .sort((a, b) => Number(a) - Number(b));
+  for (let i = 1; i <= count; i++) {
+    const id = String(i);
+    if (!ids.includes(id)) ids.push(id);
+  }
+  return ids.slice(0, count).sort((a, b) => Number(a) - Number(b));
+}

@@ -157,7 +157,7 @@ async function walkPhotoFiles(dir) {
   return files;
 }
 
-async function scanPhotos() {
+async function scanPhotos(isInitialScan = false) {
   const files = await walkPhotoFiles(PHOTOS_DIR);
   const alive = new Set(files.map(toPhotoId));
   state.metrics.lastScanAt = Date.now();
@@ -166,17 +166,25 @@ async function scanPhotos() {
     await upsertPhotoFromPath(file);
   }
 
-  // Remove stale entries
+  // Remove stale entries and broadcast individual removals
   for (const [id, photo] of state.photosById.entries()) {
     if (!alive.has(id)) {
       state.photosById.delete(id);
       if (photo.cachePath) {
         try { await fsp.unlink(photo.cachePath); } catch {}
       }
+      broadcast({ type: 'remove_photo', id, name: photo.name });
     }
   }
 
-  broadcast({ type: 'init', photos: getReadyPhotos(), config: getConfig(), heroLocks: serializeHeroLocks() });
+  // On initial startup no clients are connected yet — send init so the first
+  // connecting screen gets the full state. On rescans (watcher recovery), skip
+  // the full init to avoid resetting live screens; individual new_photo /
+  // remove_photo messages already keep clients up to date.
+  if (isInitialScan) {
+    broadcast({ type: 'init', photos: getReadyPhotos(), config: getConfig(), heroLocks: serializeHeroLocks() });
+  }
+
   console.log(`Scanned ${files.length} photos`);
 }
 

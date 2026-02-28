@@ -1,7 +1,9 @@
 'use strict';
 
-const state = require('../../state');
+const state  = require('../../state');
 const { broadcast, broadcastToScreens } = require('./broadcast');
+const { updateSlide, getSlides }        = require('../slides/store');
+const { getConfig }                     = require('../../config');
 
 // ---------------------------------------------------------------------------
 // Hero lock helpers
@@ -44,7 +46,8 @@ const COORD_TIMEOUT_MS = 15_000;
 
 function _getConnectedScreenIds() {
   const ids = new Set();
-  const wss = require('./broadcast')._getWss?.();
+  const { _getWss } = require('./broadcast');
+  const wss = _getWss?.();
   if (!wss) return ids;
   for (const ws of wss.clients) {
     if (ws.screenId) ids.add(ws.screenId);
@@ -53,7 +56,7 @@ function _getConnectedScreenIds() {
 }
 
 function _screensUsingPlaylist(playlistId) {
-  const cfg = require('../../config').getConfig();
+  const cfg = getConfig();
   const screens = [];
   for (const [id, screenCfg] of Object.entries(cfg.screens || {})) {
     if (screenCfg?.playlistId === playlistId) screens.push(String(id));
@@ -132,14 +135,11 @@ function handleMessage(ws, msg) {
   if (msg.type === 'slide_ended') {
     const slideId = String(msg.slideId || '');
     if (!slideId) return;
-    try {
-      const { updateSlide, getSlides } = require('../slides/store');
-      const slide = require('../../config').getConfig().slides.find(s => s.id === slideId);
-      if (slide && slide.playSoon) {
-        updateSlide(slideId, { playSoon: false });
-        broadcast({ type: 'slides_update', slides: getSlides() });
-      }
-    } catch { /* store not available */ }
+    const slide = getConfig().slides.find(s => s.id === slideId);
+    if (slide && slide.playSoon) {
+      updateSlide(slideId, { playSoon: false });
+      broadcast({ type: 'slides_update', slides: getSlides() });
+    }
     return;
   }
 
@@ -151,14 +151,11 @@ function handleMessage(ws, msg) {
     if (!slideId || !playlistId || !screenId) return;
 
     // Also clear playSoon on coordinated slides
-    try {
-      const { updateSlide, getSlides } = require('../slides/store');
-      const slide = require('../../config').getConfig().slides.find(s => s.id === slideId);
-      if (slide && slide.playSoon) {
-        updateSlide(slideId, { playSoon: false });
-        broadcast({ type: 'slides_update', slides: getSlides() });
-      }
-    } catch { /* store not available */ }
+    const slide = getConfig().slides.find(s => s.id === slideId);
+    if (slide && slide.playSoon) {
+      updateSlide(slideId, { playSoon: false });
+      broadcast({ type: 'slides_update', slides: getSlides() });
+    }
 
     // Create or update coord entry for this playlist
     let entry = _coordState.get(playlistId);

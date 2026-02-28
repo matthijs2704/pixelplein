@@ -1,6 +1,23 @@
 // Centralised fetch wrappers for the admin UI
 
+// PIN is kept in sessionStorage so it survives page refreshes but is cleared
+// when the browser tab is closed.
+const PIN_KEY = 'adminPin';
+
+export function getStoredPin() {
+  return sessionStorage.getItem(PIN_KEY) || '';
+}
+
+export function storePin(pin) {
+  if (pin) sessionStorage.setItem(PIN_KEY, pin);
+  else sessionStorage.removeItem(PIN_KEY);
+}
+
 async function apiFetch(url, opts = {}) {
+  const pin = getStoredPin();
+  if (pin) {
+    opts.headers = { ...opts.headers, 'X-Admin-Pin': pin };
+  }
   const res = await fetch(url, opts);
   if (!res.ok) {
     const text = await res.text().catch(() => '');
@@ -85,6 +102,8 @@ export function uploadFiles(files, group, onProgress) {
 
     const xhr = new XMLHttpRequest();
     xhr.open('POST', '/api/photos/upload');
+    const pin = getStoredPin();
+    if (pin) xhr.setRequestHeader('X-Admin-Pin', pin);
 
     if (onProgress) {
       xhr.upload.onprogress = e => {

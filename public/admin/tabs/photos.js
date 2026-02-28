@@ -2,6 +2,7 @@
 
 import { loadPhotos, patchPhoto, deletePhoto, uploadFiles } from '../api.js';
 import { icon } from '/shared/icons.js';
+import { esc } from '/shared/utils.js';
 
 let _photos    = [];
 let _filter    = 'all';
@@ -226,7 +227,4 @@ function _renderPhotoCard(photo) {
     </div>`;
 }
 
-function esc(s) {
-  return String(s ?? '')
-    .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
-}
+

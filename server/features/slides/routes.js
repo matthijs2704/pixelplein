@@ -22,6 +22,7 @@
 const express = require('express');
 const path    = require('path');
 const fs      = require('fs');
+const fsp     = require('fs').promises;
 const multer  = require('multer');
 const QRCode  = require('qrcode');
 const crypto  = require('crypto');
@@ -106,7 +107,8 @@ function broadcastPlaylists() {
 async function ensureQr(url) {
   const hash     = crypto.createHash('sha256').update(url).digest('hex').slice(0, 16);
   const filePath = path.join(QR_CACHE_DIR, `${hash}.png`);
-  if (!fs.existsSync(filePath)) {
+  const exists   = await fsp.access(filePath).then(() => true).catch(() => false);
+  if (!exists) {
     await QRCode.toFile(filePath, url, { width: 300, margin: 2, type: 'png' });
   }
   return `/cache/qr/${hash}.png`;
@@ -190,24 +192,18 @@ router.patch('/:id', (req, res) => {
   res.json(updated);
 });
 
-router.delete('/:id', (req, res) => {
+router.delete('/:id', async (req, res) => {
   const slide = getSlideById(req.params.id);
   if (!slide) return res.status(404).json({ error: 'Not found' });
 
-  // Delete asset file if applicable
+  // Delete asset file if applicable (best-effort — ignore missing files)
   if (slide.filename) {
     const dir = slide.type === 'image' ? IMAGES_DIR : VIDEOS_DIR;
-    const filePath = path.join(dir, slide.filename);
-    if (fs.existsSync(filePath)) {
-      try { fs.unlinkSync(filePath); } catch { /* ignore */ }
-    }
+    try { await fsp.unlink(path.join(dir, slide.filename)); } catch {}
   }
   // Article slides store their image separately
   if (slide.type === 'article' && slide.imageFilename) {
-    const filePath = path.join(IMAGES_DIR, slide.imageFilename);
-    if (fs.existsSync(filePath)) {
-      try { fs.unlinkSync(filePath); } catch { /* ignore */ }
-    }
+    try { await fsp.unlink(path.join(IMAGES_DIR, slide.imageFilename)); } catch {}
   }
 
   deleteSlide(req.params.id);

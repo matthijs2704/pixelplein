@@ -83,7 +83,9 @@ function connect() {
     handleMessage(msg);
   };
 
-  ws.onclose = ws.onerror = () => {
+  ws.onerror = () => {};  // 'close' always follows an error; handle there
+
+  ws.onclose = () => {
     stopHeartbeat();
     stopCycle();
     removeAllOverlays();

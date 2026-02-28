@@ -2,6 +2,7 @@
 
 import { loadConfig, saveConfig, loadStats, loadSlides, loadPlaylists } from './api.js';
 import { extractGroups }                                                  from './health.js';
+import { esc as _esc, fmtAgo as _fmtAgo, activeScreenIds as _activeScreenIds } from '/shared/utils.js';
 import { initQuickTab, refreshFromConfig as quickRefresh, updateGroups as quickUpdateGroups } from './tabs/quick.js';
 import { initAdvancedTab, refreshFromConfig as advRefresh, updateGroups as advUpdateGroups, applySafeFallback } from './tabs/advanced.js';
 import { initPhotosTab, refreshPhotos, onNewPhoto, onRemovePhoto, onPhotoUpdate, updateGroups as photosUpdateGroups } from './tabs/photos.js';
@@ -145,7 +146,7 @@ async function doSaveConfig() {
 // ---------------------------------------------------------------------------
 
 function _refreshPlaylistSelects() {
-  for (const id of _activeScreenIds()) {
+  for (const id of _activeScreenIds(config)) {
     const sel = document.getElementById(`sc-s${id}-playlist`);
     if (!sel) continue;
     const current = config.screens[id]?.playlistId || '';
@@ -157,7 +158,7 @@ function _refreshPlaylistSelects() {
 }
 
 function _updateScreenHints() {
-  for (const id of _activeScreenIds()) {
+  for (const id of _activeScreenIds(config)) {
     const hint = document.getElementById(`s${id}-playlist-hint`);
     if (hint) hint.style.display = config.screens[id]?.playlistId ? 'none' : 'block';
   }
@@ -394,9 +395,12 @@ function setPage(page) {
 // WebSocket
 // ---------------------------------------------------------------------------
 
+let _ws = null; // module-level reference used by the reload-screens button
+
 function connectWs() {
   const proto = location.protocol === 'https:' ? 'wss' : 'ws';
   const ws    = new WebSocket(`${proto}://${location.host}`);
+  _ws = ws;
 
   ws.onmessage = e => {
     let msg;
@@ -458,11 +462,18 @@ function connectWs() {
     }
   };
 
-  ws.onclose = ws.onerror = () => {
-    setTimeout(connectWs, 3000 + Math.random() * 1000);
-  };
+  ws.onerror = () => {};  // 'close' always follows an error; handle there
 
-  window._adminWs = ws;
+  ws.onclose = () => {
+    _ws = null;
+    setTimeout(async () => {
+      connectWs();
+      // Re-fetch state that may have changed while disconnected
+      await doLoadConfig();
+      await doLoadStats();
+      await doLoadSlides();
+    }, 3000 + Math.random() * 1000);
+  };
 }
 
 // ---------------------------------------------------------------------------
@@ -481,11 +492,11 @@ function bindButtons() {
   });
 
   document.getElementById('btn-reload-screens')?.addEventListener('click', () => {
-    if (!window._adminWs || window._adminWs.readyState !== 1) {
+    if (!_ws || _ws.readyState !== 1) {
       showToast('Not connected', true);
       return;
     }
-    window._adminWs.send(JSON.stringify({ type: 'admin_reload_screens' }));
+    _ws.send(JSON.stringify({ type: 'admin_reload_screens' }));
     showToast('Reloading screens…');
   });
 
@@ -516,37 +527,12 @@ function _normalizeConfig(raw) {
   return next;
 }
 
-function _activeScreenIds() {
-  const count = Math.max(1, Math.min(4, Number(config?.screenCount || 2)));
-  const ids = Object.keys(config?.screens || {})
-    .filter(id => Number(id) >= 1 && Number(id) <= 4)
-    .sort((a, b) => Number(a) - Number(b));
-  for (let i = 1; i <= count; i++) {
-    const id = String(i);
-    if (!ids.includes(id)) ids.push(id);
-  }
-  return ids.slice(0, count).sort((a, b) => Number(a) - Number(b));
-}
-
 function _setText(id, val) {
   const el = document.getElementById(id);
   if (el) el.textContent = String(val);
 }
 
-function _esc(str) {
-  return String(str)
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;');
-}
 
-function _fmtAgo(ms) {
-  if (ms == null) return '–';
-  if (ms < 2000)  return 'just now';
-  if (ms < 60000) return `${Math.round(ms / 1000)}s ago`;
-  return `${Math.round(ms / 60000)}m ago`;
-}
 
 // ---------------------------------------------------------------------------
 // Boot

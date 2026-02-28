@@ -1,6 +1,7 @@
 // Quick tab: simple sliders + group selector, linked to both screens
 
 import { simpleModelFromConfig, applySimpleControl } from '../config-model.js';
+import { esc, activeScreenIds as _activeScreenIds } from '/shared/utils.js';
 
 let _getConfig  = null;
 let _onChanged  = null;
@@ -138,16 +139,4 @@ function _refreshGroupSelector() {
   if (current === 'auto') sel.value = 'auto';
 }
 
-function esc(s) { return s.replace(/"/g, '&quot;').replace(/</g, '&lt;'); }
 
-function _activeScreenIds(cfg) {
-  const count = Math.max(1, Math.min(4, Number(cfg?.screenCount || 2)));
-  const ids = Object.keys(cfg?.screens || {})
-    .filter(id => Number(id) >= 1 && Number(id) <= 4)
-    .sort((a, b) => Number(a) - Number(b));
-  for (let i = 1; i <= count; i++) {
-    const id = String(i);
-    if (!ids.includes(id)) ids.push(id);
-  }
-  return ids.slice(0, count).sort((a, b) => Number(a) - Number(b));
-}

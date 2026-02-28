@@ -108,7 +108,7 @@ async function runCycle() {
     return;
   }
 
-  const cfg = _config;
+  let cfg = _config;
 
   // ── Slide interleave check ────────────────────────────────────────────────
   // Trigger if: counter reached the threshold, OR a Play Soon is pending.

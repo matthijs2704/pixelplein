@@ -21,13 +21,29 @@ function cornerStyle(corner, safeInsets = {}) {
 }
 
 export async function mountQrBug(cfg, safeInsets = {}) {
-  removeQrBug();
-  if (!cfg.qrBugEnabled || !cfg.qrBugUrl) return;
+  if (!cfg.qrBugEnabled || !cfg.qrBugUrl) {
+    removeQrBug();
+    return;
+  }
 
-  // Only re-fetch if URL changed
+  // Only re-fetch and re-mount if the URL changed; avoids a visible flicker
+  // when an unrelated config_update arrives while the QR bug is already shown.
+  if (_qrBugEl && _lastUrl === cfg.qrBugUrl) {
+    // Still update position/label in-place
+    _qrBugEl.style.cssText = _qrBugEl.style.cssText.replace(
+      /(?:top|bottom|left|right)[^;]+;/g, ''
+    );
+    const posStyle = cornerStyle(cfg.qrBugCorner, safeInsets);
+    _qrBugEl.setAttribute('style', `position:fixed;${posStyle}z-index:901;display:flex;flex-direction:column;align-items:center;gap:4px;background:var(--qr-bug-bg,rgba(0,0,0,0.65));border-radius:var(--qr-bug-radius,10px);padding:var(--qr-bug-padding,8px);`);
+    return;
+  }
+
+  removeQrBug();
+
   let imgSrc = '';
   try {
     const res  = await fetch(`/api/slides/qr?url=${encodeURIComponent(cfg.qrBugUrl)}`);
+    if (!res.ok) return;
     const data = await res.json();
     imgSrc = data.url || '';
   } catch { return; }

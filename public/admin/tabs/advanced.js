@@ -1,6 +1,7 @@
 // Advanced tab: full per-setting controls, linked by default
 
 import { deriveLinkedScreenConfig } from '../config-model.js';
+import { esc, activeScreenIds as _activeScreenIds } from '/shared/utils.js';
 
 let _getConfig  = null;
 let _onChanged  = null;
@@ -284,8 +285,6 @@ function _groupSelect(screen, current) {
     </div>`;
 }
 
-function esc(s) { return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
-
 /**
  * Apply safe fallback to both screens.
  */
@@ -316,14 +315,4 @@ export function applySafeFallback(getConfig, onChanged) {
   if (onChanged) onChanged();
 }
 
-function _activeScreenIds(cfg) {
-  const count = Math.max(1, Math.min(4, Number(cfg?.screenCount || 2)));
-  const ids = Object.keys(cfg?.screens || {})
-    .filter(id => Number(id) >= 1 && Number(id) <= 4)
-    .sort((a, b) => Number(a) - Number(b));
-  for (let i = 1; i <= count; i++) {
-    const id = String(i);
-    if (!ids.includes(id)) ids.push(id);
-  }
-  return ids.slice(0, count).sort((a, b) => Number(a) - Number(b));
-}
+
