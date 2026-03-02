@@ -109,6 +109,7 @@ function _renderSubmissionCards(items, kind) {
         <div class="queue-meta">${esc(item.submitterValue || 'anonymous')} · ${esc(age)}</div>
         <div class="queue-actions">
           ${kind === 'pending' ? `<button class="sc-btn" data-sub-action="approve" data-sub-id="${esc(item.id)}">Approve</button>
+          <button class="sc-btn" data-sub-action="approve-photo" data-sub-id="${esc(item.id)}">Approve photo only</button>
           <button class="sc-btn sc-btn-del" data-sub-action="reject" data-sub-id="${esc(item.id)}">Reject</button>` : ''}
           <button class="sc-btn sc-btn-del" data-sub-action="delete" data-sub-id="${esc(item.id)}">Delete</button>
         </div>
@@ -318,6 +319,12 @@ function bindActions() {
           method: 'PATCH',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ status: 'approved' }),
+        });
+      } else if (action === 'approve-photo') {
+        await apiFetch(`/api/submissions/${encodeURIComponent(id)}`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ status: 'approved', message: '' }),
         });
       } else if (action === 'reject') {
         await apiFetch(`/api/submissions/${encodeURIComponent(id)}`, {
