@@ -28,6 +28,7 @@ const QRCode  = require('qrcode');
 const crypto  = require('crypto');
 
 const router = express.Router();
+const qrRouter = express.Router();
 
 const {
   getSlides, getSlideById, createSlide, updateSlide, deleteSlide,
@@ -173,7 +174,7 @@ router.post('/play-soon/:id', (req, res) => {
 });
 
 // QR PNG endpoint: GET /api/slides/qr?url=https://...
-router.get('/qr', async (req, res) => {
+async function _handleQr(req, res) {
   const url = String(req.query.url || '').trim();
   if (!url) return res.status(400).json({ error: 'url param required' });
   try {
@@ -182,7 +183,10 @@ router.get('/qr', async (req, res) => {
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
-});
+}
+
+router.get('/qr', _handleQr);
+qrRouter.get('/qr', _handleQr);
 
 router.patch('/:id', (req, res) => {
   const updated = updateSlide(req.params.id, req.body || {});
@@ -242,4 +246,4 @@ playlistRouter.delete('/:id', (req, res) => {
   res.json({ ok: true });
 });
 
-module.exports = { slidesRouter: router, playlistRouter, ensureQr };
+module.exports = { slidesRouter: router, playlistRouter, qrRouter, ensureQr };

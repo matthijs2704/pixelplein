@@ -6,6 +6,8 @@ const { handleMessage, handleClose, pruneHeroLocks, serializeHeroLocks } = requi
 const { getReadyPhotos } = require('../photos/serialize');
 const { getConfig, getPublicConfig } = require('../../config');
 const { buildStats } = require('../screens/routes');
+const { getActiveAlerts, getEventSchedule } = require('../alerts/store');
+const { getApprovedSubmissions } = require('../submissions/store');
 const state = require('../../state');
 
 let _healthTimer = null;
@@ -37,6 +39,9 @@ function createWss(httpServer) {
       heroLocks:  serializeHeroLocks(),
       slides:     cfg.slides    || [],
       playlists:  cfg.playlists || [],
+      alerts:     getActiveAlerts(),
+      eventSchedule: [...getEventSchedule()].sort((a, b) => Number(new Date(a.startTime)) - Number(new Date(b.startTime))),
+      approvedSubmissions: getApprovedSubmissions(80),
       totalPhotos: getReadyPhotos().length,
     }));
 

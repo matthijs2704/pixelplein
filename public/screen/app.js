@@ -19,7 +19,15 @@ import {
 } from './layouts/index.js';
 import { startHeartbeat, stopHeartbeat, updateWs as updateHbWs } from './heartbeat.js';
 import { updateSlides, updatePlaylists, triggerPlaySoon, handleSlideAdvance } from './slides/index.js';
-import { initOverlays, applyOverlays, removeAllOverlays }  from './overlays/index.js';
+import {
+  initOverlays,
+  applyOverlays,
+  removeAllOverlays,
+  setAlerts,
+  pushAlert,
+  removeAlert,
+} from './overlays/index.js';
+import { setApprovedSubmissions, addApprovedSubmission } from './submissions.js';
 import { applyTheme } from './theme.js';
 import { preloadBatch, getPreloadedCount } from './preload.js';
 import { showSyncStatus, hideSyncStatus } from './sync-status.js';
@@ -138,6 +146,8 @@ async function handleMessage(msg) {
       if (msg.heroLocks) updateHeroLocks(msg.heroLocks);
       if (msg.slides)    updateSlides(msg.slides);
       if (msg.playlists) updatePlaylists(msg.playlists);
+      if (msg.alerts) setAlerts(msg.alerts);
+      if (msg.approvedSubmissions) setApprovedSubmissions(msg.approvedSubmissions);
 
       if (photoRegistry.size > 0) {
         scheduleCycleStart();
@@ -232,6 +242,18 @@ async function handleMessage(msg) {
 
     case 'reload':
       setTimeout(() => location.reload(), msg.delayMs ?? 1500);
+      break;
+
+    case 'alert_fire':
+      if (msg.alert) pushAlert(msg.alert);
+      break;
+
+    case 'alert_dismiss':
+      if (msg.alertId) removeAlert(msg.alertId);
+      break;
+
+    case 'submission_approved':
+      if (msg.submission) addApprovedSubmission(msg.submission);
       break;
   }
 }

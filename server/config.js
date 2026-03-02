@@ -100,6 +100,7 @@ function defaultConfig() {
     },
     screenCount: 2,
     eventName: '',
+    publicBaseUrl: '',
     displayWidth: 1920,
     displayHeight: 1080,
     healthBroadcastIntervalMs: 3000,
@@ -117,6 +118,8 @@ function defaultConfig() {
     submissionDisplayIntervalSec: 45,
     submissionDisplayDurationSec: 12,
     submissionGridCount: 6,
+    submissionWallShowQr: true,
+    submissionWallHideWhenEmpty: true,
   };
 }
 
@@ -358,6 +361,14 @@ function _sanitizeSubmissionSettings(input, target) {
       target.submissionGridCount = Math.max(3, Math.min(12, Math.floor(val)));
     }
   }
+
+  if (Object.prototype.hasOwnProperty.call(input, 'submissionWallShowQr')) {
+    target.submissionWallShowQr = Boolean(input.submissionWallShowQr);
+  }
+
+  if (Object.prototype.hasOwnProperty.call(input, 'submissionWallHideWhenEmpty')) {
+    target.submissionWallHideWhenEmpty = Boolean(input.submissionWallHideWhenEmpty);
+  }
 }
 
 function _clampScreenCount(n) {
@@ -534,6 +545,7 @@ function sanitizeConfig(input, validThemeIds) {
   }
 
   next.eventName = typeof raw.eventName === 'string' ? raw.eventName : '';
+  next.publicBaseUrl = typeof raw.publicBaseUrl === 'string' ? raw.publicBaseUrl.trim().slice(0, 400) : '';
 
   const width = Number(raw.displayWidth);
   const height = Number(raw.displayHeight);
@@ -618,6 +630,10 @@ function sanitizeGlobalConfig(input, target, validThemeIds) {
 
   if (Object.prototype.hasOwnProperty.call(input, 'eventName')) {
     target.eventName = String(input.eventName || '');
+  }
+
+  if (Object.prototype.hasOwnProperty.call(input, 'publicBaseUrl')) {
+    target.publicBaseUrl = String(input.publicBaseUrl || '').trim().slice(0, 400);
   }
 
   if (Object.prototype.hasOwnProperty.call(input, 'displayWidth')) {

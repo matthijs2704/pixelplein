@@ -26,6 +26,7 @@ export function refreshFromConfig() {
   if (!cfg) return;
 
   _setVal('settings-event-name', cfg.eventName || '');
+  _setVal('settings-public-base-url', cfg.publicBaseUrl || '');
   _setVal('settings-screen-count', cfg.screenCount || 2);
   _setVal('settings-display-width', cfg.displayWidth || 1920);
   _setVal('settings-display-height', cfg.displayHeight || 1080);
@@ -36,6 +37,12 @@ function _bind() {
   document.getElementById('settings-event-name')?.addEventListener('input', e => {
     const cfg = _getConfig();
     cfg.eventName = e.target.value;
+    _onChanged?.();
+  });
+
+  document.getElementById('settings-public-base-url')?.addEventListener('input', e => {
+    const cfg = _getConfig();
+    cfg.publicBaseUrl = e.target.value;
     _onChanged?.();
   });
 

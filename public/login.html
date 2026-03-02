@@ -5,73 +5,8 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>PixelPlein Login</title>
 <link rel="icon" type="image/svg+xml" href="/favicon.svg">
-<style>
-* { box-sizing: border-box; }
-html, body { height: 100%; margin: 0; }
-body {
-  font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
-  background: radial-gradient(1000px 500px at 80% -100px, rgba(108,99,255,0.25), transparent),
-              radial-gradient(900px 600px at -10% 120%, rgba(255,101,132,0.15), transparent),
-              #0d0d12;
-  color: #e2e2f0;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 18px;
-}
-.card {
-  width: min(440px, 100%);
-  background: #14141c;
-  border: 1px solid #272736;
-  border-radius: 12px;
-  padding: 24px;
-  box-shadow: 0 18px 40px rgba(0,0,0,0.35);
-}
-.brand { font-size: 20px; font-weight: 800; margin-bottom: 4px; }
-.sub { font-size: 13px; color: #8e8eb7; margin-bottom: 16px; }
-.field { margin-bottom: 12px; }
-.field label { display: block; font-size: 11px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: #8e8eb7; margin-bottom: 5px; }
-.field input {
-  width: 100%;
-  border: 1px solid #32324a;
-  border-radius: 8px;
-  background: #1c1c28;
-  color: #e2e2f0;
-  font-size: 14px;
-  padding: 10px 12px;
-}
-.field input:focus { outline: none; border-color: #6c63ff; }
-.check-row { display: flex; align-items: center; gap: 8px; font-size: 13px; margin: 8px 0 14px; color: #c8c8df; }
-.btn {
-  width: 100%;
-  border: none;
-  border-radius: 8px;
-  background: #6c63ff;
-  color: #fff;
-  font-size: 14px;
-  font-weight: 700;
-  padding: 10px 14px;
-  cursor: pointer;
-}
-.btn:hover { opacity: 0.92; }
-.btn-ghost {
-  margin-top: 10px;
-  background: #1c1c28;
-  border: 1px solid #32324a;
-  color: #d5d5ef;
-}
-.error {
-  margin-bottom: 10px;
-  color: #ff7b7b;
-  background: rgba(224,92,92,0.12);
-  border: 1px solid rgba(224,92,92,0.35);
-  border-radius: 8px;
-  padding: 8px 10px;
-  font-size: 12px;
-  display: none;
-}
-.muted { color: #8e8eb7; font-size: 12px; margin-top: 12px; }
-</style>
+<link rel="stylesheet" href="/styles/base.css">
+<link rel="stylesheet" href="/styles/login.css">
 </head>
 <body>
   <div class="card">

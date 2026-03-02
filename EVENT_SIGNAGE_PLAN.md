@@ -23,32 +23,32 @@ This document captures the implementation plan we agreed on for turning PixelPle
 
 ### phase 1 — foundation
 
-- [ ] Extend config schema for alerts, schedule, and submission settings.
-- [ ] Add server-side alert + schedule storage helpers.
-- [ ] Add server-side submission storage/model helpers.
-- [ ] Add API routes for alerts, schedule, and submissions.
-- [ ] Wire new feature routers in `server/index.js`.
+- [x] Extend config schema for alerts, schedule, and submission settings.
+- [x] Add server-side alert + schedule storage helpers.
+- [x] Add server-side submission storage/model helpers.
+- [x] Add API routes for alerts, schedule, and submissions.
+- [x] Wire new feature routers in `server/index.js`.
 
 ### phase 2 — realtime + runtime behavior
 
-- [ ] Add WebSocket broadcasts for alert fire/dismiss and submission updates.
-- [ ] Add schedule runner to trigger timed alerts and pre-event reminders.
-- [ ] Add screen-side alert renderer (banner / popup / countdown).
-- [ ] Add public submission page (`/submit`) and endpoint integration.
+- [x] Add WebSocket broadcasts for alert fire/dismiss and submission updates.
+- [x] Add schedule runner to trigger timed alerts and pre-event reminders.
+- [x] Add screen-side alert renderer (banner / popup / countdown).
+- [x] Add public submission page (`/submit`) and endpoint integration.
 
 ### phase 3 — admin UX
 
-- [ ] Add Alerts admin page for manual + scheduled alerts and event schedule management.
-- [ ] Add Submissions admin page for moderation queue and history.
-- [ ] Add submission settings controls (enable toggle, label text, photo requirement).
-- [ ] Show pending moderation count in admin navigation.
+- [x] Add Alerts admin page for manual + scheduled alerts and event schedule management.
+- [x] Add Submissions admin page for moderation queue and history.
+- [x] Add submission settings controls (enable toggle, label text, photo requirement).
+- [x] Show pending moderation count in admin navigation.
 
 ### phase 4 — social wall visuals
 
-- [ ] Add single-submission social layout (polaroid-inspired).
-- [ ] Add multi-tile social wall layout.
-- [ ] Add layout enablement/config integration.
-- [ ] Ensure graceful fallback when few submissions are approved.
+- [x] Add single-submission social wall mode (polaroid-inspired overlay).
+- [x] Add multi-tile social wall mode.
+- [x] Add display mode/config integration.
+- [x] Ensure graceful fallback when few submissions are approved.
 
 ### phase 5 — hardening
 

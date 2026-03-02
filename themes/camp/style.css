@@ -76,4 +76,38 @@
   --qr-bug-offset-bottom: 0px;
   --qr-bug-offset-left:   0px;
   --qr-bug-offset-right:  0px;
+
+  /* ── Alerts ───────────────────────────────────────────────────────────── */
+  --alert-color:          #f6e5c7;
+  --alert-banner-bg:      rgba(34, 22, 10, 0.92);
+  --alert-popup-bg:       rgba(31, 21, 11, 0.94);
+  --alert-countdown-bg:   rgba(28, 18, 8, 0.93);
+  --alert-countdown-time: #ffcf8b;
+
+  /* ── Public submit page ──────────────────────────────────────────────── */
+  --submit-text-color:             #f5ead6;
+  --submit-sub-color:              rgba(245, 234, 214, 0.8);
+  --submit-bg:
+    radial-gradient(1100px 520px at 12% -10%, rgba(200, 132, 58, 0.22), transparent 60%),
+    radial-gradient(900px 440px at 110% 0%, rgba(122, 92, 53, 0.24), transparent 56%),
+    linear-gradient(165deg, #1a1208, #0f0b07 62%);
+  --submit-card-bg:                rgba(26, 18, 8, 0.72);
+  --submit-card-border:            rgba(200, 132, 58, 0.35);
+  --submit-label-color:            rgba(240, 221, 184, 0.84);
+  --submit-input-border:           rgba(200, 132, 58, 0.42);
+  --submit-input-bg:               rgba(20, 14, 8, 0.86);
+  --submit-photo-border:           rgba(200, 132, 58, 0.4);
+  --submit-photo-bg:               rgba(12, 8, 4, 0.4);
+  --submit-btn-text:               #2d1f0f;
+  --submit-btn-bg:                 linear-gradient(135deg, #f0ddb8, #c8843a);
+  --submit-btn-secondary-bg:       rgba(240, 221, 184, 0.14);
+  --submit-btn-secondary-border:   rgba(240, 221, 184, 0.32);
+  --submit-status-color:           rgba(240, 221, 184, 0.9);
+
+  /* ── Submission wall layout ──────────────────────────────────────────── */
+  --submission-wall-bg:            #1a1208;
+  --submission-wall-message-color: #2b1f0e;
+  --submission-wall-meta-color:    #7a5c35;
+  --submission-wall-message-font:  'Playfair Display', Georgia, serif;
+  --submission-wall-meta-font:     'Lato', 'Segoe UI', system-ui, sans-serif;
 }

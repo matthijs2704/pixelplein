@@ -15,13 +15,23 @@ const { createWss }  = require('./features/ws/index');
 const { startWatcher } = require('./features/ingest/watcher');
 const { scanPhotos, PHOTOS_DIR } = require('./features/ingest/index');
 const { CACHE_DIR, THUMB_DIR } = require('./features/ingest/process');
+const { startAlertScheduler, stopAlertScheduler } = require('./features/alerts/scheduler');
+const { initAlertStore } = require('./features/alerts/store');
+const { initSubmissionStore } = require('./features/submissions/store');
 
 const photosRouter  = require('./features/photos/routes');
 const screensRouter = require('./features/screens/routes');
 const { slidesRouter, playlistRouter } = require('./features/slides/routes');
 const themesRouter  = require('./features/themes/routes');
+const alertsRouter  = require('./features/alerts/routes');
+const { publicRouter: submissionsPublicRouter, adminRouter: submissionsAdminRouter } = require('./features/submissions/routes');
 const { router: authRouter, requireAuth } = require('./features/auth/routes');
 const { THEMES_DIR } = require('./features/themes/store');
+const {
+  SUBMISSION_ASSETS_DIR,
+  SUBMISSION_ORIGINAL_DIR,
+  SUBMISSION_THUMB_DIR,
+} = require('./features/submissions/paths');
 
 // Ensure required directories exist
 const SLIDE_ASSETS_DIR = path.join(__dirname, '..', 'slide-assets');
@@ -36,6 +46,9 @@ fs.mkdirSync(VIDEOS_DIR,  { recursive: true });
 fs.mkdirSync(IMAGES_DIR,  { recursive: true });
 fs.mkdirSync(QR_CACHE_DIR, { recursive: true });
 fs.mkdirSync(THEMES_DIR,   { recursive: true });
+fs.mkdirSync(SUBMISSION_ASSETS_DIR, { recursive: true });
+fs.mkdirSync(SUBMISSION_ORIGINAL_DIR, { recursive: true });
+fs.mkdirSync(SUBMISSION_THUMB_DIR, { recursive: true });
 
 // Load persisted config
 loadConfig();
@@ -98,14 +111,23 @@ app.use('/cache/qr',         express.static(QR_CACHE_DIR, {
   immutable: true,
 }));
 app.use('/themes',           express.static(THEMES_DIR));
+app.use('/submission-assets', express.static(SUBMISSION_ASSETS_DIR, {
+  maxAge: '30d',
+}));
 app.use(express.static(path.join(__dirname, '..', 'public')));
+app.get('/submit', (_req, res) => {
+  res.sendFile(path.join(__dirname, '..', 'public', 'submit.html'));
+});
 
 // API routes — /api/auth is public; everything else requires a session
 app.use('/api/auth',       authRouter);
+app.use('/api/submissions', submissionsPublicRouter);
 app.use('/api/photos',     requireAuth, photosRouter);
 app.use('/api/slides',     requireAuth, slidesRouter);
 app.use('/api/playlists',  requireAuth, playlistRouter);
 app.use('/api/themes',     themesRouter);  // read-only theme listing, no PIN needed
+app.use('/api/submissions', requireAuth, submissionsAdminRouter);
+app.use('/api',            requireAuth, alertsRouter);
 app.use('/api',            requireAuth, screensRouter);
 
 // ---------------------------------------------------------------------------
@@ -120,10 +142,13 @@ createWss(server);
 
 async function boot() {
   await initDb();
+  await initAlertStore();
+  await initSubmissionStore();
   await _loadPhotoOverridesFromDb();
 
   startWatcher();
   await scanPhotos(true);
+  startAlertScheduler();
 
   const PORT = process.env.PORT || 3000;
   server.listen(PORT, '0.0.0.0', () => {
@@ -160,6 +185,8 @@ function shutdown(signal) {
 
   // Flush pending config save
   saveConfig();
+
+  stopAlertScheduler();
 
   // Terminate all WebSocket connections immediately — open WS connections
   // keep the HTTP server alive and prevent server.close() from calling back.

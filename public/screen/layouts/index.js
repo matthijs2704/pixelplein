@@ -5,6 +5,7 @@ import { buildSideBySide }  from './sidebyside.js';
 import { buildFeaturedDuo } from './featuredduo.js';
 import { buildPolaroid }    from './polaroid.js';
 import { buildMosaic, runMosaicTransitions } from './mosaic.js';
+import { buildSubmissionWall } from './submissionwall.js';
 import { runTransition }    from '../transitions.js';
 import { pickTemplate, TEMPLATE_DEFS } from '../templates.js';
 import {
@@ -13,6 +14,12 @@ import {
   markAsHeroShown,
   photoRegistry,
 } from '../photos.js';
+import {
+  hasApprovedSubmissions,
+  pickSubmissionWindow,
+  updateSubmissionWallSettings,
+  getSubmissionWallOptions,
+} from '../submissions.js';
 import { claimHero } from '../heartbeat.js';
 import {
   initSlides,
@@ -35,6 +42,7 @@ export const displayState = {
 let _container       = null;
 let _currentEl       = null;
 let _config          = null;
+let _globalConfig    = null;
 let _heroLocks       = new Map();
 let _screenId        = null;
 let _ws              = null;
@@ -42,6 +50,7 @@ let _recentTemplates = [];
 let _cycleTimer      = null;
 let _running         = false;
 let _photoCycleCount = 0;   // counts photo layouts since last slide interleave
+let _lastSubmissionWallAt = 0;
 
 /**
  * Initialise the cycle engine.
@@ -53,7 +62,9 @@ export function initCycle(container, screenId) {
 }
 
 export function updateConfig(config) {
+  _globalConfig = config || {};
   _config = config?.screens?.[String(_screenId)] || config?.screens?.['1'] || {};
+  updateSubmissionWallSettings(config || {});
   updateSlidesConfig(config);
 }
 
@@ -134,6 +145,14 @@ async function runCycle() {
   }
 
   const cycleStart = Date.now();
+  const submissionMode = _globalConfig?.submissionDisplayMode || 'off';
+  const wallOptions = getSubmissionWallOptions();
+  const hasSubmissions = hasApprovedSubmissions();
+  const hideWhenEmpty = wallOptions.hideWhenEmpty !== false;
+  const submissionsEnabled = submissionMode !== 'off' && (hasSubmissions || !hideWhenEmpty);
+  const submissionIntervalMs = Math.max(10, Number(_globalConfig?.submissionDisplayIntervalSec || 45)) * 1000;
+  const shouldRunSubmissionWall = submissionsEnabled && ((cycleStart - _lastSubmissionWallAt) >= submissionIntervalMs);
+
   const poolSize   = readyPoolSize(cfg);
 
   // Choose layout with graceful warm-up based on pool size:
@@ -161,13 +180,35 @@ async function runCycle() {
   let candidates = effectiveEnabled.filter(l => adminEnabled.includes(l));
   if (!candidates.length) candidates = ['fullscreen'];
 
-  const layoutType = candidates[Math.floor(Math.random() * candidates.length)];
+  let layoutType = candidates[Math.floor(Math.random() * candidates.length)];
+  if (shouldRunSubmissionWall) {
+    layoutType = 'submissionwall';
+  }
 
   let built;
   let mosaicSlotEls = null;
+  let duration = cfg.layoutDuration || 8000;
+
+  // --- Social wall submissions ---
+  if (layoutType === 'submissionwall') {
+    const gridCount = Math.max(3, Math.min(12, Number(_globalConfig?.submissionGridCount || 6)));
+    const mode = submissionMode === 'off' ? 'both' : submissionMode;
+    const count = mode === 'single' ? 1 : gridCount;
+    const items = hasSubmissions ? pickSubmissionWindow(count, Math.max(18, gridCount * 4)) : [];
+
+    if (items.length || !hideWhenEmpty) {
+      const effectiveMode = items.length ? mode : 'single';
+      built = buildSubmissionWall(items, effectiveMode, wallOptions);
+      displayState.layoutType = 'submissionwall';
+      _lastSubmissionWallAt = cycleStart;
+      duration = Math.max(5000, Math.min(120000, Number(_globalConfig?.submissionDisplayDurationSec || 12) * 1000));
+    } else {
+      layoutType = 'fullscreen';
+    }
+  }
 
   // --- Fullscreen ---
-  if (layoutType === 'fullscreen') {
+  if (!built && layoutType === 'fullscreen') {
     const hero  = pickHeroPhoto(cfg, _heroLocks, _screenId, { orientation: 'landscape' });
     const photo = hero || pickPhotos(1, cfg, [], true, { orientation: 'landscape' })[0] || null;
 
@@ -181,7 +222,7 @@ async function runCycle() {
   }
 
   // --- Side by side ---
-  else if (layoutType === 'sidebyside') {
+  else if (!built && layoutType === 'sidebyside') {
     const photos = pickPhotos(2, cfg, [], true, {
       orientation: 'portrait',
       enforceOrientation: false,
@@ -194,7 +235,7 @@ async function runCycle() {
   }
 
   // --- Featured duo ---
-  else if (layoutType === 'featuredduo') {
+  else if (!built && layoutType === 'featuredduo') {
     const hero   = pickHeroPhoto(cfg, _heroLocks, _screenId, { orientation: 'landscape' });
     const heroP  = hero || pickPhotos(1, cfg, [], true, { orientation: 'landscape' })[0] || null;
     if (heroP) {
@@ -213,7 +254,7 @@ async function runCycle() {
   }
 
   // --- Polaroid ---
-  else if (layoutType === 'polaroid') {
+  else if (!built && layoutType === 'polaroid') {
     const polaroidCount = 5 + Math.floor(Math.random() * 6); // 5–10
     const photos = pickPhotos(Math.min(polaroidCount, 10), cfg, [], false);
     built = buildPolaroid(photos);
@@ -221,7 +262,7 @@ async function runCycle() {
   }
 
   // --- Mosaic ---
-  else {
+  else if (!built) {
     const heroSide = cfg.preferHeroSide || 'auto';
     const tplName  = pickTemplate(cfg, _recentTemplates, heroSide);
     _recentTemplates = [..._recentTemplates.slice(-3), tplName];
@@ -262,7 +303,6 @@ async function runCycle() {
   // motion when it fades in. This avoids any snap/jump that occurs when Ken
   // Burns is started after the transition completes (active CSS transitions on
   // the element interfere with setting a new transform state).
-  const duration = cfg.layoutDuration || 8000;
   if (cfg.kenBurnsEnabled !== false && built.startMotion) {
     built.startMotion(duration);
   }

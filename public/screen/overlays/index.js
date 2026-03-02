@@ -3,6 +3,7 @@
 import { mountTicker, removeTicker }   from './ticker.js';
 import { mountBug, removeBug }         from './bug.js';
 import { mountQrBug, removeQrBug }     from './qr-bug.js';
+import { setAlertSnapshot, showAlert, dismissAlert, clearAlerts } from './alerts.js';
 
 let _screenId = null;
 
@@ -50,4 +51,17 @@ export function removeAllOverlays() {
   removeTicker();
   removeBug();
   removeQrBug();
+  clearAlerts();
+}
+
+export function setAlerts(alerts) {
+  setAlertSnapshot(alerts);
+}
+
+export function pushAlert(alert) {
+  showAlert(alert);
+}
+
+export function removeAlert(alertId) {
+  dismissAlert(alertId);
 }

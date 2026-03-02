@@ -361,6 +361,8 @@ const PAGE_TITLES = {
   content:   'Content',
   photos:    'Photos',
   overlays:  'Overlays',
+  alerts:    'Alerts',
+  submissions: 'Submissions',
   advanced:  'Advanced',
   settings:  'Settings',
 };

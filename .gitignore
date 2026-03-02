@@ -5,6 +5,7 @@ node_modules/
 /photos/
 /slide-assets/videos/
 /slide-assets/images/
+/submission-assets/
 /cache/
 /data/
 *.tmp
