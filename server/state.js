@@ -30,7 +30,7 @@ const heroLocks = new Map();
 
 /**
  * Photo overrides: photoId → { heroCandidate }
- * Persisted to config.json under photoOverrides key.
+ * Persisted to SQLite (photo_metadata table).
  * @type {Map<string, { heroCandidate: boolean }>}
  */
 const photoOverrides = new Map();

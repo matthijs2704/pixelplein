@@ -168,8 +168,8 @@ async function runCycle() {
 
   // --- Fullscreen ---
   if (layoutType === 'fullscreen') {
-    const hero  = pickHeroPhoto(cfg, _heroLocks, _screenId);
-    const photo = hero || pickPhotos(1, cfg, [], true)[0] || null;
+    const hero  = pickHeroPhoto(cfg, _heroLocks, _screenId, { orientation: 'landscape' });
+    const photo = hero || pickPhotos(1, cfg, [], true, { orientation: 'landscape' })[0] || null;
 
     if (photo) {
       _claimHero(photo.id, cfg.crossScreenHeroLockSec || 30);
@@ -182,20 +182,32 @@ async function runCycle() {
 
   // --- Side by side ---
   else if (layoutType === 'sidebyside') {
-    const photos = pickPhotos(2, cfg, [], true);
+    const photos = pickPhotos(2, cfg, [], true, {
+      orientation: 'portrait',
+      enforceOrientation: false,
+      orientationBoost: 1.25,
+      avoidRecentMs: 120_000,
+      allowRecentFallback: true,
+    });
     built = buildSideBySide(photos);
     displayState.layoutType = 'sidebyside';
   }
 
   // --- Featured duo ---
   else if (layoutType === 'featuredduo') {
-    const hero   = pickHeroPhoto(cfg, _heroLocks, _screenId);
-    const heroP  = hero || pickPhotos(1, cfg, [], true)[0] || null;
+    const hero   = pickHeroPhoto(cfg, _heroLocks, _screenId, { orientation: 'landscape' });
+    const heroP  = hero || pickPhotos(1, cfg, [], true, { orientation: 'landscape' })[0] || null;
     if (heroP) {
       _claimHero(heroP.id, cfg.crossScreenHeroLockSec || 30);
       markAsHeroShown(heroP.id);
     }
-    const support = pickPhotos(1, cfg, heroP ? [heroP.id] : [], true);
+    const support = pickPhotos(1, cfg, heroP ? [heroP.id] : [], true, {
+      orientation: 'portrait',
+      enforceOrientation: false,
+      orientationBoost: 1.25,
+      avoidRecentMs: 120_000,
+      allowRecentFallback: true,
+    });
     built = buildFeaturedDuo([heroP, support[0] || null].filter(Boolean));
     displayState.layoutType = 'featuredduo';
   }
@@ -219,7 +231,11 @@ async function runCycle() {
 
     let heroPhoto = null;
     if (tplHasHero) {
-      heroPhoto = pickHeroPhoto(cfg, _heroLocks, _screenId);
+      const heroSlot = tplDef.slots.find(s => s.hero) || null;
+      const heroOptions = heroSlot?.portrait
+        ? { orientation: 'portrait', enforceOrientation: false, orientationBoost: 1.25 }
+        : { orientation: 'landscape' };
+      heroPhoto = pickHeroPhoto(cfg, _heroLocks, _screenId, heroOptions);
       if (heroPhoto) {
         _claimHero(heroPhoto.id, cfg.crossScreenHeroLockSec || 30);
         markAsHeroShown(heroPhoto.id);
@@ -263,8 +279,18 @@ async function runCycle() {
 
   // Run mosaic tile swaps if applicable
   if (mosaicSlotEls) {
-    runMosaicTransitions(mosaicSlotEls, cfg, cycleStart, (count) =>
-      pickPhotos(count, cfg, visibleIds)
+    runMosaicTransitions(mosaicSlotEls, cfg, cycleStart, (count, options = {}) =>
+      pickPhotos(
+        count,
+        cfg,
+        [...visibleIds, ...(options.excludeIds || [])],
+        false,
+        {
+          orientation: options.orientation || 'any',
+          enforceOrientation: options.enforceOrientation,
+          orientationBoost: options.orientationBoost,
+        },
+      )
     ).then(newIds => {
       if (newIds) displayState.visibleIds = [...new Set([...displayState.visibleIds, ...newIds])];
     }).catch(() => {});

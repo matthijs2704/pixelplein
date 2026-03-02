@@ -4,26 +4,18 @@
  * Apply smart fit to an img element inside a slot.
  *
  * Rules:
- *  - Portrait photo in a portrait slot → cover (both tall, fills the slot)
- *  - Portrait photo in a landscape slot → contain (avoid cropping faces)
- *  - Landscape / square photo → always cover (slight edge crop is fine)
+ *  - Use cover for all slot/photo combinations so tiles never show letterboxing.
+ *  - Keep a stable center crop to avoid visible jump during swaps.
  *
  * @param {HTMLImageElement} img
  * @param {Object}  photo         - serialized photo object with displayWidth/displayHeight
  * @param {boolean} slotIsPortrait - true if the slot is taller than wide
  */
 export function applySmartFit(img, photo, slotIsPortrait) {
-  const w = photo.displayWidth  || photo.width  || 1;
-  const h = photo.displayHeight || photo.height || 1;
-  const photoIsPortrait = w / h < 1.0;
+  void photo;
+  void slotIsPortrait;
 
-  if (photoIsPortrait && !slotIsPortrait) {
-    // Portrait photo in a landscape slot: contain to avoid cropping the top/bottom
-    img.style.objectFit  = 'contain';
-    img.style.background = '#000';
-  } else {
-    // All other combos: cover
-    img.style.objectFit  = 'cover';
-    img.style.background = '';
-  }
+  img.style.objectFit = 'cover';
+  img.style.objectPosition = '50% 50%';
+  img.style.background = '';
 }

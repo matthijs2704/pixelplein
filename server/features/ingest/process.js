@@ -108,9 +108,10 @@ async function processPhoto(id) {
     photo.displayHeight = cacheMeta.height || null;
     photo.cachePath     = cachePath;
     photo.thumbPath     = thumbPath;
-    photo.displayUrl    = toCacheUrl(id, Math.floor(photo.addedAt));
-    photo.thumbUrl      = toThumbUrl(id, Math.floor(photo.addedAt));
     photo.processedAt   = Date.now();
+    const version       = Math.floor(photo.processedAt);
+    photo.displayUrl    = toCacheUrl(id, version);
+    photo.thumbUrl      = toThumbUrl(id, version);
     photo.error         = null;
 
     state.metrics.queueCompleted  += 1;

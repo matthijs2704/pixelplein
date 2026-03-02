@@ -7,6 +7,12 @@ const path = require('path');
 const CONFIG_FILE = path.join(__dirname, '..', 'config.json');
 const MAX_SCREENS = 4;
 
+const ALERT_STYLES = new Set(['banner', 'popup', 'countdown']);
+const ALERT_POSITIONS = new Set(['top', 'bottom', 'center']);
+const ALERT_PRIORITIES = new Set(['normal', 'urgent']);
+const ALERT_TRIGGERS = new Set(['manual', 'scheduled', 'event_auto']);
+const SUBMISSION_DISPLAY_MODES = new Set(['off', 'single', 'grid', 'both']);
+
 function defaultScreenConfig() {
   return {
     layoutDuration: 8000,
@@ -101,6 +107,16 @@ function defaultConfig() {
     theme: null,
     slides: [],
     playlists: [],
+    alerts: [],
+    eventSchedule: [],
+    submissions: [],
+    submissionEnabled: true,
+    submissionFieldLabel: 'Name',
+    submissionRequirePhoto: false,
+    submissionDisplayMode: 'both',
+    submissionDisplayIntervalSec: 45,
+    submissionDisplayDurationSec: 12,
+    submissionGridCount: 6,
   };
 }
 
@@ -163,6 +179,186 @@ const ALLOWED_TEMPLATES = new Set([
 ]);
 
 let config = defaultConfig();
+
+function _sanitizeAlert(alert) {
+  const now = Date.now();
+  const src = alert && typeof alert === 'object' ? alert : {};
+  const id = typeof src.id === 'string' && src.id ? src.id : '';
+  if (!id) return null;
+
+  const style = ALERT_STYLES.has(src.style) ? src.style : 'banner';
+  const position = ALERT_POSITIONS.has(src.position) ? src.position
+    : (style === 'popup' ? 'center' : 'top');
+  const priority = ALERT_PRIORITIES.has(src.priority) ? src.priority : 'normal';
+  const trigger = ALERT_TRIGGERS.has(src.trigger) ? src.trigger : 'manual';
+
+  const durationSecRaw = Number(src.durationSec);
+  const durationSec = Number.isFinite(durationSecRaw)
+    ? Math.max(0, Math.min(3600, Math.floor(durationSecRaw)))
+    : 15;
+
+  const scheduledAt = src.scheduledAt ? Number(new Date(src.scheduledAt)) : null;
+  const countdownTo = src.countdownTo ? Number(new Date(src.countdownTo)) : null;
+
+  const firedAtRaw = Number(src.firedAt);
+  const createdAtRaw = Number(src.createdAt);
+  const dismissedAtRaw = Number(src.dismissedAt);
+
+  return {
+    id,
+    style,
+    message: String(src.message || ''),
+    position,
+    priority,
+    durationSec,
+    trigger,
+    scheduledAt: Number.isFinite(scheduledAt) ? new Date(scheduledAt).toISOString() : null,
+    countdownTo: Number.isFinite(countdownTo) ? new Date(countdownTo).toISOString() : null,
+    active: Boolean(src.active),
+    dismissed: Boolean(src.dismissed),
+    createdAt: Number.isFinite(createdAtRaw) ? Math.floor(createdAtRaw) : now,
+    firedAt: Number.isFinite(firedAtRaw) ? Math.floor(firedAtRaw) : null,
+    dismissedAt: Number.isFinite(dismissedAtRaw) ? Math.floor(dismissedAtRaw) : null,
+    eventId: src.eventId ? String(src.eventId) : null,
+  };
+}
+
+function _sanitizeAlertList(rawAlerts) {
+  if (!Array.isArray(rawAlerts)) return [];
+  const next = [];
+  const seen = new Set();
+  for (const raw of rawAlerts) {
+    const alert = _sanitizeAlert(raw);
+    if (!alert || seen.has(alert.id)) continue;
+    seen.add(alert.id);
+    next.push(alert);
+  }
+  return next;
+}
+
+function _sanitizeEventScheduleEntry(entry) {
+  const src = entry && typeof entry === 'object' ? entry : {};
+  const id = typeof src.id === 'string' && src.id ? src.id : '';
+  if (!id) return null;
+
+  const startMs = Number(new Date(src.startTime));
+  if (!Number.isFinite(startMs)) return null;
+
+  const offsets = Array.isArray(src.alertMinutesBefore)
+    ? src.alertMinutesBefore
+      .map(v => Math.floor(Number(v)))
+      .filter(v => Number.isFinite(v) && v >= 0 && v <= 240)
+    : [15, 5];
+
+  const firedOffsets = Array.isArray(src.firedOffsets)
+    ? src.firedOffsets
+      .map(v => Math.floor(Number(v)))
+      .filter(v => Number.isFinite(v) && v >= 0)
+    : [];
+
+  return {
+    id,
+    name: String(src.name || '').slice(0, 200),
+    location: String(src.location || '').slice(0, 200),
+    startTime: new Date(startMs).toISOString(),
+    alertMinutesBefore: [...new Set(offsets)].sort((a, b) => b - a),
+    firedOffsets: [...new Set(firedOffsets)].sort((a, b) => b - a),
+  };
+}
+
+function _sanitizeEventSchedule(rawSchedule) {
+  if (!Array.isArray(rawSchedule)) return [];
+  const next = [];
+  const seen = new Set();
+  for (const raw of rawSchedule) {
+    const item = _sanitizeEventScheduleEntry(raw);
+    if (!item || seen.has(item.id)) continue;
+    seen.add(item.id);
+    next.push(item);
+  }
+  return next;
+}
+
+function _sanitizeSubmissionEntry(entry) {
+  const src = entry && typeof entry === 'object' ? entry : {};
+  const id = typeof src.id === 'string' && src.id ? src.id : '';
+  if (!id) return null;
+
+  const status = src.status === 'approved' || src.status === 'rejected' ? src.status : 'pending';
+  const submittedAt = Number(src.submittedAt);
+  const approvedAt = Number(src.approvedAt);
+  const rejectedAt = Number(src.rejectedAt);
+
+  return {
+    id,
+    message: String(src.message || '').slice(0, 800),
+    submitterValue: String(src.submitterValue || '').slice(0, 120),
+    status,
+    submittedAt: Number.isFinite(submittedAt) ? Math.floor(submittedAt) : Date.now(),
+    approvedAt: Number.isFinite(approvedAt) ? Math.floor(approvedAt) : null,
+    rejectedAt: Number.isFinite(rejectedAt) ? Math.floor(rejectedAt) : null,
+    photoOriginalUrl: src.photoOriginalUrl ? String(src.photoOriginalUrl) : null,
+    photoThumbUrl: src.photoThumbUrl ? String(src.photoThumbUrl) : null,
+    photoAssetPath: src.photoAssetPath ? String(src.photoAssetPath) : null,
+    publishedPhotoId: src.publishedPhotoId ? String(src.publishedPhotoId) : null,
+  };
+}
+
+function _sanitizeSubmissions(rawSubmissions) {
+  if (!Array.isArray(rawSubmissions)) return [];
+  const next = [];
+  const seen = new Set();
+  for (const raw of rawSubmissions) {
+    const item = _sanitizeSubmissionEntry(raw);
+    if (!item || seen.has(item.id)) continue;
+    seen.add(item.id);
+    next.push(item);
+  }
+  return next;
+}
+
+function _sanitizeSubmissionSettings(input, target) {
+  if (!input || typeof input !== 'object' || !target) return;
+
+  if (Object.prototype.hasOwnProperty.call(input, 'submissionEnabled')) {
+    target.submissionEnabled = Boolean(input.submissionEnabled);
+  }
+
+  if (Object.prototype.hasOwnProperty.call(input, 'submissionFieldLabel')) {
+    const label = String(input.submissionFieldLabel || '').trim();
+    target.submissionFieldLabel = label ? label.slice(0, 40) : 'Name';
+  }
+
+  if (Object.prototype.hasOwnProperty.call(input, 'submissionRequirePhoto')) {
+    target.submissionRequirePhoto = Boolean(input.submissionRequirePhoto);
+  }
+
+  if (Object.prototype.hasOwnProperty.call(input, 'submissionDisplayMode')) {
+    const mode = String(input.submissionDisplayMode || '').trim();
+    target.submissionDisplayMode = SUBMISSION_DISPLAY_MODES.has(mode) ? mode : 'both';
+  }
+
+  if (Object.prototype.hasOwnProperty.call(input, 'submissionDisplayIntervalSec')) {
+    const val = Number(input.submissionDisplayIntervalSec);
+    if (Number.isFinite(val)) {
+      target.submissionDisplayIntervalSec = Math.max(10, Math.min(300, Math.floor(val)));
+    }
+  }
+
+  if (Object.prototype.hasOwnProperty.call(input, 'submissionDisplayDurationSec')) {
+    const val = Number(input.submissionDisplayDurationSec);
+    if (Number.isFinite(val)) {
+      target.submissionDisplayDurationSec = Math.max(5, Math.min(120, Math.floor(val)));
+    }
+  }
+
+  if (Object.prototype.hasOwnProperty.call(input, 'submissionGridCount')) {
+    const val = Number(input.submissionGridCount);
+    if (Number.isFinite(val)) {
+      target.submissionGridCount = Math.max(3, Math.min(12, Math.floor(val)));
+    }
+  }
+}
 
 function _clampScreenCount(n) {
   const num = Number(n);
@@ -359,6 +555,11 @@ function sanitizeConfig(input, validThemeIds) {
 
   next.slides = Array.isArray(raw.slides) ? raw.slides : [];
   next.playlists = Array.isArray(raw.playlists) ? raw.playlists : [];
+  next.alerts = _sanitizeAlertList(raw.alerts);
+  next.eventSchedule = _sanitizeEventSchedule(raw.eventSchedule);
+  next.submissions = _sanitizeSubmissions(raw.submissions);
+
+  _sanitizeSubmissionSettings(raw, next);
 
   return next;
 }
@@ -442,6 +643,8 @@ function sanitizeGlobalConfig(input, target, validThemeIds) {
     }
   }
 
+  _sanitizeSubmissionSettings(input, target);
+
 }
 
 function getScreenConfig(id) {
@@ -458,7 +661,13 @@ function setScreenConfig(id, patch) {
 }
 
 function getPublicConfig() {
-  const { sessionSecret, ...rest } = config;
+  const {
+    sessionSecret,
+    alerts,
+    eventSchedule,
+    submissions,
+    ...rest
+  } = config;
   return rest;
 }
 

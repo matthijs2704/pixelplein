@@ -1,36 +1,27 @@
-// Centralised fetch wrappers for the admin UI
-
-// PIN is kept in sessionStorage so it survives page refreshes but is cleared
-// when the browser tab is closed.
-const PIN_KEY = 'adminPin';
-
-export function getStoredPin() {
-  return sessionStorage.getItem(PIN_KEY) || '';
-}
-
-export function storePin(pin) {
-  if (pin) sessionStorage.setItem(PIN_KEY, pin);
-  else sessionStorage.removeItem(PIN_KEY);
-}
-
-// Hook called when any API request receives a 401 — set by app.js at boot.
-let _onUnauthorized = null;
-export function setUnauthorizedHandler(fn) { _onUnauthorized = fn; }
+// Centralized fetch wrappers for the admin UI
 
 async function apiFetch(url, opts = {}) {
-  const pin = getStoredPin();
-  if (pin) {
-    opts.headers = { ...opts.headers, 'X-Admin-Pin': pin };
-  }
   const res = await fetch(url, opts);
+
   if (res.status === 401) {
-    if (_onUnauthorized) _onUnauthorized();
-    throw new Error('PIN required');
+    location.href = '/login.html';
+    throw new Error('Not authenticated');
   }
+
   if (!res.ok) {
-    const text = await res.text().catch(() => '');
-    throw new Error(`HTTP ${res.status}${text ? ': ' + text : ''}`);
+    let message = `HTTP ${res.status}`;
+    try {
+      const body = await res.json();
+      if (body?.error) message = body.error;
+    } catch {
+      const text = await res.text().catch(() => '');
+      if (text) message = text;
+    }
+    throw new Error(message);
   }
+
+  const ct = res.headers.get('content-type') || '';
+  if (!ct.includes('application/json')) return null;
   return res.json();
 }
 
@@ -54,11 +45,6 @@ export async function loadPhotos() {
   return apiFetch('/api/photos');
 }
 
-/**
- * Toggle heroCandidate on a photo.
- * @param {string}  id
- * @param {boolean} heroCandidate
- */
 export async function patchPhoto(id, { heroCandidate }) {
   return apiFetch(`/api/photos/${encodeURIComponent(id)}`, {
     method: 'PATCH',
@@ -67,10 +53,6 @@ export async function patchPhoto(id, { heroCandidate }) {
   });
 }
 
-/**
- * Permanently delete a photo (source + cache).
- * @param {string} id
- */
 export async function deletePhoto(id) {
   return apiFetch(`/api/photos/${encodeURIComponent(id)}`, { method: 'DELETE' });
 }
@@ -83,25 +65,48 @@ export async function loadPlaylists() {
   return apiFetch('/api/playlists');
 }
 
-export async function setPin(pin) {
-  return apiFetch('/api/auth/pin', {
+export async function loadMe() {
+  return apiFetch('/api/auth/me');
+}
+
+export async function logout() {
+  return apiFetch('/api/auth/logout', { method: 'POST' });
+}
+
+export async function loadUsers() {
+  return apiFetch('/api/auth/users');
+}
+
+export async function addUser(username, password) {
+  return apiFetch('/api/auth/users', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ pin }),
+    body: JSON.stringify({ username, password }),
   });
 }
 
-export async function loadPinStatus() {
-  return apiFetch('/api/auth/status');
+export async function removeUser(username) {
+  return apiFetch(`/api/auth/users/${encodeURIComponent(username)}`, {
+    method: 'DELETE',
+  });
 }
 
-/**
- * Upload files with an optional group.
- * @param {FileList|File[]} files
- * @param {string}          group
- * @param {Function}        onProgress - called with (loaded, total) per XHR progress
- * @returns {Promise<{ok, uploaded, errors}>}
- */
+export async function loadOidcConfig() {
+  return apiFetch('/api/auth/oidc');
+}
+
+export async function saveOidcConfig(payload) {
+  return apiFetch('/api/auth/oidc', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload),
+  });
+}
+
+export async function disableOidc() {
+  return apiFetch('/api/auth/oidc', { method: 'DELETE' });
+}
+
 export function uploadFiles(files, group, onProgress) {
   return new Promise((resolve, reject) => {
     const fd = new FormData();
@@ -110,8 +115,6 @@ export function uploadFiles(files, group, onProgress) {
 
     const xhr = new XMLHttpRequest();
     xhr.open('POST', '/api/photos/upload');
-    const pin = getStoredPin();
-    if (pin) xhr.setRequestHeader('X-Admin-Pin', pin);
 
     if (onProgress) {
       xhr.upload.onprogress = e => {
@@ -120,6 +123,11 @@ export function uploadFiles(files, group, onProgress) {
     }
 
     xhr.onload = () => {
+      if (xhr.status === 401) {
+        location.href = '/login.html';
+        return reject(new Error('Not authenticated'));
+      }
+
       try {
         const data = JSON.parse(xhr.responseText);
         resolve(data);

@@ -97,12 +97,12 @@ export function crossFadeSlot(slot, photo, durationMs) {
   if (!img) return;
 
   const slotIsPortrait = slot.dataset.portrait === '1';
-  const slotIsHero = slot.dataset.isHero === '1';
+  const preferThumb = slot.dataset.preferThumb === '1';
 
   const next = new Image();
-  next.src   = slotIsHero
-    ? (photo.displayUrl || photo.url)
-    : (photo.thumbUrl || photo.displayUrl || photo.url);
+  next.src   = preferThumb
+    ? (photo.thumbUrl || photo.displayUrl || photo.url)
+    : (photo.displayUrl || photo.url);
   next.alt   = photo.name;
   // Base styles — fit will be applied once photo dimensions are known
   next.style.cssText  = 'display:block;width:100%;height:100%;position:absolute;inset:0;';

@@ -3,8 +3,11 @@ node_modules/
 
 # Runtime data & uploads
 /photos/
-/videos/
+/slide-assets/videos/
+/slide-assets/images/
 /cache/
+/data/
+*.tmp
 
 # Config (may contain secrets like admin PIN hash or personal event data)
 config.json

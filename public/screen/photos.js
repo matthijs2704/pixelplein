@@ -193,6 +193,16 @@ function photoWeight(photo, recencyMap, now) {
 
 function lerp(a, b, t) { return a + (b - a) * t; }
 
+function _aspectRatio(photo) {
+  const w = photo.displayWidth || photo.width || 1;
+  const h = photo.displayHeight || photo.height || 1;
+  return w / h;
+}
+
+function _isPortrait(photo) {
+  return _aspectRatio(photo) < 1.0;
+}
+
 // ---------------------------------------------------------------------------
 // Weighted-random pick (no queue — O(n) scoring pass)
 // ---------------------------------------------------------------------------
@@ -205,11 +215,23 @@ function lerp(a, b, t) { return a + (b - a) * t; }
  * @param {string[]} excludeIds             - IDs already selected in this layout
  * @param {boolean}  hardExcludeOtherScreen - never pick a photo visible on the
  *                                            other screen (fullscreen/sidebyside)
+ * @param {Object}   options
+ * @param {'any'|'portrait'|'landscape'} [options.orientation='any']
+ * @param {boolean}  [options.enforceOrientation=true] - strict filter when true
+ * @param {number}   [options.orientationBoost=1.35] - multiplier when preferring
+ * @param {number}   [options.avoidRecentMs=0] - hard avoid recently shown photos
+ * @param {boolean}  [options.allowRecentFallback=true]
  * @returns {Object[]}
  */
-export function pickPhotos(count, cfg, excludeIds = [], hardExcludeOtherScreen = false) {
+export function pickPhotos(count, cfg, excludeIds = [], hardExcludeOtherScreen = false, options = {}) {
   const pool = getReadyPhotos(cfg);
   if (!pool.length) return [];
+
+  const orientation = options.orientation || 'any';
+  const enforceOrientation = options.enforceOrientation !== false;
+  const orientationBoost = Number(options.orientationBoost || 1.35);
+  const avoidRecentMs = Number(options.avoidRecentMs || 0);
+  const allowRecentFallback = options.allowRecentFallback !== false;
 
   const recencyBias = cfg.recencyBias ?? 60;
   const now         = Date.now();
@@ -223,21 +245,44 @@ export function pickPhotos(count, cfg, excludeIds = [], hardExcludeOtherScreen =
     // Build scored candidate list excluding already-picked and hard-excluded IDs
     const candidates = [];
     const fallbacks  = [];
+    const recentCandidates = [];
+    const recentFallbacks = [];
 
     for (const photo of pool) {
       if (pickedSet.has(photo.id))  continue;
       if (excludeSet.has(photo.id)) continue;
 
-      const w = photoWeight(photo, recencyMap, now);
+      const isPortrait = _isPortrait(photo);
+
+      if (orientation === 'landscape' && enforceOrientation && isPortrait) continue;
+      if (orientation === 'portrait' && enforceOrientation && !isPortrait) continue;
+
+      let w = photoWeight(photo, recencyMap, now);
+      if (!enforceOrientation && orientation !== 'any') {
+        const matchesOrientation = orientation === 'portrait' ? isPortrait : !isPortrait;
+        if (matchesOrientation) w *= orientationBoost;
+      }
+      const shownAt = recentlyShown.get(photo.id) || 0;
+      const isHardRecent = avoidRecentMs > 0 && (now - shownAt) < avoidRecentMs;
+
+      if (isHardRecent && !allowRecentFallback) continue;
 
       if (otherScreenVisibleIds.has(photo.id)) {
-        if (!hardExcludeOtherScreen) fallbacks.push({ photo, w });
+        if (!hardExcludeOtherScreen) {
+          if (isHardRecent) recentFallbacks.push({ photo, w });
+          else fallbacks.push({ photo, w });
+        }
       } else {
-        candidates.push({ photo, w });
+        if (isHardRecent) recentCandidates.push({ photo, w });
+        else candidates.push({ photo, w });
       }
     }
 
-    const pool2 = candidates.length > 0 ? candidates : fallbacks;
+    const pool2 = candidates.length > 0
+      ? candidates
+      : (fallbacks.length > 0
+          ? fallbacks
+          : (recentCandidates.length > 0 ? recentCandidates : recentFallbacks));
     if (!pool2.length) break;
 
     const chosen = weightedRandom(pool2);
@@ -311,9 +356,13 @@ export function markAsHeroShown(photoId) {
  * @param {string} myScreenId
  * @returns {Object|null}
  */
-export function pickHeroPhoto(cfg, heroLocks, myScreenId) {
+export function pickHeroPhoto(cfg, heroLocks, myScreenId, options = {}) {
   const pool = getReadyPhotos(cfg);
   if (!pool.length) return null;
+
+  const orientation = options.orientation || 'any';
+  const enforceOrientation = options.enforceOrientation !== false;
+  const orientationBoost = Number(options.orientationBoost || 1.25);
 
   const now           = Date.now();
   const recencyBias   = cfg.recencyBias ?? 60;
@@ -329,6 +378,10 @@ export function pickHeroPhoto(cfg, heroLocks, myScreenId) {
   const candidates = [];
 
   for (const photo of pool) {
+    const isPortrait = _isPortrait(photo);
+    if (orientation === 'landscape' && enforceOrientation && isPortrait) continue;
+    if (orientation === 'portrait' && enforceOrientation && !isPortrait) continue;
+
     // Cross-screen lock check
     const lock = heroLocks.get(photo.id);
     if (lock && lock.screenId !== myScreenId && lock.expiresAt > now) continue;
@@ -343,6 +396,11 @@ export function pickHeroPhoto(cfg, heroLocks, myScreenId) {
     // Score: use recency weight, then boost heroCandidate to 3× (replaces base 2×)
     let w = photoWeight(photo, recencyMap, now);
     if (photo.heroCandidate) w = (w / 2.0) * 3.0; // undo base 2× and apply 3×
+
+    if (!enforceOrientation && orientation !== 'any') {
+      const matchesOrientation = orientation === 'portrait' ? isPortrait : !isPortrait;
+      if (matchesOrientation) w *= orientationBoost;
+    }
 
     candidates.push({ photo, w });
   }
@@ -364,12 +422,34 @@ export function pickHeroPhoto(cfg, heroLocks, myScreenId) {
  * @param {string[]} excludeIds
  * @returns {Object[]}
  */
-export function pickNewestPhotos(count, cfg, excludeIds = []) {
+export function pickNewestPhotos(count, cfg, excludeIds = [], options = {}) {
   const pool      = getReadyPhotos(cfg);
   const excludeSet = new Set(excludeIds);
-  const sorted    = pool
+  const orientation = options.orientation || 'any';
+  const enforceOrientation = options.enforceOrientation !== false;
+  const orientationBonusMs = Number(options.orientationBonusMs || 45_000);
+
+  const candidates = pool
     .filter(p => !excludeSet.has(p.id))
-    .sort((a, b) => (b.addedAt || 0) - (a.addedAt || 0));
+    .filter(p => {
+      if (!enforceOrientation) return true;
+      if (orientation === 'landscape') return !_isPortrait(p);
+      if (orientation === 'portrait') return _isPortrait(p);
+      return true;
+    });
+
+  const sorted = candidates.sort((a, b) => {
+    const aMatch = orientation === 'any'
+      ? false
+      : (orientation === 'portrait' ? _isPortrait(a) : !_isPortrait(a));
+    const bMatch = orientation === 'any'
+      ? false
+      : (orientation === 'portrait' ? _isPortrait(b) : !_isPortrait(b));
+
+    const aScore = (a.addedAt || 0) + (!enforceOrientation && aMatch ? orientationBonusMs : 0);
+    const bScore = (b.addedAt || 0) + (!enforceOrientation && bMatch ? orientationBonusMs : 0);
+    return bScore - aScore;
+  });
 
   const picked = sorted.slice(0, count);
 
@@ -399,18 +479,24 @@ export function arrangePhotosForSlots(slots, photos) {
   return slots.map(slot => {
     if (!remaining.length) return null;
 
+    const isPortraitSlot = Boolean(slot.portrait);
+    // Never place portrait photos in horizontal slots.
+    const candidates = isPortraitSlot
+      ? [...remaining]
+      : remaining.filter(p => !_isPortrait(p));
+    if (!candidates.length) return null;
+
     let bestIdx = 0;
     let bestFit = -Infinity;
 
-    for (let i = 0; i < remaining.length; i++) {
-      const p     = remaining[i];
-      const w     = p.displayWidth  || p.width  || 1;
-      const h     = p.displayHeight || p.height || 1;
-      const ratio = w / h;
+    for (let i = 0; i < candidates.length; i++) {
+      const p = candidates[i];
+      const ratio = _aspectRatio(p);
       let fit     = 0;
 
       if (slot.portrait) {
-        fit = ratio < 0.8 ? (0.8 - ratio) * 10 : -ratio;
+        fit = -Math.abs(ratio - 0.82);
+        if (_isPortrait(p)) fit += 0.25;
       } else if (slot.hero) {
         fit = ratio >= 1 ? ratio : ratio * 0.5;
       } else {
@@ -423,6 +509,10 @@ export function arrangePhotosForSlots(slots, photos) {
       }
     }
 
-    return remaining.splice(bestIdx, 1)[0];
+    const chosen = candidates[bestIdx] || null;
+    if (!chosen) return null;
+    const idx = remaining.findIndex(p => p.id === chosen.id);
+    if (idx < 0) return null;
+    return remaining.splice(idx, 1)[0];
   });
 }

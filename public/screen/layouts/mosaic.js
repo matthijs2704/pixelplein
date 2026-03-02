@@ -6,6 +6,39 @@ import { crossFadeSlot, startKenBurns }  from '../transitions.js';
 import { pickPhotos, pickNewestPhotos, arrangePhotosForSlots } from '../photos.js';
 import { shuffle } from '../../shared/utils.js';
 
+function _parseGridArea(area) {
+  const parts = String(area || '').split('/').map(s => Number(s.trim()));
+  if (parts.length !== 4 || parts.some(v => !Number.isFinite(v))) {
+    return { rowSpan: 1, colSpan: 1 };
+  }
+  const [rowStart, colStart, rowEnd, colEnd] = parts;
+  return {
+    rowSpan: Math.max(1, rowEnd - rowStart),
+    colSpan: Math.max(1, colEnd - colStart),
+  };
+}
+
+function _shouldPreferThumb(slotDef, tpl) {
+  if (slotDef.hero) return false;
+
+  const { rowSpan, colSpan } = _parseGridArea(slotDef.area);
+  const rowShare = rowSpan / (tpl.rows || 1);
+  const colShare = colSpan / (tpl.cols || 1);
+
+  // Keep large tiles on display cache to avoid softness.
+  // Thumbs are used for smaller non-hero tiles where they remain sharp.
+  const isLargeTile = rowShare > 0.5 || colShare > 0.5;
+  return !isLargeTile;
+}
+
+function _photoUrlForSlot(photo, slotDef, tpl) {
+  if (!photo) return '';
+  const preferThumb = _shouldPreferThumb(slotDef, tpl);
+  return preferThumb
+    ? (photo.thumbUrl || photo.displayUrl || photo.url)
+    : (photo.displayUrl || photo.url);
+}
+
 /**
  * Build a mosaic layout element from a named template.
  *
@@ -39,9 +72,23 @@ export function buildMosaic(templateName, heroPhoto, otherPhotos, minTilePx, cfg
   const arranged     = arrangePhotosForSlots(normalSlots, otherPhotos);
   // Fill recent slots with the newest photos (distinct from hero + normal)
   const usedIds      = [heroPhoto?.id, ...arranged.map(p => p?.id)].filter(Boolean);
-  const recentPhotos = recentSlots.length
-    ? pickNewestPhotos(recentSlots.length, cfg || {}, usedIds)
-    : [];
+  const recentPhotos = [];
+  const recentUsedIds = [...usedIds];
+  for (const slot of recentSlots) {
+    const picked = pickNewestPhotos(1, cfg || {}, recentUsedIds, slot.portrait
+      ? {
+          orientation: 'portrait',
+          enforceOrientation: false,
+          orientationBonusMs: 45_000,
+        }
+      : {
+          orientation: 'landscape',
+        });
+
+    const photo = picked[0] || null;
+    recentPhotos.push(photo);
+    if (photo?.id) recentUsedIds.push(photo.id);
+  }
 
   const slotEls    = [];
   const visibleIds = [];
@@ -60,9 +107,8 @@ export function buildMosaic(templateName, heroPhoto, otherPhotos, minTilePx, cfg
 
     if (photo) {
       const img = document.createElement('img');
-      img.src   = slotDef.hero
-        ? (photo.displayUrl || photo.url)
-        : (photo.thumbUrl || photo.displayUrl || photo.url);
+      const preferThumb = _shouldPreferThumb(slotDef, tpl);
+      img.src   = _photoUrlForSlot(photo, slotDef, tpl);
       img.alt   = photo.name;
       img.style.cssText = 'width:100%;height:100%;display:block;object-fit:cover;';
       applySmartFit(img, photo, Boolean(slotDef.portrait));
@@ -70,6 +116,7 @@ export function buildMosaic(templateName, heroPhoto, otherPhotos, minTilePx, cfg
       slot.dataset.photoId  = photo.id;
       slot.dataset.isHero   = slotDef.hero     ? '1' : '0';
       slot.dataset.isRecent = slotDef.recent   ? '1' : '0';
+      slot.dataset.preferThumb = preferThumb ? '1' : '0';
       slot.dataset.portrait = slotDef.portrait ? '1' : '0';
       visibleIds.push(photo.id);
       if (slotDef.hero) heroImg = img;
@@ -98,7 +145,7 @@ export function buildMosaic(templateName, heroPhoto, otherPhotos, minTilePx, cfg
  * @param {HTMLElement[]} slotEls
  * @param {Object}        cfg
  * @param {number}        cycleStart   - Date.now() at the start of this layout cycle
- * @param {Function}      pickMorePhotos - (count) => Object[] fresh photos
+ * @param {Function}      pickMorePhotos - (count, options) => Object[] fresh photos
  * @returns {Promise<string[]>} New visible IDs after swaps
  */
 export async function runMosaicTransitions(slotEls, cfg, cycleStart, pickMorePhotos) {
@@ -121,6 +168,7 @@ export async function runMosaicTransitions(slotEls, cfg, cycleStart, pickMorePho
   const roundInterval = rounds > 1 ? Math.floor(usableWindow / rounds) : usableWindow;
 
   const newIds = [];
+  const reservedIds = new Set(slotEls.map(s => s.dataset.photoId).filter(Boolean));
 
   for (let round = 0; round < rounds; round++) {
     // When should this round fire, measured from cycleStart?
@@ -138,12 +186,25 @@ export async function runMosaicTransitions(slotEls, cfg, cycleStart, pickMorePho
     const targets = shuffle(swappable)
       .slice(0, Math.min(swapCount, swappable.length));
 
-    const newPhotos = pickMorePhotos(targets.length);
-
     for (let i = 0; i < targets.length; i++) {
       const slot  = targets[i];
-      const photo = newPhotos[i];
+      const slotIsPortrait = slot.dataset.portrait === '1';
+      const excludeIds = [...reservedIds];
+
+      const photo = pickMorePhotos(1, slotIsPortrait
+        ? {
+            orientation: 'portrait',
+            enforceOrientation: false,
+            orientationBoost: 1.2,
+            excludeIds,
+          }
+        : {
+            orientation: 'landscape',
+            excludeIds,
+          })[0] || null;
+
       if (!photo) continue;
+      reservedIds.add(photo.id);
 
       setTimeout(() => {
         crossFadeSlot(slot, photo, fadeDuration);
