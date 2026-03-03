@@ -65,6 +65,7 @@ function defaultScreenConfig() {
     qrBugLabel: '',
     infoBarEnabled: false,
     infoBarShowClock: true,
+    infoBarClock24h: true,
     infoBarShowCurrentEvent: true,
     infoBarShowNextEvent: true,
   };
@@ -179,6 +180,7 @@ const SCREEN_CONFIG_KEYS = new Set([
   'qrBugLabel',
   'infoBarEnabled',
   'infoBarShowClock',
+  'infoBarClock24h',
   'infoBarShowCurrentEvent',
   'infoBarShowNextEvent',
 ]);
@@ -465,7 +467,7 @@ function sanitizeScreenConfig(input, base) {
       next.playlistId = value == null ? null : String(value);
       continue;
     }
-    if (['tickerEnabled', 'bugEnabled', 'qrBugEnabled', 'infoBarEnabled', 'infoBarShowClock', 'infoBarShowCurrentEvent', 'infoBarShowNextEvent'].includes(key)) {
+    if (['tickerEnabled', 'bugEnabled', 'qrBugEnabled', 'infoBarEnabled', 'infoBarShowClock', 'infoBarClock24h', 'infoBarShowCurrentEvent', 'infoBarShowNextEvent'].includes(key)) {
       next[key] = Boolean(value);
       continue;
     }

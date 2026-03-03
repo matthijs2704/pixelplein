@@ -163,6 +163,10 @@ function _buildOverlayForm(screenId) {
             <label for="ov-${prefix}-infobar-clock">Show clock</label>
           </div>
           <div class="check-row">
+            <input type="checkbox" id="ov-${prefix}-infobar-clock-24h">
+            <label for="ov-${prefix}-infobar-clock-24h">24-hour clock</label>
+          </div>
+          <div class="check-row">
             <input type="checkbox" id="ov-${prefix}-infobar-current-event">
             <label for="ov-${prefix}-infobar-current-event">Show current event</label>
           </div>
@@ -205,6 +209,7 @@ function _applyToForm(screenId, sc) {
 
   _setChk(`ov-${prefix}-infobar-enabled`, sc.infoBarEnabled || false);
   _setChk(`ov-${prefix}-infobar-clock`, sc.infoBarShowClock !== false);
+  _setChk(`ov-${prefix}-infobar-clock-24h`, sc.infoBarClock24h !== false);
   _setChk(`ov-${prefix}-infobar-current-event`, sc.infoBarShowCurrentEvent !== false);
   _setChk(`ov-${prefix}-infobar-next-event`, sc.infoBarShowNextEvent !== false);
 }
@@ -287,6 +292,7 @@ function _readScreen(prefix) {
 
   sc.infoBarEnabled          = _getChk(`ov-${prefix}-infobar-enabled`);
   sc.infoBarShowClock        = _getChk(`ov-${prefix}-infobar-clock`);
+  sc.infoBarClock24h         = _getChk(`ov-${prefix}-infobar-clock-24h`);
   sc.infoBarShowCurrentEvent = _getChk(`ov-${prefix}-infobar-current-event`);
   sc.infoBarShowNextEvent    = _getChk(`ov-${prefix}-infobar-next-event`);
 
@@ -331,6 +337,7 @@ function _bindScreen(screenId) {
     `ov-${prefix}-bug-enabled`,    `ov-${prefix}-bug-corner`,
     `ov-${prefix}-qrbug-enabled`,  `ov-${prefix}-qrbug-corner`,
     `ov-${prefix}-infobar-enabled`, `ov-${prefix}-infobar-clock`,
+    `ov-${prefix}-infobar-clock-24h`,
     `ov-${prefix}-infobar-current-event`, `ov-${prefix}-infobar-next-event`,
   ];
   const inputIds = [
