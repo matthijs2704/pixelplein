@@ -15,6 +15,11 @@ let _eventLabelEl = null;
 let _eventNameEl  = null;
 let _eventLocEl   = null;
 let _eventTimeEl  = null;
+let _event2El      = null;
+let _event2LabelEl = null;
+let _event2NameEl  = null;
+let _event2LocEl   = null;
+let _event2TimeEl  = null;
 let _tickerEl     = null;
 let _tickerInner  = null;
 
@@ -22,7 +27,7 @@ let _clockTimer      = null;
 let _countdownTimer  = null;
 
 // Last-rendered event slot state — used to detect meaningful changes for fade transition
-let _eventSlotLast = { name: null, timeVisible: null, visible: null, kind: null };
+let _eventSlotLast = { name: null, timeVisible: null, visible: null, kind: null, name2: null, visible2: null };
 let _tickerFrame     = null;
 
 let _cfg      = {};
@@ -91,7 +96,8 @@ function _ensureStyle() {
 
     /* ── Event slot ─────────────────────────────────────────────────────── */
 
-    #overlay-infobar-event {
+    #overlay-infobar-event,
+    #overlay-infobar-event2 {
       flex-shrink: 0;
       display: flex;
       align-items: center;
@@ -103,13 +109,15 @@ function _ensureStyle() {
       transition: opacity 0.35s ease;
     }
 
-    #overlay-infobar-event-label {
+    #overlay-infobar-event-label,
+    #overlay-infobar-event2-label {
       flex-shrink: 0;
       font-weight: 400;
       color: var(--infobar-event-label-color, rgba(255, 255, 255, 0.45));
     }
 
-    #overlay-infobar-event-name {
+    #overlay-infobar-event-name,
+    #overlay-infobar-event2-name {
       flex-shrink: 1;
       font-weight: 700;
       color: var(--infobar-event-color, #ffffff);
@@ -117,7 +125,8 @@ function _ensureStyle() {
       text-overflow: ellipsis;
     }
 
-    #overlay-infobar-event-loc {
+    #overlay-infobar-event-loc,
+    #overlay-infobar-event2-loc {
       flex-shrink: 1;
       font-weight: 400;
       color: var(--infobar-event-loc-color, rgba(255, 255, 255, 0.5));
@@ -125,7 +134,8 @@ function _ensureStyle() {
       text-overflow: ellipsis;
     }
 
-    #overlay-infobar-event-time {
+    #overlay-infobar-event-time,
+    #overlay-infobar-event2-time {
       flex-shrink: 0;
       font-variant-numeric: tabular-nums;
       color: var(--infobar-countdown-color, #ffdca8);
@@ -170,7 +180,8 @@ function _ensureStyle() {
 // ---------------------------------------------------------------------------
 
 function _formatClock() {
-  return new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+  const use24h = _cfg.infoBarClock24h !== false;
+  return new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: !use24h });
 }
 
 function _startClock() {
@@ -205,22 +216,21 @@ function _formatDuration(ms) {
   return `${pad(m)}:${pad(s)}`;
 }
 
-// Resolve what to show in the event slot.
-// Priority: explicit alert → next event inside its countdown window → current event → next event (cfm=0, always show).
-// "Current" = most recent schedule entry whose startTime is in the past and whose
-//             endTime (if set) has not yet passed.
-// "Next"    = soonest schedule entry whose startTime is in the future.
-// A next event with countdownFromMinutes > 0 takes priority over any current event once
-// the countdown window opens; this lets an imminent event preempt a stale "current".
-function _resolveEventSlot() {
+// Resolve what to show in the event slot(s).
+// Returns { primary, secondary } where secondary is only set when there is no ticker
+// and both a current event and a next-event-in-countdown-window exist simultaneously.
+//
+// Priority for primary:
+//   explicit alert → next event inside its cfm window → current event → next event (cfm=0)
+// When primary is a current event and a next event is also in its cfm window,
+// secondary gets the next event (shown only when no ticker).
+function _resolveEventSlots() {
   if (_alert) {
     const target = Number(new Date(_alert.countdownTo || ''));
     const remaining = Number.isFinite(target) ? target - Date.now() : null;
     return {
-      name: _alert.message || '',
-      remaining,
-      targetMs: target,
-      kind: 'alert',
+      primary: { name: _alert.message || '', loc: '', remaining, targetMs: target, kind: 'alert' },
+      secondary: null,
     };
   }
 
@@ -232,79 +242,92 @@ function _resolveEventSlot() {
 
   const showCurrent = _cfg.infoBarShowCurrentEvent !== false;
   const showNext    = _cfg.infoBarShowNextEvent    !== false;
+  const hasTicker   = Boolean(_tickerEl);
 
   // Next events that are upcoming
   const future = showNext ? sorted.filter(({ startMs }) => startMs > now) : [];
 
-  // Find the soonest next event that is inside its countdown window (cfm > 0)
-  // These take priority over the current event.
-  if (future.length) {
-    for (const { e, startMs } of future) {
-      const cfm = Number(e.countdownFromMinutes || 0);
-      if (cfm > 0 && now >= startMs - (cfm * 60 * 1000)) {
-        return { name: e.name || '', loc: e.location || '', remaining: startMs - now, targetMs: startMs, kind: 'next' };
-      }
+  // Find the soonest next event inside its countdown window (cfm > 0)
+  let nextInWindow = null;
+  for (const { e, startMs } of future) {
+    const cfm = Number(e.countdownFromMinutes || 0);
+    if (cfm > 0 && now >= startMs - (cfm * 60 * 1000)) {
+      nextInWindow = { name: e.name || '', loc: e.location || '', remaining: startMs - now, targetMs: startMs, kind: 'next' };
+      break;
     }
   }
 
-  // Current: most recent entry that has already started and has not ended
+  // Find current event
+  let current = null;
   if (showCurrent) {
     const past = sorted.filter(({ startMs }) => startMs <= now);
-    // Walk from most recent backwards, skip entries whose endTime has passed
     for (let i = past.length - 1; i >= 0; i--) {
       const { e } = past[i];
       if (e.endTime) {
         const endMs = Number(new Date(e.endTime));
-        if (Number.isFinite(endMs) && endMs <= now) continue; // already ended
+        if (Number.isFinite(endMs) && endMs <= now) continue;
       }
-      return { name: e.name || '', loc: e.location || '', remaining: null, targetMs: null, kind: 'current' };
+      current = { name: e.name || '', loc: e.location || '', remaining: null, targetMs: null, kind: 'current' };
+      break;
     }
   }
 
-  // Next: soonest upcoming entry with cfm=0 (always visible, no window restriction)
+  // Both exist: primary = next-in-window (more urgent), secondary = current (when no ticker)
+  if (nextInWindow && current) {
+    return {
+      primary:   nextInWindow,
+      secondary: !hasTicker ? current : null,
+    };
+  }
+
+  // Only next-in-window
+  if (nextInWindow) return { primary: nextInWindow, secondary: null };
+
+  // Only current
+  if (current) return { primary: current, secondary: null };
+
+  // Fallback: soonest next with cfm=0 (always visible)
   if (future.length) {
     const { e, startMs } = future[0];
     const cfm = Number(e.countdownFromMinutes || 0);
     if (cfm === 0) {
-      return { name: e.name || '', loc: e.location || '', remaining: startMs - now, targetMs: startMs, kind: 'next' };
+      return { primary: { name: e.name || '', loc: e.location || '', remaining: startMs - now, targetMs: startMs, kind: 'next' }, secondary: null };
     }
-    // cfm > 0 but we're not yet in the window — nothing to show
-    return null;
+    return { primary: null, secondary: null };
   }
 
-  return null;
+  return { primary: null, secondary: null };
 }
 
-function _applyEventSlot(slot) {
+// Apply a resolved slot object to a set of DOM elements.
+// containerEl is hidden when slot is null; _updateDividers is NOT called here —
+// caller must call it after applying both primary and secondary.
+function _applySlotToEl(slot, containerEl, labelEl, nameEl, locEl, timeEl) {
   if (!slot) {
-    _eventEl.style.display = 'none';
-    _updateDividers();
+    containerEl.style.display = 'none';
     return;
   }
 
-  _eventEl.style.display = '';
-  if (_eventLabelEl) {
-    if (slot.kind === 'current')     _eventLabelEl.textContent = 'Nu:';
-    else if (slot.kind === 'next')   _eventLabelEl.textContent = 'Zometeen:';
-    else                             _eventLabelEl.textContent = '';
-    _eventLabelEl.style.display = _eventLabelEl.textContent ? '' : 'none';
+  containerEl.style.display = '';
+  if (labelEl) {
+    if (slot.kind === 'current')     labelEl.textContent = 'Nu:';
+    else if (slot.kind === 'next')   labelEl.textContent = 'Zometeen:';
+    else                             labelEl.textContent = '';
+    labelEl.style.display = labelEl.textContent ? '' : 'none';
   }
-  if (_eventNameEl) _eventNameEl.textContent = slot.name;
-  if (_eventLocEl) {
-    _eventLocEl.textContent = slot.loc ? `· ${slot.loc}` : '';
-    _eventLocEl.style.display = slot.loc ? '' : 'none';
+  if (nameEl) nameEl.textContent = slot.name;
+  if (locEl) {
+    locEl.textContent = slot.loc ? `· ${slot.loc}` : '';
+    locEl.style.display = slot.loc ? '' : 'none';
   }
-
-  if (_eventTimeEl) {
+  if (timeEl) {
     if (slot.remaining !== null && Number.isFinite(slot.remaining) && slot.remaining > 0) {
-      _eventTimeEl.textContent = _formatDuration(slot.remaining);
-      _eventTimeEl.style.display = '';
+      timeEl.textContent = _formatDuration(slot.remaining);
+      timeEl.style.display = '';
     } else {
-      _eventTimeEl.style.display = 'none';
+      timeEl.style.display = 'none';
     }
   }
-
-  _updateDividers();
 }
 
 function _refreshEventSlot() {
@@ -313,45 +336,79 @@ function _refreshEventSlot() {
   const showNext    = _cfg.infoBarShowNextEvent    !== false;
   if (!showCurrent && !showNext) {
     _eventEl.style.display = 'none';
+    if (_event2El) _event2El.style.display = 'none';
+    _updateDividers();
     return;
   }
 
-  const slot = _resolveEventSlot();
+  const { primary, secondary } = _resolveEventSlots();
 
-  // Detect whether the visible content has meaningfully changed
-  const newName        = slot ? slot.name : null;
-  const newTimeVisible = slot ? (slot.remaining !== null && Number.isFinite(slot.remaining) && slot.remaining > 0) : null;
-  const newVisible     = slot !== null;
-  const newKind        = slot ? slot.kind : null;
+  // ── Primary slot ──────────────────────────────────────────────────────────
+  const newName        = primary ? primary.name : null;
+  const newTimeVisible = primary ? (primary.remaining !== null && Number.isFinite(primary.remaining) && primary.remaining > 0) : null;
+  const newVisible     = primary !== null;
+  const newKind        = primary ? primary.kind : null;
 
-  const changed = newVisible     !== _eventSlotLast.visible
-               || newName        !== _eventSlotLast.name
-               || newTimeVisible !== _eventSlotLast.timeVisible
-               || newKind        !== _eventSlotLast.kind;
+  const primaryChanged = newVisible     !== _eventSlotLast.visible
+                      || newName        !== _eventSlotLast.name
+                      || newTimeVisible !== _eventSlotLast.timeVisible
+                      || newKind        !== _eventSlotLast.kind;
 
-  if (!changed) {
-    // Only the countdown number ticked — update it in place without fading
-    if (slot && _eventTimeEl && newTimeVisible) {
-      _eventTimeEl.textContent = _formatDuration(slot.remaining);
+  if (!primaryChanged) {
+    // Only the countdown number ticked — update in place without fading
+    if (primary && _eventTimeEl && newTimeVisible) {
+      _eventTimeEl.textContent = _formatDuration(primary.remaining);
     }
-    return;
-  }
-
-  // Meaningful change — fade out, swap content, fade in
-  _eventSlotLast = { name: newName, timeVisible: newTimeVisible, visible: newVisible, kind: newKind };
-
-  if (_eventEl.style.display === 'none' || _eventEl.style.opacity === '0') {
-    // Slot was hidden — apply immediately then fade in
-    _applyEventSlot(slot);
-    _eventEl.style.opacity = '0';
-    requestAnimationFrame(() => { _eventEl.style.opacity = '1'; });
   } else {
-    _eventEl.style.opacity = '0';
-    setTimeout(() => {
-      _applyEventSlot(slot);
-      _eventEl.style.opacity = '1';
-    }, 370);
+    _eventSlotLast = { ...(_eventSlotLast), name: newName, timeVisible: newTimeVisible, visible: newVisible, kind: newKind };
+
+    if (_eventEl.style.display === 'none' || _eventEl.style.opacity === '0') {
+      _applySlotToEl(primary, _eventEl, _eventLabelEl, _eventNameEl, _eventLocEl, _eventTimeEl);
+      _eventEl.style.opacity = '0';
+      requestAnimationFrame(() => { _eventEl.style.opacity = '1'; });
+    } else {
+      _eventEl.style.opacity = '0';
+      setTimeout(() => {
+        _applySlotToEl(primary, _eventEl, _eventLabelEl, _eventNameEl, _eventLocEl, _eventTimeEl);
+        _eventEl.style.opacity = '1';
+      }, 370);
+    }
   }
+
+  // ── Secondary slot ────────────────────────────────────────────────────────
+  if (_event2El) {
+    const newVisible2 = secondary !== null;
+    const newName2    = secondary ? secondary.name : null;
+
+    const secondaryChanged = newVisible2 !== _eventSlotLast.visible2
+                          || newName2    !== _eventSlotLast.name2;
+
+    if (!secondaryChanged) {
+      // Only countdown ticked — update in place
+      if (secondary && _event2TimeEl) {
+        const rem2 = secondary.remaining;
+        if (rem2 !== null && Number.isFinite(rem2) && rem2 > 0) {
+          _event2TimeEl.textContent = _formatDuration(rem2);
+        }
+      }
+    } else {
+      _eventSlotLast = { ...(_eventSlotLast), name2: newName2, visible2: newVisible2 };
+
+      if (_event2El.style.display === 'none' || _event2El.style.opacity === '0') {
+        _applySlotToEl(secondary, _event2El, _event2LabelEl, _event2NameEl, _event2LocEl, _event2TimeEl);
+        _event2El.style.opacity = '0';
+        requestAnimationFrame(() => { _event2El.style.opacity = '1'; });
+      } else {
+        _event2El.style.opacity = '0';
+        setTimeout(() => {
+          _applySlotToEl(secondary, _event2El, _event2LabelEl, _event2NameEl, _event2LocEl, _event2TimeEl);
+          _event2El.style.opacity = '1';
+        }, 370);
+      }
+    }
+  }
+
+  _updateDividers();
 }
 
 function _startCountdownTimer() {
@@ -462,6 +519,7 @@ function _updateDividers() {
   if (_clockEl && _cfg.infoBarShowClock) slots.push(_clockEl);
   const _showAnyEvent = _cfg.infoBarShowCurrentEvent !== false || _cfg.infoBarShowNextEvent !== false;
   if (_eventEl && _showAnyEvent && _eventEl.style.display !== 'none') slots.push(_eventEl);
+  if (_event2El && _event2El.style.display !== 'none') slots.push(_event2El);
   if (_tickerEl) slots.push(_tickerEl);
 
   // Insert dividers between adjacent visible slots
@@ -516,12 +574,40 @@ function _buildBar(cfg) {
     _eventEl.appendChild(_eventTimeEl);
 
     bar.appendChild(_eventEl);
+
+    // Second event slot — only visible when secondary event is resolved (no ticker + both current & next)
+    _event2El = document.createElement('div');
+    _event2El.id = 'overlay-infobar-event2';
+    _event2El.style.display = 'none';
+
+    _event2LabelEl = document.createElement('span');
+    _event2LabelEl.id = 'overlay-infobar-event2-label';
+    _event2El.appendChild(_event2LabelEl);
+
+    _event2NameEl = document.createElement('span');
+    _event2NameEl.id = 'overlay-infobar-event2-name';
+    _event2El.appendChild(_event2NameEl);
+
+    _event2LocEl = document.createElement('span');
+    _event2LocEl.id = 'overlay-infobar-event2-loc';
+    _event2El.appendChild(_event2LocEl);
+
+    _event2TimeEl = document.createElement('span');
+    _event2TimeEl.id = 'overlay-infobar-event2-time';
+    _event2El.appendChild(_event2TimeEl);
+
+    bar.appendChild(_event2El);
   } else {
     _eventEl = null;
     _eventLabelEl = null;
     _eventNameEl = null;
     _eventLocEl = null;
     _eventTimeEl = null;
+    _event2El = null;
+    _event2LabelEl = null;
+    _event2NameEl = null;
+    _event2LocEl = null;
+    _event2TimeEl = null;
   }
 
   // Ticker slot — only shown when ticker is enabled and has messages
@@ -583,7 +669,7 @@ export function mountInfoBar(cfg, schedule) {
   _barEl = _buildBar(_cfg);
   document.body.appendChild(_barEl);
 
-  _eventSlotLast = { name: null, timeVisible: null, visible: null, kind: null };
+  _eventSlotLast = { name: null, timeVisible: null, visible: null, kind: null, name2: null, visible2: null };
 
   if (_cfg.infoBarShowClock !== false) _startClock();
   const showAnyEvent = _cfg.infoBarShowCurrentEvent !== false || _cfg.infoBarShowNextEvent !== false;
@@ -604,11 +690,13 @@ export function removeInfoBar() {
   _stopCountdownTimer();
   _stopTicker();
   if (_barEl) { _barEl.remove(); _barEl = null; }
-  _clockEl = _eventEl = _eventLabelEl = _eventNameEl = _eventLocEl = _eventTimeEl = _tickerEl = _tickerInner = null;
+  _clockEl = _eventEl = _eventLabelEl = _eventNameEl = _eventLocEl = _eventTimeEl = null;
+  _event2El = _event2LabelEl = _event2NameEl = _event2LocEl = _event2TimeEl = null;
+  _tickerEl = _tickerInner = null;
   _alert = null;
   _tickerMessages = [];
   _tickerMsgIndex = 0;
-  _eventSlotLast = { name: null, timeVisible: null, visible: null, kind: null };
+  _eventSlotLast = { name: null, timeVisible: null, visible: null, kind: null, name2: null, visible2: null };
 }
 
 /**
