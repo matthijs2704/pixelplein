@@ -8,7 +8,7 @@ const CONFIG_FILE = path.join(__dirname, '..', 'config.json');
 const MAX_SCREENS = 4;
 
 const ALERT_STYLES = new Set(['banner', 'popup', 'countdown']);
-const ALERT_POSITIONS = new Set(['top', 'bottom', 'center']);
+const ALERT_POSITIONS = new Set(['top', 'bottom', 'center', 'top-left', 'top-center', 'top-right', 'bottom-left', 'bottom-center', 'bottom-right', 'bottom-bar']);
 const ALERT_PRIORITIES = new Set(['normal', 'urgent']);
 const ALERT_TRIGGERS = new Set(['manual', 'scheduled', 'event_auto']);
 const SUBMISSION_DISPLAY_MODES = new Set(['off', 'single', 'grid', 'both']);
@@ -49,9 +49,12 @@ function defaultScreenConfig() {
     cyclePhaseMs: 0,
     playlistId: null,
     tickerEnabled: false,
-    tickerText: '',
+    tickerMessages: [],
+    tickerMode: 'scroll',
+    tickerAlign: 'start',
     tickerPosition: 'bottom',
     tickerSpeed: 60,
+    tickerFadeDwellSec: 5,
     bugEnabled: false,
     bugText: '',
     bugCorner: 'top-right',
@@ -60,6 +63,10 @@ function defaultScreenConfig() {
     qrBugUrl: '',
     qrBugCorner: 'bottom-right',
     qrBugLabel: '',
+    infoBarEnabled: false,
+    infoBarShowClock: true,
+    infoBarShowCurrentEvent: true,
+    infoBarShowNextEvent: true,
   };
 }
 
@@ -156,9 +163,12 @@ const SCREEN_CONFIG_KEYS = new Set([
   'cyclePhaseMs',
   'playlistId',
   'tickerEnabled',
-  'tickerText',
+  'tickerMessages',
+  'tickerMode',
+  'tickerAlign',
   'tickerPosition',
   'tickerSpeed',
+  'tickerFadeDwellSec',
   'bugEnabled',
   'bugText',
   'bugCorner',
@@ -167,6 +177,10 @@ const SCREEN_CONFIG_KEYS = new Set([
   'qrBugUrl',
   'qrBugCorner',
   'qrBugLabel',
+  'infoBarEnabled',
+  'infoBarShowClock',
+  'infoBarShowCurrentEvent',
+  'infoBarShowNextEvent',
 ]);
 
 const ALLOWED_TEMPLATES = new Set([
@@ -259,11 +273,15 @@ function _sanitizeEventScheduleEntry(entry) {
       .filter(v => Number.isFinite(v) && v >= 0)
     : [];
 
+  const endMs = src.endTime ? Number(new Date(src.endTime)) : null;
+  const endTime = (Number.isFinite(endMs) && endMs > startMs) ? new Date(endMs).toISOString() : null;
+
   return {
     id,
     name: String(src.name || '').slice(0, 200),
     location: String(src.location || '').slice(0, 200),
     startTime: new Date(startMs).toISOString(),
+    endTime,
     alertMinutesBefore: [...new Set(offsets)].sort((a, b) => b - a),
     firedOffsets: [...new Set(firedOffsets)].sort((a, b) => b - a),
   };
@@ -447,11 +465,37 @@ function sanitizeScreenConfig(input, base) {
       next.playlistId = value == null ? null : String(value);
       continue;
     }
-    if (['tickerEnabled', 'bugEnabled', 'qrBugEnabled'].includes(key)) {
+    if (['tickerEnabled', 'bugEnabled', 'qrBugEnabled', 'infoBarEnabled', 'infoBarShowClock', 'infoBarShowCurrentEvent', 'infoBarShowNextEvent'].includes(key)) {
       next[key] = Boolean(value);
       continue;
     }
-    if (['tickerText', 'bugText', 'bugImageUrl', 'qrBugUrl', 'qrBugLabel'].includes(key)) {
+    // Migrate legacy single flag → both new flags
+    if (key === 'infoBarShowEvent') {
+      next.infoBarShowCurrentEvent = Boolean(value);
+      next.infoBarShowNextEvent    = Boolean(value);
+      continue;
+    }
+    if (key === 'tickerMessages') {
+      // Accept array of strings; filter blanks; max 50 entries, each max 500 chars
+      const msgs = Array.isArray(value) ? value : [];
+      next.tickerMessages = msgs
+        .map(v => String(v ?? '').trim())
+        .filter(Boolean)
+        .slice(0, 50)
+        .map(v => v.slice(0, 500));
+      continue;
+    }
+    if (key === 'tickerMode') {
+      next.tickerMode = value === 'fade' ? 'fade' : 'scroll';
+      continue;
+    }
+    if (key === 'tickerAlign') {
+      const valid = ['start', 'center', 'end'];
+      // migrate old 'scroll' default → 'start'
+      next.tickerAlign = valid.includes(value) ? value : 'start';
+      continue;
+    }
+    if (['bugText', 'bugImageUrl', 'qrBugUrl', 'qrBugLabel'].includes(key)) {
       next[key] = String(value ?? '');
       continue;
     }
@@ -485,6 +529,9 @@ function sanitizeScreenConfig(input, base) {
   next.cyclePhaseMs = Math.max(0, Math.min(8000, Math.floor(next.cyclePhaseMs)));
   if (typeof next.tickerSpeed === 'number') {
     next.tickerSpeed = Math.max(10, Math.min(300, Math.floor(next.tickerSpeed)));
+  }
+  if (typeof next.tickerFadeDwellSec === 'number') {
+    next.tickerFadeDwellSec = Math.max(1, Math.min(60, Math.floor(next.tickerFadeDwellSec)));
   }
 
   if ((next.cinematicWeight + next.dynamicWeight + next.neutralWeight) === 0) {
