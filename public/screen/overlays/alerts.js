@@ -268,9 +268,14 @@ function _reStackBanners() {
   }
 
   for (const [edge, entries] of Object.entries(byEdge)) {
+    // For the bottom edge, start above the safe inset (info bar / ticker).
+    const baseInset = edge === 'bottom' ? _bottomInset : 0;
     let offset = 0;
     for (const entry of entries) {
-      entry.el.style.setProperty(`--ov-banner-${edge}`, `calc(2vh + ${offset}px)`);
+      const val = baseInset > 0
+        ? `calc(${baseInset}px + 2vh + ${offset}px)`
+        : `calc(2vh + ${offset}px)`;
+      entry.el.style.setProperty(`--ov-banner-${edge}`, val);
       offset += (entry.el.offsetHeight || 52) + BANNER_GAP;
     }
   }
