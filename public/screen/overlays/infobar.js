@@ -13,6 +13,7 @@ let _clockEl      = null;
 let _eventEl      = null;
 let _eventLabelEl = null;
 let _eventNameEl  = null;
+let _eventLocEl   = null;
 let _eventTimeEl  = null;
 let _tickerEl     = null;
 let _tickerInner  = null;
@@ -94,7 +95,7 @@ function _ensureStyle() {
       flex-shrink: 0;
       display: flex;
       align-items: center;
-      gap: 10px;
+      gap: 6px;
       padding: 0 16px;
       max-width: 55%;
       overflow: hidden;
@@ -102,23 +103,37 @@ function _ensureStyle() {
       transition: opacity 0.35s ease;
     }
 
+    #overlay-infobar-event-label {
+      flex-shrink: 0;
+      font-weight: 400;
+      color: var(--infobar-event-label-color, rgba(255, 255, 255, 0.45));
+    }
+
     #overlay-infobar-event-name {
+      flex-shrink: 1;
+      font-weight: 700;
       color: var(--infobar-event-color, #ffffff);
       overflow: hidden;
       text-overflow: ellipsis;
     }
 
-    #overlay-infobar-event-label {
-      flex-shrink: 0;
-      color: var(--infobar-event-label-color, rgba(255, 255, 255, 0.55));
+    #overlay-infobar-event-loc {
+      flex-shrink: 1;
+      font-weight: 400;
+      color: var(--infobar-event-loc-color, rgba(255, 255, 255, 0.5));
+      overflow: hidden;
+      text-overflow: ellipsis;
     }
 
     #overlay-infobar-event-time {
       flex-shrink: 0;
       font-variant-numeric: tabular-nums;
       color: var(--infobar-countdown-color, #ffdca8);
-      font-weight: 800;
+      font-weight: 700;
       font-size: var(--infobar-countdown-size, 1em);
+      border-left: 1px solid rgba(255, 255, 255, 0.2);
+      padding-left: 8px;
+      margin-left: 2px;
     }
 
     /* ── Ticker slot ────────────────────────────────────────────────────── */
@@ -230,9 +245,7 @@ function _resolveEventSlot() {
     for (const { e, startMs } of future) {
       const cfm = Number(e.countdownFromMinutes || 0);
       if (cfm > 0 && now >= startMs - (cfm * 60 * 1000)) {
-        const name = e.name || '';
-        const loc  = e.location ? ` · ${e.location}` : '';
-        return { name: name + loc, remaining: startMs - now, targetMs: startMs, kind: 'next' };
+        return { name: e.name || '', loc: e.location || '', remaining: startMs - now, targetMs: startMs, kind: 'next' };
       }
     }
   }
@@ -247,9 +260,7 @@ function _resolveEventSlot() {
         const endMs = Number(new Date(e.endTime));
         if (Number.isFinite(endMs) && endMs <= now) continue; // already ended
       }
-      const name = e.name || '';
-      const loc  = e.location ? ` · ${e.location}` : '';
-      return { name: name + loc, remaining: null, targetMs: null, kind: 'current' };
+      return { name: e.name || '', loc: e.location || '', remaining: null, targetMs: null, kind: 'current' };
     }
   }
 
@@ -258,9 +269,7 @@ function _resolveEventSlot() {
     const { e, startMs } = future[0];
     const cfm = Number(e.countdownFromMinutes || 0);
     if (cfm === 0) {
-      const name = e.name || '';
-      const loc  = e.location ? ` · ${e.location}` : '';
-      return { name: name + loc, remaining: startMs - now, targetMs: startMs, kind: 'next' };
+      return { name: e.name || '', loc: e.location || '', remaining: startMs - now, targetMs: startMs, kind: 'next' };
     }
     // cfm > 0 but we're not yet in the window — nothing to show
     return null;
@@ -278,11 +287,16 @@ function _applyEventSlot(slot) {
 
   _eventEl.style.display = '';
   if (_eventLabelEl) {
-    if (slot.kind === 'current')     _eventLabelEl.textContent = 'Nu: ';
-    else if (slot.kind === 'next')   _eventLabelEl.textContent = 'Zometeen: ';
+    if (slot.kind === 'current')     _eventLabelEl.textContent = 'Nu:';
+    else if (slot.kind === 'next')   _eventLabelEl.textContent = 'Zometeen:';
     else                             _eventLabelEl.textContent = '';
+    _eventLabelEl.style.display = _eventLabelEl.textContent ? '' : 'none';
   }
   if (_eventNameEl) _eventNameEl.textContent = slot.name;
+  if (_eventLocEl) {
+    _eventLocEl.textContent = slot.loc ? `· ${slot.loc}` : '';
+    _eventLocEl.style.display = slot.loc ? '' : 'none';
+  }
 
   if (_eventTimeEl) {
     if (slot.remaining !== null && Number.isFinite(slot.remaining) && slot.remaining > 0) {
@@ -496,6 +510,10 @@ function _buildBar(cfg) {
     _eventNameEl.id = 'overlay-infobar-event-name';
     _eventEl.appendChild(_eventNameEl);
 
+    _eventLocEl = document.createElement('span');
+    _eventLocEl.id = 'overlay-infobar-event-loc';
+    _eventEl.appendChild(_eventLocEl);
+
     _eventTimeEl = document.createElement('span');
     _eventTimeEl.id = 'overlay-infobar-event-time';
     _eventEl.appendChild(_eventTimeEl);
@@ -505,6 +523,7 @@ function _buildBar(cfg) {
     _eventEl = null;
     _eventLabelEl = null;
     _eventNameEl = null;
+    _eventLocEl = null;
     _eventTimeEl = null;
   }
 
@@ -588,7 +607,7 @@ export function removeInfoBar() {
   _stopCountdownTimer();
   _stopTicker();
   if (_barEl) { _barEl.remove(); _barEl = null; }
-  _clockEl = _eventEl = _eventLabelEl = _eventNameEl = _eventTimeEl = _tickerEl = _tickerInner = null;
+  _clockEl = _eventEl = _eventLabelEl = _eventNameEl = _eventLocEl = _eventTimeEl = _tickerEl = _tickerInner = null;
   _alert = null;
   _tickerMessages = [];
   _tickerMsgIndex = 0;
