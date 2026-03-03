@@ -131,9 +131,6 @@ function _ensureStyle() {
       color: var(--infobar-countdown-color, #ffdca8);
       font-weight: 700;
       font-size: var(--infobar-countdown-size, 1em);
-      border-left: 1px solid rgba(255, 255, 255, 0.2);
-      padding-left: 8px;
-      margin-left: 2px;
     }
 
     /* ── Ticker slot ────────────────────────────────────────────────────── */
