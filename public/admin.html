@@ -383,14 +383,20 @@
               <input id="alerts-duration" type="number" min="0" max="3600" value="18">
             </div>
             <div class="field" id="alerts-countdown-wrap">
-              <label for="alerts-countdown">Countdown target (optional)</label>
-              <input id="alerts-countdown" type="datetime-local">
+              <label>Countdown target (optional)</label>
+              <div class="dt-pair">
+                <input id="alerts-countdown-date" type="date">
+                <input id="alerts-countdown-time" type="time">
+              </div>
             </div>
           </div>
           <div class="two-col" style="margin-top:10px">
             <div class="field">
-              <label for="alerts-scheduled">Schedule for later (optional)</label>
-              <input id="alerts-scheduled" type="datetime-local">
+              <label>Schedule for later (optional)</label>
+              <div class="dt-pair">
+                <input id="alerts-scheduled-date" type="date">
+                <input id="alerts-scheduled-time" type="time">
+              </div>
             </div>
             <div class="field">
               <label>&nbsp;</label>
@@ -436,12 +442,18 @@
           </div>
           <div class="two-col" style="margin-top:10px">
             <div class="field">
-              <label for="schedule-start">Start time</label>
-              <input id="schedule-start" type="datetime-local">
+              <label>Start time</label>
+              <div class="dt-pair">
+                <input id="schedule-start-date" type="date">
+                <input id="schedule-start-time" type="time">
+              </div>
             </div>
             <div class="field">
-              <label for="schedule-end">End time (optional)</label>
-              <input id="schedule-end" type="datetime-local">
+              <label>End time (optional)</label>
+              <div class="dt-pair">
+                <input id="schedule-end-date" type="date">
+                <input id="schedule-end-time" type="time">
+              </div>
             </div>
           </div>
           <div class="two-col" style="margin-top:10px">

@@ -15,12 +15,31 @@ async function apiFetch(url, opts = {}) {
   return body;
 }
 
-function _isoToInput(iso) {
+function _isoToInputDate(iso) {
   if (!iso) return '';
   const d = new Date(iso);
   if (Number.isNaN(d.getTime())) return '';
   const pad = n => String(n).padStart(2, '0');
-  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+}
+
+function _isoToInputTime(iso) {
+  if (!iso) return '';
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return '';
+  const pad = n => String(n).padStart(2, '0');
+  return `${pad(d.getHours())}:${pad(d.getMinutes())}`;
+}
+
+// Read a split date+time pair (ids: baseId-date, baseId-time) and return an ISO string or null.
+function _dtPairToIso(baseId) {
+  const dateVal = document.getElementById(`${baseId}-date`)?.value || '';
+  const timeVal = document.getElementById(`${baseId}-time`)?.value || '';
+  if (!dateVal) return null;
+  const combined = timeVal ? `${dateVal}T${timeVal}` : `${dateVal}T00:00`;
+  const ms = Number(new Date(combined));
+  if (!Number.isFinite(ms)) return null;
+  return new Date(ms).toISOString();
 }
 
 function _inputToIso(value) {
@@ -326,8 +345,8 @@ async function createAlert(fireNow) {
   const message    = document.getElementById('alerts-message')?.value || '';
   const position   = document.getElementById('alerts-position')?.value || _defaultPosition(style);
   const durationSec = Number(document.getElementById('alerts-duration')?.value || 18);
-  const countdownTo = _inputToIso(document.getElementById('alerts-countdown')?.value || '');
-  const scheduledAt = _inputToIso(document.getElementById('alerts-scheduled')?.value || '');
+  const countdownTo = _dtPairToIso('alerts-countdown');
+  const scheduledAt = _dtPairToIso('alerts-scheduled');
 
   const payload = {
     style,
@@ -382,8 +401,8 @@ function _readOffsets() {
 async function addScheduleEntry() {
   const name = document.getElementById('schedule-name')?.value || '';
   const location = document.getElementById('schedule-location')?.value || '';
-  const startTime = _inputToIso(document.getElementById('schedule-start')?.value || '');
-  const endTime = _inputToIso(document.getElementById('schedule-end')?.value || '');
+  const startTime = _dtPairToIso('schedule-start');
+  const endTime   = _dtPairToIso('schedule-end');
   const alertMinutesBefore = _readOffsets();
   const countdownFromMinutes = Number(document.getElementById('schedule-countdown-from')?.value || 0);
 

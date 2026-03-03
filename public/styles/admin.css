@@ -239,10 +239,18 @@ button:hover { opacity: 0.88; }
   letter-spacing: 0.07em;
   color: var(--muted);
 }
+.dt-pair {
+  display: flex;
+  gap: 6px;
+}
+.dt-pair input[type="date"] { flex: 1 1 0; min-width: 0; }
+.dt-pair input[type="time"] { flex: 0 0 auto; width: 90px; }
 input[type="text"],
 input[type="number"],
 input[type="password"],
 input[type="url"],
+input[type="date"],
+input[type="time"],
 textarea,
 select {
   background: var(--surface2);
