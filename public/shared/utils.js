@@ -159,6 +159,17 @@ export function slideDelay(ms) {
 }
 
 /**
+ * Extract the screen config slice for the given screen ID from a global config object.
+ * Falls back to screen '1' if the screen ID is not found.
+ * @param {object} config   Global config object
+ * @param {string|number} screenId
+ * @returns {object}
+ */
+export function getScreenCfg(config, screenId) {
+  return config?.screens?.[String(screenId)] || config?.screens?.['1'] || {};
+}
+
+/**
  * Return the sorted list of active screen IDs for a config object.
  * @param {{ screenCount?: number, screens?: object }} cfg
  * @returns {string[]}

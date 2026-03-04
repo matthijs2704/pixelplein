@@ -30,6 +30,7 @@ import {
   updateSlidesConfig,
 } from '../slides/index.js';
 import { getBottomInset } from '../overlays/index.js';
+import { getScreenCfg } from '../../shared/utils.js';
 
 // Display state shared with heartbeat
 export const displayState = {
@@ -64,7 +65,7 @@ export function initCycle(container, screenId) {
 
 export function updateConfig(config) {
   _globalConfig = config || {};
-  _config = config?.screens?.[String(_screenId)] || config?.screens?.['1'] || {};
+  _config = getScreenCfg(config, _screenId);
   updateSubmissionWallSettings(config || {});
   updateSlidesConfig(config);
 }

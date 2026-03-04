@@ -8,6 +8,7 @@ import { buildQrSlide }       from './qr.js';
 import { buildImageSlide }    from './image.js';
 import { buildArticleSlide }  from './article.js';
 import { runTransition }      from '../transitions.js';
+import { getScreenCfg }       from '../../shared/utils.js';
 
 // ---------------------------------------------------------------------------
 // State
@@ -43,7 +44,7 @@ export function updateSlidesWs(ws) {
 }
 
 export function updateSlidesConfig(config) {
-  _config = config?.screens?.[String(_screenId)] || config?.screens?.['1'] || {};
+  _config = getScreenCfg(config, _screenId);
   _playlistId = _config.playlistId || null;
 }
 

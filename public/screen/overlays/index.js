@@ -10,6 +10,7 @@ import {
   updateInfoBarSchedule,
   getInfoBarHeight,
 } from './infobar.js';
+import { getScreenCfg } from '../../../shared/utils.js';
 
 /**
  * Returns the current bottom safe inset in pixels (info bar or standalone ticker).
@@ -31,7 +32,7 @@ export function initOverlays(screenId) {
  * Tears down and recreates all overlays when config changes.
  */
 export async function applyOverlays(config) {
-  const cfg = config?.screens?.[String(_screenId)] || config?.screens?.['1'] || {};
+  const cfg = getScreenCfg(config, _screenId);
   // Merge global fields into the screen cfg so infobar can read them
   const cfgWithGlobals = { ...cfg, clock24h: config?.clock24h !== false, infoBarFontSize: config?.infoBarFontSize ?? 15 };
 
