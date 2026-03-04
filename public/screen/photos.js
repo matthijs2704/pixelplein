@@ -113,7 +113,7 @@ setInterval(() => {
 // Group filtering
 // ---------------------------------------------------------------------------
 
-function __getReadyPhotos(cfg) {
+function _getReadyPhotos(cfg) {
   const all = Array.from(photoRegistry.values()).filter(p => p.status === 'ready');
   if (!all.length) return [];
 
@@ -152,7 +152,7 @@ function __getReadyPhotos(cfg) {
  * @param {number}   recencyBias - 0..100
  * @returns {Map<string, number>}
  */
-function __buildRelativeRecencyMap(pool, recencyBias) {
+function _buildRelativeRecencyMap(pool, recencyBias) {
   const map = new Map();
   if (!pool.length) return map;
 
@@ -174,7 +174,7 @@ function __buildRelativeRecencyMap(pool, recencyBias) {
 }
 
 /**
- * Compute the selection weight for a single photo.
+ * Compute the base selection weight for a single photo.
  *
  * Weight components:
  *  1. Recency multiplier — relative rank within the current pool.
@@ -185,17 +185,19 @@ function __buildRelativeRecencyMap(pool, recencyBias) {
  *     penalty = 1 / (1 + showCount × 0.5)
  *  3. Recently-shown pushback — if shown in the last ~90 s, weight is
  *     scaled down further so the same photo doesn't repeat too quickly.
- *  4. heroCandidate flag — 2× boost (hero picker handles the main hero logic;
- *     this just makes candidates appear slightly more in non-hero slots too).
- *  5. preload readiness — photos already preloaded on the client are strongly
+ *  4. preload readiness — photos already preloaded on the client are strongly
  *     preferred so transitions avoid visible pop-in on slower links.
+ *
+ * Note: heroCandidate boosting is NOT included here — callers apply their own
+ * hero multiplier (HERO_CANDIDATE_BOOST or HERO_CANDIDATE_HERO_BOOST) so the
+ * two picking paths are decoupled.
  *
  * @param {Object}          photo
  * @param {Map<string,number>} recencyMap - pre-built relative recency multipliers
  * @param {number}          now
  * @returns {number} weight (> 0)
  */
-function __photoWeight(photo, recencyMap, now) {
+function _photoWeight(photo, recencyMap, now) {
   // 1. Relative recency multiplier
   const recencyMult = recencyMap.get(photo.id) ?? 1.0;
 
@@ -208,13 +210,10 @@ function __photoWeight(photo, recencyMap, now) {
   const recentAge  = now - shownAt;
   const recentMult = recentAge < RECENTLY_SHOWN_PUSHBACK_MS ? RECENTLY_SHOWN_PENALTY : 1.0;
 
-  // 4. heroCandidate flag
-  const heroBump = photo.heroCandidate ? HERO_CANDIDATE_BOOST : 1.0;
-
-  // 5. Prefer images already preloaded in browser cache
+  // 4. Prefer images already preloaded in browser cache
   const preloadMult = isPreloaded(photo.id) ? 1.0 : UNPRELOADED_PENALTY;
 
-  return recencyMult * fairnessMult * recentMult * heroBump * preloadMult;
+  return recencyMult * fairnessMult * recentMult * preloadMult;
 }
 
 function _aspectRatio(photo) {
@@ -308,6 +307,7 @@ export function pickPhotos(count, cfg, excludeIds = [], hardExcludeOtherScreen =
       if (_failsOrientationFilter(photo, orientation, enforceOrientation)) continue;
 
       let w = _photoWeight(photo, recencyMap, now);
+      if (photo.heroCandidate) w *= HERO_CANDIDATE_BOOST;
       if (!enforceOrientation && _matchesOrientation(photo, orientation)) {
         w *= orientationBoost;
       }
@@ -355,7 +355,7 @@ export function pickPhotos(count, cfg, excludeIds = [], hardExcludeOtherScreen =
  * @param {{ photo: Object, w: number }[]} candidates
  * @returns {Object|null} the selected photo
  */
-function __weightedRandom(candidates) {
+function _weightedRandom(candidates) {
   const total = candidates.reduce((s, c) => s + c.w, 0);
   if (total <= 0) return candidates[Math.floor(Math.random() * candidates.length)]?.photo || null;
 
@@ -431,10 +431,10 @@ export function pickHeroPhoto(cfg, heroLocks, myScreenId, options = {}) {
     const shownAt = heroShownAt.get(photo.id) || 0;
     if (now - shownAt < cooldownMs) continue;
 
-    // Score: use recency weight, then boost heroCandidate to HERO_CANDIDATE_HERO_BOOST
-    // (replaces the base HERO_CANDIDATE_BOOST already baked into _photoWeight)
+    // Score: base weight + heroCandidate boost (applied directly since
+    // _photoWeight no longer includes hero multiplier)
     let w = _photoWeight(photo, recencyMap, now);
-    if (photo.heroCandidate) w = (w / HERO_CANDIDATE_BOOST) * HERO_CANDIDATE_HERO_BOOST;
+    if (photo.heroCandidate) w *= HERO_CANDIDATE_HERO_BOOST;
 
     if (!enforceOrientation && _matchesOrientation(photo, orientation)) {
       w *= orientationBoost;
