@@ -123,6 +123,94 @@ function readyPoolSize(cfg) {
 }
 
 // ---------------------------------------------------------------------------
+// Layout builders — each returns { built, layoutType, duration?, slotEls? }
+// ---------------------------------------------------------------------------
+
+const _layoutBuilders = {
+  fullscreen(cfg) {
+    const photo = _pickAndClaimHero(cfg, { orientation: 'landscape' });
+    return { built: buildFullscreen(photo), layoutType: 'fullscreen' };
+  },
+
+  sidebyside(cfg) {
+    const photos = pickPhotos(2, cfg, [], true, {
+      orientation: 'portrait',
+      enforceOrientation: false,
+      orientationBoost: 1.25,
+      avoidRecentMs: 120_000,
+      allowRecentFallback: true,
+    });
+    return { built: buildSideBySide(photos), layoutType: 'sidebyside' };
+  },
+
+  featuredduo(cfg) {
+    const heroP = _pickAndClaimHero(cfg, { orientation: 'landscape' });
+    const support = pickPhotos(1, cfg, heroP ? [heroP.id] : [], true, {
+      orientation: 'portrait',
+      enforceOrientation: false,
+      orientationBoost: 1.25,
+      avoidRecentMs: 120_000,
+      allowRecentFallback: true,
+    });
+    return {
+      built: buildFeaturedDuo([heroP, support[0] || null].filter(Boolean)),
+      layoutType: 'featuredduo',
+    };
+  },
+
+  polaroid(cfg) {
+    const polaroidCount = POLAROID_MIN_COUNT + Math.floor(Math.random() * (POLAROID_MAX_COUNT - POLAROID_MIN_COUNT + 1));
+    const photos = pickPhotos(Math.min(polaroidCount, POLAROID_MAX_COUNT), cfg, [], false);
+    return { built: buildPolaroid(photos), layoutType: 'polaroid' };
+  },
+
+  mosaic(cfg) {
+    const heroSide = cfg.preferHeroSide || 'auto';
+    const tplName  = pickTemplate(cfg, _recentTemplates, heroSide);
+    _recentTemplates = [..._recentTemplates.slice(-3), tplName];
+
+    const tplDef     = TEMPLATE_DEFS[tplName];
+    const tplHasHero = tplDef ? tplDef.slots.some(s => s.hero) : false;
+
+    let heroPhoto = null;
+    if (tplHasHero) {
+      const heroSlot = tplDef.slots.find(s => s.hero) || null;
+      const heroOptions = heroSlot?.portrait
+        ? { orientation: 'portrait', enforceOrientation: false, orientationBoost: 1.25 }
+        : { orientation: 'landscape' };
+      heroPhoto = _pickAndClaimHero(cfg, heroOptions, false);
+    }
+
+    const totalSlots = tplDef ? tplDef.slots.filter(s => !s.recent).length : 6;
+    const slotCount  = totalSlots - (heroPhoto ? 1 : 0);
+    const others     = pickPhotos(Math.max(slotCount, 3), cfg, heroPhoto ? [heroPhoto.id] : []);
+
+    const built = buildMosaic(tplName, heroPhoto, others, cfg.minTilePx || 170, cfg);
+    return { built, layoutType: tplName, slotEls: built.slotEls };
+  },
+};
+
+/**
+ * Build a submission wall layout.  Returns null when the wall should be
+ * skipped (empty items + hideWhenEmpty), signalling runCycle to fall back.
+ */
+function _buildSubmissionWallLayout(cycleStart, submissionMode, hasSubmissions, hideWhenEmpty, wallOptions) {
+  const mode = submissionMode === 'off' ? 'both' : submissionMode;
+  const pageSize = 6;
+  const count = mode === 'single' ? 1 : pageSize * 4;
+  const items = hasSubmissions ? pickSubmissionWindow(count, Math.max(24, pageSize * 8)) : [];
+
+  if (!items.length && hideWhenEmpty) return null;
+
+  const effectiveMode = items.length ? mode : 'single';
+  const built = buildSubmissionWall(items, effectiveMode, wallOptions);
+  const duration = Math.max(5000, Math.min(120000, Number(_globalConfig?.submissionDisplayDurationSec || 12) * 1000));
+  _lastSubmissionWallAt = cycleStart;
+
+  return { built, layoutType: 'submissionwall', duration };
+}
+
+// ---------------------------------------------------------------------------
 // Core cycle
 // ---------------------------------------------------------------------------
 
@@ -159,14 +247,14 @@ async function runCycle() {
 
   const cycleStart = Date.now();
   const submissionMode = _globalConfig?.submissionDisplayMode || 'off';
-    const wallOptions = { ...getSubmissionWallOptions(), bottomInset: getBottomInset() };
+  const wallOptions = { ...getSubmissionWallOptions(), bottomInset: getBottomInset() };
   const hasSubmissions = hasApprovedSubmissions();
   const hideWhenEmpty = wallOptions.hideWhenEmpty !== false;
   const submissionsEnabled = submissionMode !== 'off' && (hasSubmissions || !hideWhenEmpty);
   const submissionIntervalMs = Math.max(10, Number(_globalConfig?.submissionDisplayIntervalSec || 45)) * 1000;
   const shouldRunSubmissionWall = submissionsEnabled && ((cycleStart - _lastSubmissionWallAt) >= submissionIntervalMs);
 
-  const poolSize   = readyPoolSize(cfg);
+  const poolSize = readyPoolSize(cfg);
 
   // Choose layout with graceful warm-up based on pool size:
   //   1 photo     → fullscreen only
@@ -198,99 +286,21 @@ async function runCycle() {
     layoutType = 'submissionwall';
   }
 
-  let built;
-  let mosaicSlotEls = null;
-  let duration = cfg.layoutDuration || DEFAULT_LAYOUT_DUR_MS;
-
-  // --- Social wall submissions ---
+  // ── Build the chosen layout ──────────────────────────────────────────────
+  let result;
   if (layoutType === 'submissionwall') {
-    const mode = submissionMode === 'off' ? 'both' : submissionMode;
-    // Fetch up to 4 pages worth of items so the wall can page through them;
-    // single mode still fetches just 1.
-    const pageSize = 6;
-    const count = mode === 'single' ? 1 : pageSize * 4;
-    const items = hasSubmissions ? pickSubmissionWindow(count, Math.max(24, pageSize * 8)) : [];
-
-    if (items.length || !hideWhenEmpty) {
-      const effectiveMode = items.length ? mode : 'single';
-      built = buildSubmissionWall(items, effectiveMode, wallOptions);
-      displayState.layoutType = 'submissionwall';
-      _lastSubmissionWallAt = cycleStart;
-      duration = Math.max(5000, Math.min(120000, Number(_globalConfig?.submissionDisplayDurationSec || 12) * 1000));
-    } else {
-      layoutType = 'fullscreen';
-    }
+    result = _buildSubmissionWallLayout(cycleStart, submissionMode, hasSubmissions, hideWhenEmpty, wallOptions);
+    if (!result) layoutType = 'fullscreen';  // fall back when wall is empty
+  }
+  if (!result) {
+    const builder = _layoutBuilders[layoutType] || _layoutBuilders.fullscreen;
+    result = builder(cfg);
   }
 
-  // --- Fullscreen ---
-  if (!built && layoutType === 'fullscreen') {
-    const photo = _pickAndClaimHero(cfg, { orientation: 'landscape' });
+  const { built, layoutType: resolvedType, slotEls = null } = result;
+  const duration = result.duration || cfg.layoutDuration || DEFAULT_LAYOUT_DUR_MS;
 
-    built = buildFullscreen(photo);
-    displayState.layoutType = 'fullscreen';
-  }
-
-  // --- Side by side ---
-  else if (!built && layoutType === 'sidebyside') {
-    const photos = pickPhotos(2, cfg, [], true, {
-      orientation: 'portrait',
-      enforceOrientation: false,
-      orientationBoost: 1.25,
-      avoidRecentMs: 120_000,
-      allowRecentFallback: true,
-    });
-    built = buildSideBySide(photos);
-    displayState.layoutType = 'sidebyside';
-  }
-
-  // --- Featured duo ---
-  else if (!built && layoutType === 'featuredduo') {
-    const heroP = _pickAndClaimHero(cfg, { orientation: 'landscape' });
-    const support = pickPhotos(1, cfg, heroP ? [heroP.id] : [], true, {
-      orientation: 'portrait',
-      enforceOrientation: false,
-      orientationBoost: 1.25,
-      avoidRecentMs: 120_000,
-      allowRecentFallback: true,
-    });
-    built = buildFeaturedDuo([heroP, support[0] || null].filter(Boolean));
-    displayState.layoutType = 'featuredduo';
-  }
-
-  // --- Polaroid ---
-  else if (!built && layoutType === 'polaroid') {
-    const polaroidCount = POLAROID_MIN_COUNT + Math.floor(Math.random() * (POLAROID_MAX_COUNT - POLAROID_MIN_COUNT + 1));
-    const photos = pickPhotos(Math.min(polaroidCount, POLAROID_MAX_COUNT), cfg, [], false);
-    built = buildPolaroid(photos);
-    displayState.layoutType = 'polaroid';
-  }
-
-  // --- Mosaic ---
-  else if (!built) {
-    const heroSide = cfg.preferHeroSide || 'auto';
-    const tplName  = pickTemplate(cfg, _recentTemplates, heroSide);
-    _recentTemplates = [..._recentTemplates.slice(-3), tplName];
-
-    const tplDef     = TEMPLATE_DEFS[tplName];
-    const tplHasHero = tplDef ? tplDef.slots.some(s => s.hero) : false;
-
-    let heroPhoto = null;
-    if (tplHasHero) {
-      const heroSlot = tplDef.slots.find(s => s.hero) || null;
-      const heroOptions = heroSlot?.portrait
-        ? { orientation: 'portrait', enforceOrientation: false, orientationBoost: 1.25 }
-        : { orientation: 'landscape' };
-      heroPhoto = _pickAndClaimHero(cfg, heroOptions, false);
-    }
-
-    const totalSlots = tplDef ? tplDef.slots.filter(s => !s.recent).length : 6;
-    const slotCount  = totalSlots - (heroPhoto ? 1 : 0);
-    const others     = pickPhotos(Math.max(slotCount, 3), cfg, heroPhoto ? [heroPhoto.id] : []);
-
-    built         = buildMosaic(tplName, heroPhoto, others, cfg.minTilePx || 170, cfg);
-    mosaicSlotEls = built.slotEls;
-    displayState.layoutType = tplName;
-  }
+  displayState.layoutType = resolvedType;
 
   const newEl      = built.el;
   const visibleIds = built.visibleIds;
@@ -318,8 +328,8 @@ async function runCycle() {
   displayState.focusGroup          = cfg.groupMode === 'manual' ? cfg.activeGroup : null;
 
   // Run mosaic tile swaps if applicable
-  if (mosaicSlotEls) {
-    runMosaicTransitions(mosaicSlotEls, cfg, cycleStart, (count, options = {}) =>
+  if (slotEls) {
+    runMosaicTransitions(slotEls, cfg, cycleStart, (count, options = {}) =>
       pickPhotos(
         count,
         cfg,
