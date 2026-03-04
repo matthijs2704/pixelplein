@@ -226,6 +226,33 @@ function _applySlotToEl(slot, containerEl, labelEl, nameEl, locEl, timeEl) {
  *
  * After updating both slots the divider strip is rebuilt via `_updateDividers()`.
  */
+
+/**
+ * Fade-transition a slot container to new content.
+ * If the slot is currently hidden (display:none or opacity:0), the new content
+ * is applied immediately and faded in.  Otherwise the slot fades out first,
+ * swaps content, then fades back in.
+ *
+ * @param {Object|null} slot       - resolved slot descriptor (or null to hide)
+ * @param {HTMLElement}  containerEl
+ * @param {HTMLElement}  labelEl
+ * @param {HTMLElement}  nameEl
+ * @param {HTMLElement}  locEl
+ * @param {HTMLElement}  timeEl
+ */
+function _fadeSlotTransition(slot, containerEl, labelEl, nameEl, locEl, timeEl) {
+  if (containerEl.style.display === 'none' || containerEl.style.opacity === '0') {
+    _applySlotToEl(slot, containerEl, labelEl, nameEl, locEl, timeEl);
+    containerEl.style.opacity = '0';
+    requestAnimationFrame(() => { containerEl.style.opacity = '1'; });
+  } else {
+    containerEl.style.opacity = '0';
+    setTimeout(() => {
+      _applySlotToEl(slot, containerEl, labelEl, nameEl, locEl, timeEl);
+      containerEl.style.opacity = '1';
+    }, EVENT_FADE_MS);
+  }
+}
 function _refreshEventSlot() {
   if (!_eventEl) return;
   const showCurrent = _cfg.infoBarShowCurrentEvent !== false;
@@ -257,18 +284,7 @@ function _refreshEventSlot() {
     }
   } else {
     _prevEventSnapshot = { ...(_prevEventSnapshot), name: newName, timeVisible: newTimeVisible, visible: newVisible, kind: newKind };
-
-    if (_eventEl.style.display === 'none' || _eventEl.style.opacity === '0') {
-      _applySlotToEl(primary, _eventEl, _eventLabelEl, _eventNameEl, _eventLocEl, _eventTimeEl);
-      _eventEl.style.opacity = '0';
-      requestAnimationFrame(() => { _eventEl.style.opacity = '1'; });
-    } else {
-      _eventEl.style.opacity = '0';
-      setTimeout(() => {
-        _applySlotToEl(primary, _eventEl, _eventLabelEl, _eventNameEl, _eventLocEl, _eventTimeEl);
-        _eventEl.style.opacity = '1';
-      }, EVENT_FADE_MS);
-    }
+    _fadeSlotTransition(primary, _eventEl, _eventLabelEl, _eventNameEl, _eventLocEl, _eventTimeEl);
   }
 
   // ── Secondary slot ────────────────────────────────────────────────────────
@@ -289,18 +305,7 @@ function _refreshEventSlot() {
       }
     } else {
       _prevEventSnapshot = { ...(_prevEventSnapshot), name2: newName2, visible2: newVisible2 };
-
-      if (_event2El.style.display === 'none' || _event2El.style.opacity === '0') {
-        _applySlotToEl(secondary, _event2El, _event2LabelEl, _event2NameEl, _event2LocEl, _event2TimeEl);
-        _event2El.style.opacity = '0';
-        requestAnimationFrame(() => { _event2El.style.opacity = '1'; });
-      } else {
-        _event2El.style.opacity = '0';
-        setTimeout(() => {
-          _applySlotToEl(secondary, _event2El, _event2LabelEl, _event2NameEl, _event2LocEl, _event2TimeEl);
-          _event2El.style.opacity = '1';
-        }, EVENT_FADE_MS);
-      }
+      _fadeSlotTransition(secondary, _event2El, _event2LabelEl, _event2NameEl, _event2LocEl, _event2TimeEl);
     }
   }
 
