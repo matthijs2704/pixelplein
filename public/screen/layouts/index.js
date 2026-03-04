@@ -232,6 +232,7 @@ async function runCycle() {
   if (shouldPlaySlide) {
     _photoCycleCount = 0;
     const played = await runNextSlide(_currentEl);
+    if (!_running) return;
     if (played) {
       // The slide runner swapped _currentEl via runTransition.
       // Sync our pointer to the new element.
@@ -319,6 +320,7 @@ async function runCycle() {
 
   // Transition
   await runTransition(_currentEl, newEl, cfg.transition || 'fade', cfg.transitionTime || 800);
+  if (!_running) return;
   _currentEl = newEl;
 
   // Update display state
