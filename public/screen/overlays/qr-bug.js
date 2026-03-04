@@ -3,7 +3,8 @@
 // Appearance is driven by CSS custom properties; all have fallbacks matching the
 // original hardcoded defaults so the widget looks identical when no theme is active.
 
-import { cornerStyle } from './_overlay-utils.js';
+import { cornerStyle }  from './_overlay-utils.js';
+import { el }           from '../../../shared/utils.js';
 
 let _qrBugEl  = null;
 let _lastUrl  = null;
@@ -34,23 +35,16 @@ export async function mountQrBug(cfg, safeInsets = {}) {
 
   if (!imgSrc) return;
 
-  const el = document.createElement('div');
-  el.id = 'overlay-qr-bug';
-  el.setAttribute('style', cornerStyle(cfg.qrBugCorner, safeInsets, '--qr-bug-offset', 'bottom-right'));
+  const qrBugEl = el('div', {
+    id:    'overlay-qr-bug',
+    attrs: { style: cornerStyle(cfg.qrBugCorner, safeInsets, '--qr-bug-offset', 'bottom-right') },
+  },
+    el('img', { src: imgSrc }),
+    cfg.qrBugLabel ? el('div', { cls: 'qr-bug-label', text: cfg.qrBugLabel }) : null,
+  );
 
-  const img = document.createElement('img');
-  img.src = imgSrc;
-  el.appendChild(img);
-
-  if (cfg.qrBugLabel) {
-    const label = document.createElement('div');
-    label.className = 'qr-bug-label';
-    label.textContent = cfg.qrBugLabel;
-    el.appendChild(label);
-  }
-
-  document.body.appendChild(el);
-  _qrBugEl = el;
+  document.body.appendChild(qrBugEl);
+  _qrBugEl = qrBugEl;
   _lastUrl  = cfg.qrBugUrl;
 }
 

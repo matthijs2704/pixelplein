@@ -4,7 +4,7 @@ import { TEMPLATE_DEFS } from '../templates.js';
 import { applySmartFit }  from '../fit.js';
 import { crossFadeSlot, startKenBurns }  from '../transitions.js';
 import { pickPhotos, pickNewestPhotos, arrangePhotosForSlots } from '../photos.js';
-import { shuffle, photoUrl, photoThumbUrl } from '../../shared/utils.js';
+import { shuffle, photoUrl, photoThumbUrl, el } from '../../shared/utils.js';
 
 function _parseGridArea(area) {
   const parts = String(area || '').split('/').map(s => Number(s.trim()));
@@ -49,10 +49,9 @@ function _photoUrlForSlot(photo, slotDef, tpl) {
 export function buildMosaic(templateName, heroPhoto, otherPhotos, minTilePx, cfg) {
   const tpl = TEMPLATE_DEFS[templateName] || TEMPLATE_DEFS['hero-left-9'];
 
-  const el = document.createElement('div');
-  el.className = 'layout layout-mosaic';
-  el.style.gridTemplateColumns = `repeat(${tpl.cols},1fr)`;
-  el.style.gridTemplateRows    = `repeat(${tpl.rows},1fr)`;
+  const rootEl = el('div', { cls: 'layout layout-mosaic' });
+  rootEl.style.gridTemplateColumns = `repeat(${tpl.cols},1fr)`;
+  rootEl.style.gridTemplateRows    = `repeat(${tpl.rows},1fr)`;
 
   // Separate slots by type: hero, recent, normal
   const normalSlots = tpl.slots.filter(s => !s.hero && !s.recent);
@@ -86,9 +85,7 @@ export function buildMosaic(templateName, heroPhoto, otherPhotos, minTilePx, cfg
   let heroImg      = null;  // kept for Ken Burns
 
   tpl.slots.forEach((slotDef) => {
-    const slot = document.createElement('div');
-    slot.className = 'mosaic-slot';
-    slot.style.gridArea = slotDef.area;
+    const slot = el('div', { cls: 'mosaic-slot', attrs: { style: `grid-area:${slotDef.area}` } });
 
     let photo;
     if (slotDef.hero)   photo = heroPhoto;
@@ -96,29 +93,27 @@ export function buildMosaic(templateName, heroPhoto, otherPhotos, minTilePx, cfg
     else                photo = arranged[normalIdx++];
 
     if (photo) {
-      const img = document.createElement('img');
       const preferThumb = _shouldPreferThumb(slotDef, tpl);
-      img.src   = _photoUrlForSlot(photo, slotDef, tpl);
-      img.alt   = photo.name;
+      const img = el('img', { src: _photoUrlForSlot(photo, slotDef, tpl), alt: photo.name });
       applySmartFit(img, photo, Boolean(slotDef.portrait));
       slot.appendChild(img);
-      slot.dataset.photoId  = photo.id;
-      slot.dataset.isHero   = slotDef.hero     ? '1' : '0';
-      slot.dataset.isRecent = slotDef.recent   ? '1' : '0';
-      slot.dataset.preferThumb = preferThumb ? '1' : '0';
-      slot.dataset.portrait = slotDef.portrait ? '1' : '0';
+      slot.dataset.photoId     = photo.id;
+      slot.dataset.isHero      = slotDef.hero     ? '1' : '0';
+      slot.dataset.isRecent    = slotDef.recent   ? '1' : '0';
+      slot.dataset.preferThumb = preferThumb      ? '1' : '0';
+      slot.dataset.portrait    = slotDef.portrait ? '1' : '0';
       visibleIds.push(photo.id);
       if (slotDef.hero) heroImg = img;
     } else {
       slot.classList.add('mosaic-slot-empty');
     }
 
-    el.appendChild(slot);
+    rootEl.appendChild(slot);
     slotEls.push(slot);
   });
 
   return {
-    el,
+    el: rootEl,
     visibleIds,
     slotEls,
     templateName,

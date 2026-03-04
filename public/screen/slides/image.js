@@ -2,6 +2,8 @@
 // Shows a static image fullscreen with configurable fit mode and optional
 // Ken Burns motion. Duration is controlled by durationSec.
 
+import { el, slideDurationMs } from '../../shared/utils.js';
+
 /**
  * @param {object} slide
  *   slide.filename  - filename inside slide-assets/images/
@@ -11,24 +13,17 @@
  */
 export function buildImageSlide(slide) {
   const fit        = slide.fit || 'contain';
-  const durationMs = (slide.durationSec || 10) * 1000;
+  const durationMs = slideDurationMs(slide, 10);
   const src        = `/slide-assets/images/${encodeURIComponent(slide.filename || '')}`;
 
-  const wrap = document.createElement('div');
-  wrap.className = 'slide-image';
+  const imgCls = fit === 'kenburns' ? 'si-kenburns'
+               : fit === 'cover'    ? 'si-cover'
+               :                     'si-contain';
 
-  const img = document.createElement('img');
-  img.src = src;
-  img.alt = slide.label || '';
+  const img = el('img', { src, alt: slide.label || '', cls: imgCls });
+  if (fit === 'kenburns') img.style.setProperty('--kb-dur', `${durationMs}ms`);
 
-  if (fit === 'kenburns') {
-    img.className = 'si-kenburns';
-    img.style.setProperty('--kb-dur', `${durationMs}ms`);
-  } else {
-    img.className = fit === 'cover' ? 'si-cover' : 'si-contain';
-  }
-
-  wrap.appendChild(img);
+  const wrap = el('div', { cls: 'slide-image' }, img);
 
   function play() {
     return new Promise(resolve => {

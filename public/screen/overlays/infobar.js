@@ -8,7 +8,7 @@
 //
 // Themeable via CSS custom properties; all have sensible fallbacks.
 
-import { fmtDuration }                     from '../../../shared/utils.js';
+import { fmtDuration, el }                     from '../../../shared/utils.js';
 import { startTickerScroll, startTickerFade } from './_overlay-utils.js';
 
 let _barEl        = null;
@@ -330,9 +330,7 @@ function _updateDividers() {
 
   // Insert dividers between adjacent visible slots
   for (let i = 0; i < slots.length - 1; i++) {
-    const div = document.createElement('div');
-    div.className = 'infobar-divider';
-    slots[i].insertAdjacentElement('afterend', div);
+    slots[i].insertAdjacentElement('afterend', el('div', { cls: 'infobar-divider' }));
   }
 }
 
@@ -346,25 +344,14 @@ function _updateDividers() {
  * @returns {{ slotEl, labelEl, nameEl, locEl, timeEl }}
  */
 function _makeEventSlot(suffix) {
-  const slotEl  = document.createElement('div');
-  slotEl.id = `overlay-infobar-event${suffix}`;
-  slotEl.style.display = 'none';
+  const labelEl = el('span', { id: `overlay-infobar-event${suffix}-label` });
+  const nameEl  = el('span', { id: `overlay-infobar-event${suffix}-name` });
+  const locEl   = el('span', { id: `overlay-infobar-event${suffix}-loc` });
+  const timeEl  = el('span', { id: `overlay-infobar-event${suffix}-time` });
 
-  const labelEl = document.createElement('span');
-  labelEl.id = `overlay-infobar-event${suffix}-label`;
-  slotEl.appendChild(labelEl);
-
-  const nameEl = document.createElement('span');
-  nameEl.id = `overlay-infobar-event${suffix}-name`;
-  slotEl.appendChild(nameEl);
-
-  const locEl = document.createElement('span');
-  locEl.id = `overlay-infobar-event${suffix}-loc`;
-  slotEl.appendChild(locEl);
-
-  const timeEl = document.createElement('span');
-  timeEl.id = `overlay-infobar-event${suffix}-time`;
-  slotEl.appendChild(timeEl);
+  const slotEl = el('div', { id: `overlay-infobar-event${suffix}`, styles: { display: 'none' } },
+    labelEl, nameEl, locEl, timeEl,
+  );
 
   return { slotEl, labelEl, nameEl, locEl, timeEl };
 }
@@ -374,14 +361,11 @@ function _makeEventSlot(suffix) {
 // ---------------------------------------------------------------------------
 
 function _buildBar(cfg) {
-  const bar = document.createElement('div');
-  bar.id = 'overlay-infobar';
+  const bar = el('div', { id: 'overlay-infobar' });
 
   // Clock slot
   if (cfg.infoBarShowClock !== false) {
-    _clockEl = document.createElement('div');
-    _clockEl.id = 'overlay-infobar-clock';
-    _clockEl.textContent = _formatClock();
+    _clockEl = el('div', { id: 'overlay-infobar-clock', text: _formatClock() });
     bar.appendChild(_clockEl);
   } else {
     _clockEl = null;
@@ -418,11 +402,8 @@ function _buildBar(cfg) {
     const mode  = cfg.tickerMode  || 'scroll';
     const align = cfg.tickerAlign || 'start';
 
-    _tickerEl = document.createElement('div');
-    _tickerEl.id = 'overlay-infobar-ticker';
-
-    _tickerInner = document.createElement('div');
-    _tickerInner.id = 'overlay-infobar-ticker-inner';
+    _tickerEl    = el('div', { id: 'overlay-infobar-ticker' });
+    _tickerInner = el('div', { id: 'overlay-infobar-ticker-inner' });
 
     if (mode === 'fade') {
       // Alignment applies in fade mode — set justify-content on container

@@ -14,6 +14,7 @@
 // is active.
 
 import { startTickerScroll, startTickerFade } from './_overlay-utils.js';
+import { el }                                  from '../../../shared/utils.js';
 
 let _tickerEl  = null;
 let _stopAnim  = () => {};
@@ -23,18 +24,17 @@ let _stopAnim  = () => {};
 // ---------------------------------------------------------------------------
 
 function _createWrap(cfg) {
-  const wrap = document.createElement('div');
-  wrap.id = 'overlay-ticker';
+  const wrap = el('div', { id: 'overlay-ticker' });
   wrap.classList.add(cfg.tickerPosition === 'top' ? 'ticker-top' : 'ticker-bottom');
   return wrap;
 }
 
 function _createInner(text, forFade) {
-  const inner = document.createElement('div');
-  inner.id = 'overlay-ticker-inner';
-  if (!forFade) inner.style.paddingLeft = '100vw';
-  inner.textContent = text;
-  return inner;
+  return el('div', {
+    id:     'overlay-ticker-inner',
+    text,
+    styles: forFade ? {} : { paddingLeft: '100vw' },
+  });
 }
 
 // Map tickerAlign → CSS justify-content value for the wrap element
