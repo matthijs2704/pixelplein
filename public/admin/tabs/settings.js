@@ -188,7 +188,8 @@ async function _loadOidcSection() {
     _setVal('oidc-issuer', oidc?.issuerUrl || '');
     _setVal('oidc-client-id', oidc?.clientId || '');
     _setVal('oidc-client-secret', oidc?.clientSecret || '');
-    _setVal('oidc-redirect-uri', oidc?.redirectUri || `${location.origin}/api/auth/oidc/callback`);
+    const callbackBase = _getConfig?.()?.publicBaseUrl || location.origin;
+    _setVal('oidc-redirect-uri', oidc?.redirectUri || `${callbackBase}/api/auth/oidc/callback`);
     _setVal('oidc-provider-name', oidc?.providerName || '');
     _setVal('oidc-allowed-emails', Array.isArray(oidc?.allowedEmails) ? oidc.allowedEmails.join('\n') : '');
 

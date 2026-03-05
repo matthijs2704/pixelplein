@@ -137,7 +137,7 @@ function _buildOverlayForm(screenId) {
           </div>
           <div class="field">
             <label for="ov-${prefix}-qrbug-url">URL to encode</label>
-            <input type="text" id="ov-${prefix}-qrbug-url" placeholder="https://...">
+            <input type="text" id="ov-${prefix}-qrbug-url" placeholder="${_getConfig?.()?.publicBaseUrl ? _getConfig().publicBaseUrl + '/submit' : 'https://...'}">
           </div>
           <div class="field">
             <label for="ov-${prefix}-qrbug-label">Label (optional)</label>

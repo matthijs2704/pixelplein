@@ -152,12 +152,13 @@ async function boot() {
 
   const PORT = process.env.PORT || 3000;
   server.listen(PORT, '0.0.0.0', () => {
+    const base = getConfig().publicBaseUrl || `http://<your-ip>:${PORT}`;
     console.log(`\nPixelPlein running on http://0.0.0.0:${PORT}`);
-    console.log(`  Screen 1   : http://<your-ip>:${PORT}/screen.html?screen=1`);
-    console.log(`  Screen 2   : http://<your-ip>:${PORT}/screen.html?screen=2`);
-    console.log(`  Admin      : http://<your-ip>:${PORT}/admin.html`);
-    console.log(`  Login      : http://<your-ip>:${PORT}/login.html`);
-    console.log(`  Preview    : http://<your-ip>:${PORT}/preview.html`);
+    console.log(`  Screen 1   : ${base}/screen.html?screen=1`);
+    console.log(`  Screen 2   : ${base}/screen.html?screen=2`);
+    console.log(`  Admin      : ${base}/admin.html`);
+    console.log(`  Login      : ${base}/login.html`);
+    console.log(`  Preview    : ${base}/preview.html`);
     console.log(`  Photos     : ${PHOTOS_DIR}`);
     console.log(`  Cache      : ${CACHE_DIR}`);
     console.log(`  Videos     : ${VIDEOS_DIR}`);
