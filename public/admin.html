@@ -22,7 +22,7 @@
     <div class="nav-section">
       <div class="nav-section-label">Manage</div>
       <button class="nav-item active" data-page="screens">
-        <span class="nav-icon"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" class="icon" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M9 17.25v1.007a3 3 0 0 1-.879 2.122L7.5 21h9l-.621-.621A3 3 0 0 1 15 18.257V17.25m6-12V15a2.25 2.25 0 0 1-2.25 2.25H5.25A2.25 2.25 0 0 1 3 15V5.25m18 0A2.25 2.25 0 0 0 18.75 3H5.25A2.25 2.25 0 0 0 3 5.25m18 0H3"/></svg></span> Screens
+        <span class="nav-icon"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" class="icon" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M9 17.25v1.007a3 3 0 0 1-.879 2.122L7.5 21h9l-.621-.621A3 3 0 0 1 15 18.257V17.25m6-12V15a2.25 2.25 0 0 1-2.25 2.25H5.25A2.25 2.25 0 0 1 3 15V5.25m18 0A2.25 2.25 0 0 0 18.75 3H5.25A2.25 2.25 0 0 0 3 5.25m18 0H3"/></svg></span> Dashboard
       </button>
       <button class="nav-item" data-page="playlists">
         <span class="nav-icon"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" class="icon" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M5.25 5.653c0-.856.917-1.398 1.667-.986l11.54 6.347a1.125 1.125 0 0 1 0 1.972l-11.54 6.347a1.125 1.125 0 0 1-1.667-.986V5.653Z"/></svg></span> Playlists
@@ -35,9 +35,6 @@
       </button>
       <button class="nav-item" data-page="signage">
         <span class="nav-icon"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" class="icon" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M3.75 6A2.25 2.25 0 0 1 6 3.75h2.25A2.25 2.25 0 0 1 10.5 6v2.25a2.25 2.25 0 0 1-2.25 2.25H6a2.25 2.25 0 0 1-2.25-2.25V6ZM3.75 15.75A2.25 2.25 0 0 1 6 13.5h2.25a2.25 2.25 0 0 1 2.25 2.25V18a2.25 2.25 0 0 1-2.25 2.25H6A2.25 2.25 0 0 1 3.75 18v-2.25ZM13.5 6a2.25 2.25 0 0 1 2.25-2.25H18A2.25 2.25 0 0 1 20.25 6v2.25A2.25 2.25 0 0 1 18 10.5h-2.25a2.25 2.25 0 0 1-2.25-2.25V6ZM13.5 15.75a2.25 2.25 0 0 1 2.25-2.25H18a2.25 2.25 0 0 1 2.25 2.25V18A2.25 2.25 0 0 1 18 20.25h-2.25A2.25 2.25 0 0 1 13.5 18v-2.25Z"/></svg></span> Signage
-      </button>
-      <button class="nav-item" data-page="alerts">
-        <span class="nav-icon"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" class="icon" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M14.857 17.082a23.848 23.848 0 0 0 5.454-1.31A8.967 8.967 0 0 1 18 9.75V9A6 6 0 0 0 6 9v.75a8.967 8.967 0 0 1-2.312 6.022c1.733.64 3.56 1.085 5.455 1.31m5.714 0a24.255 24.255 0 0 1-5.714 0m5.714 0a3 3 0 1 1-5.714 0"/></svg></span> Alerts
         <span class="nav-badge" id="nav-alerts-badge" style="display:none">0</span>
       </button>
       <button class="nav-item" data-page="schedule">
@@ -70,7 +67,7 @@
 
     <!-- Global save bar -->
     <div class="save-bar">
-      <span class="save-bar-title" id="page-title">Screens</span>
+      <span class="save-bar-title" id="page-title">Dashboard</span>
       <span class="save-bar-dirty" id="save-dirty">Unsaved changes</span>
       <div id="toast"></div>
       <button class="btn btn-secondary btn-sm" id="btn-revert">Revert</button>
@@ -78,9 +75,9 @@
       <button class="btn btn-secondary btn-sm" id="btn-fallback" style="display:none">Safe Fallback</button>
     </div>
 
-    <!-- ── Screens page ──────────────────────────────────────────────────── -->
+    <!-- ── Dashboard (Screens) page ─────────────────────────────────────── -->
     <div class="page active" data-page="screens">
-      <div class="page-body" style="max-width:1000px">
+      <div class="page-body" style="max-width:1100px">
 
         <!-- Health stats -->
         <div>
@@ -112,75 +109,135 @@
           </div>
         </div>
 
-        <!-- Screen cards -->
+        <!-- Screen cards (compact) -->
         <div>
-          <div class="section-label">Screen Configuration</div>
+          <div class="section-label">Screens</div>
           <div class="screens-grid" id="screens-grid-container"></div>
         </div>
 
-        <!-- Quick controls (shared) -->
-        <div class="card">
-          <div class="card-title">Quick Controls (both screens)</div>
-          <div class="quick-controls">
+        <!-- Quick Controls + Quick Alert / Activity -->
+        <div class="dashboard-split">
 
-            <div class="field">
-              <label for="q-group">Active focus group</label>
-              <select id="q-group"><option value="auto">Auto (all groups)</option></select>
-              <div class="quick-hint">Which event group to feature. Auto shows all groups equally.</div>
-            </div>
+          <!-- Quick Controls (left, wider) -->
+          <div class="card">
+            <div class="card-title">Quick Controls</div>
+            <div class="quick-controls">
 
-            <div class="field">
-              <label>Pace</label>
-              <div class="range-row">
-                <span class="muted" style="font-size:11px">Slow</span>
-                <input type="range" id="q-pace" min="0" max="100" step="1" value="50">
-                <span class="muted" style="font-size:11px">Fast</span>
-                <span class="range-val" id="q-pace-val">50%</span>
+              <div class="field">
+                <label for="q-group">Focus group</label>
+                <select id="q-group"><option value="auto">Auto (all groups)</option></select>
               </div>
-              <div class="quick-hint">How quickly layouts cycle and photos transition. Slow feels relaxed; fast keeps energy high.</div>
-            </div>
 
-            <div class="field">
-              <label>Story focus</label>
-              <div class="range-row">
-                <span class="muted" style="font-size:11px">Mixed</span>
-                <input type="range" id="q-story-focus" min="0" max="100" step="1" value="50">
-                <span class="muted" style="font-size:11px">Focused</span>
-                <span class="range-val" id="q-story-focus-val">50%</span>
+              <div class="field">
+                <label>Pace <span class="range-val" id="q-pace-val" style="margin-left:6px">50%</span></label>
+                <div class="range-row">
+                  <span class="muted" style="font-size:11px">Slow</span>
+                  <input type="range" id="q-pace" min="0" max="100" step="1" value="50">
+                  <span class="muted" style="font-size:11px">Fast</span>
+                </div>
               </div>
-              <div class="quick-hint">With a group selected: how much to mix in photos from other groups. In auto mode: how long the hero photo lingers before rotating to a new one.</div>
-            </div>
 
-            <div class="field">
-              <label>Screen energy</label>
-              <div class="range-row">
-                <span class="muted" style="font-size:11px">Calm</span>
-                <input type="range" id="q-energy" min="0" max="100" step="1" value="25">
-                <span class="muted" style="font-size:11px">Active</span>
-                <span class="range-val" id="q-energy-val">25%</span>
+              <div class="field">
+                <label>Story focus <span class="range-val" id="q-story-focus-val" style="margin-left:6px">50%</span></label>
+                <div class="range-row">
+                  <span class="muted" style="font-size:11px">Mixed</span>
+                  <input type="range" id="q-story-focus" min="0" max="100" step="1" value="50">
+                  <span class="muted" style="font-size:11px">Focused</span>
+                </div>
               </div>
-              <div class="quick-hint">How often mosaic tiles swap out during a layout cycle. Has no effect on fullscreen or side-by-side layouts.</div>
-            </div>
 
-            <div class="field">
-              <label>Recency bias <span class="range-val" id="q-recency-val" style="margin-left:6px">60%</span></label>
-              <div class="range-row">
-                <span class="muted" style="font-size:11px">Fair</span>
-                <input type="range" id="q-recency" min="0" max="100" step="1" value="60">
-                <span class="muted" style="font-size:11px">Fresh</span>
+              <div class="field">
+                <label>Energy <span class="range-val" id="q-energy-val" style="margin-left:6px">25%</span></label>
+                <div class="range-row">
+                  <span class="muted" style="font-size:11px">Calm</span>
+                  <input type="range" id="q-energy" min="0" max="100" step="1" value="25">
+                  <span class="muted" style="font-size:11px">Active</span>
+                </div>
               </div>
-              <div class="quick-hint">How strongly newer photos are favoured. <strong>Fair</strong> gives all photos equal weight. <strong>Fresh</strong> aggressively surfaces recent uploads — photos from the last few minutes appear far more often than older ones.</div>
+
+              <div class="field">
+                <label>Recency bias <span class="range-val" id="q-recency-val" style="margin-left:6px">60%</span></label>
+                <div class="range-row">
+                  <span class="muted" style="font-size:11px">Fair</span>
+                  <input type="range" id="q-recency" min="0" max="100" step="1" value="60">
+                  <span class="muted" style="font-size:11px">Fresh</span>
+                </div>
+              </div>
+
+              <div class="field">
+                <label style="display:flex;align-items:center;gap:8px;cursor:pointer">
+                  <input type="checkbox" id="q-ken-burns" checked>
+                  Ken Burns motion
+                </label>
+              </div>
+
+            </div>
+          </div>
+
+          <!-- Right column: Quick Alert + Activity -->
+          <div class="dash-right-col">
+
+            <!-- Quick Alert (compact, uses global defaults) -->
+            <div class="card">
+              <div class="card-title" style="display:flex;align-items:center;gap:10px">
+                Quick Alert
+                <span id="dash-alert-live-count" class="status-pill live" style="display:none"></span>
+              </div>
+              <div class="quick-controls">
+                <div class="field">
+                  <label for="dash-qa-message">Message</label>
+                  <div class="dash-qa-input-row">
+                    <input id="dash-qa-message" type="text" maxlength="400" placeholder="Dinner is ready!">
+                    <button id="dash-qa-fire" class="btn btn-primary btn-sm">Fire</button>
+                  </div>
+                </div>
+                <div class="dash-qa-defaults-hint muted" id="dash-qa-defaults-hint">
+                  Uses default style &amp; position
+                </div>
+                <details class="dash-qa-customize" id="dash-qa-customize">
+                  <summary>Customize style &amp; position</summary>
+                  <div class="dash-qa-customize-body">
+                    <div class="field">
+                      <label for="dash-qa-style">Style</label>
+                      <select id="dash-qa-style">
+                        <option value="banner">Banner</option>
+                        <option value="popup">Popup</option>
+                        <option value="countdown">Countdown</option>
+                      </select>
+                    </div>
+                    <div class="field">
+                      <label for="dash-qa-position">Position</label>
+                      <select id="dash-qa-position">
+                        <option value="top-center">Top center</option>
+                        <option value="top-left">Top left</option>
+                        <option value="top-right">Top right</option>
+                        <option value="bottom-center">Bottom center</option>
+                        <option value="bottom-left">Bottom left</option>
+                        <option value="bottom-right">Bottom right</option>
+                        <option value="center">Center (popup)</option>
+                      </select>
+                    </div>
+                  </div>
+                </details>
+              </div>
+              <div id="dash-qa-live-list" class="alert-list" style="margin-top:12px"></div>
             </div>
 
-            <div class="field">
-              <label style="display:flex;align-items:center;gap:8px;cursor:pointer">
-                <input type="checkbox" id="q-ken-burns" checked>
-                Ken Burns motion
-              </label>
-              <div class="quick-hint">Slow zoom and pan on fullscreen, hero, and side-by-side photos. Disable if the motion feels distracting.</div>
+            <!-- Activity summary -->
+            <div class="card">
+              <div class="card-title">Activity</div>
+              <div class="dash-activity">
+                <div id="dash-events-summary">
+                  <div class="muted" style="font-size:12px">No events scheduled.</div>
+                </div>
+                <div id="dash-submissions-summary">
+                  <div class="muted" style="font-size:12px">No pending submissions.</div>
+                </div>
+              </div>
             </div>
 
           </div>
+
         </div>
 
         <!-- Photo Groups -->
@@ -285,66 +342,13 @@
     <div class="page" data-page="signage">
       <div class="page-body" style="max-width:980px">
         <p style="font-size:13px;color:var(--muted);margin-bottom:16px">
-          Persistent overlays sit on top of photo and slide content at all times. Configure per-screen ticker, corner bug, QR code, and info bar here.
+          Fire alerts, configure overlay defaults, and set per-screen overrides.
         </p>
 
-        <!-- Global overlay settings -->
-        <details class="section" open style="margin-bottom:16px">
-          <summary>Global Settings</summary>
-          <div class="section-body">
-            <div class="section-label" style="margin-bottom:8px">Clock</div>
-            <div class="check-row">
-              <input type="checkbox" id="ov-global-clock24h">
-              <label for="ov-global-clock24h">24-hour clock (applies to all info bars)</label>
-            </div>
-            <div class="section-label" style="margin-top:16px;margin-bottom:8px">Info bar</div>
-            <div class="field" style="max-width:160px">
-              <label for="ov-global-infobar-font-size">Font size (px)</label>
-              <input type="number" id="ov-global-infobar-font-size" min="8" max="60">
-            </div>
-            <div class="section-label" style="margin-top:16px;margin-bottom:8px">Schedule alert defaults</div>
-            <div class="two-col">
-              <div class="field">
-                <label for="ov-global-sched-style">Alert style</label>
-                <select id="ov-global-sched-style">
-                  <option value="banner">Banner</option>
-                  <option value="popup">Popup</option>
-                  <option value="countdown">Countdown</option>
-                </select>
-              </div>
-              <div class="field">
-                <label for="ov-global-sched-position">Alert position</label>
-                <select id="ov-global-sched-position">
-                  <option value="top-center">Top center</option>
-                  <option value="top-left">Top left</option>
-                  <option value="top-right">Top right</option>
-                  <option value="bottom-center">Bottom center</option>
-                  <option value="bottom-left">Bottom left</option>
-                  <option value="bottom-right">Bottom right</option>
-                  <option value="center">Center (popup)</option>
-                </select>
-              </div>
-            </div>
-            <div class="two-col" style="margin-top:10px">
-              <div class="field">
-                <label for="ov-global-sched-duration">Alert duration (seconds, 0 = persistent)</label>
-                <input type="number" id="ov-global-sched-duration" min="0" max="3600" value="18">
-              </div>
-              <div class="field"></div>
-            </div>
-          </div>
-        </details>
-
-        <div class="overlays-grid" id="overlays-grid"></div>
-      </div>
-    </div>
-
-    <!-- ── Alerts page ───────────────────────────────────────────────────── -->
-    <div class="page" data-page="alerts">
-      <div class="page-body" style="max-width:860px">
+        <!-- ── 1. Alerts (action-oriented, at the top) ─────────────────────── -->
 
         <!-- Quick Alert card -->
-        <div class="section-label" style="margin-bottom:6px">Quick Alert</div>
+        <div class="section-label">Quick Alert</div>
         <div class="card">
           <div class="card-title" style="display:flex;align-items:center;gap:10px">
             Fire a one-off alert
@@ -387,7 +391,7 @@
         </div>
 
         <!-- Create alert card -->
-        <div class="section-label" style="margin-top:28px;margin-bottom:6px">Create Alert</div>
+        <div class="section-label" style="margin-top:24px">Create Alert</div>
         <div class="card">
           <div class="card-title">New alert</div>
           <div class="two-col">
@@ -466,6 +470,210 @@
             <div class="muted" style="font-size:12px">No alerts yet.</div>
           </div>
         </div>
+
+        <!-- ── 2. Alert Defaults (collapsible) ─────────────────────────────── -->
+
+        <details class="section" style="margin-top:28px">
+          <summary>Alert Defaults</summary>
+          <div class="section-body">
+
+            <div class="section-label" style="margin-bottom:8px">Quick / manual alerts</div>
+            <div class="two-col">
+              <div class="field">
+                <label for="ov-global-alert-style">Alert style</label>
+                <select id="ov-global-alert-style">
+                  <option value="banner">Banner</option>
+                  <option value="popup">Popup</option>
+                  <option value="countdown">Countdown</option>
+                </select>
+              </div>
+              <div class="field">
+                <label for="ov-global-alert-position">Alert position</label>
+                <select id="ov-global-alert-position">
+                  <option value="top-center">Top center</option>
+                  <option value="top-left">Top left</option>
+                  <option value="top-right">Top right</option>
+                  <option value="bottom-center">Bottom center</option>
+                  <option value="bottom-left">Bottom left</option>
+                  <option value="bottom-right">Bottom right</option>
+                  <option value="center">Center (popup)</option>
+                </select>
+              </div>
+            </div>
+            <div class="two-col" style="margin-top:10px">
+              <div class="field">
+                <label for="ov-global-alert-duration">Alert duration (seconds, 0 = persistent)</label>
+                <input type="number" id="ov-global-alert-duration" min="0" max="3600" value="18">
+              </div>
+              <div class="field"></div>
+            </div>
+
+            <div class="section-label" style="margin-top:16px;margin-bottom:8px">Schedule alerts</div>
+            <div class="two-col">
+              <div class="field">
+                <label for="ov-global-sched-style">Alert style</label>
+                <select id="ov-global-sched-style">
+                  <option value="banner">Banner</option>
+                  <option value="popup">Popup</option>
+                  <option value="countdown">Countdown</option>
+                </select>
+              </div>
+              <div class="field">
+                <label for="ov-global-sched-position">Alert position</label>
+                <select id="ov-global-sched-position">
+                  <option value="top-center">Top center</option>
+                  <option value="top-left">Top left</option>
+                  <option value="top-right">Top right</option>
+                  <option value="bottom-center">Bottom center</option>
+                  <option value="bottom-left">Bottom left</option>
+                  <option value="bottom-right">Bottom right</option>
+                  <option value="center">Center (popup)</option>
+                </select>
+              </div>
+            </div>
+            <div class="two-col" style="margin-top:10px">
+              <div class="field">
+                <label for="ov-global-sched-duration">Alert duration (seconds, 0 = persistent)</label>
+                <input type="number" id="ov-global-sched-duration" min="0" max="3600" value="18">
+              </div>
+              <div class="field"></div>
+            </div>
+
+          </div>
+        </details>
+
+        <!-- ── 3. Overlay Defaults (collapsible) ───────────────────────────── -->
+
+        <details class="section">
+          <summary>Overlay Defaults</summary>
+          <div class="section-body">
+
+            <div class="section-label" style="margin-bottom:8px">Clock</div>
+            <div class="check-row">
+              <input type="checkbox" id="ov-global-clock24h">
+              <label for="ov-global-clock24h">24-hour clock (applies to all info bars)</label>
+            </div>
+
+            <div class="section-label" style="margin-top:16px;margin-bottom:8px">Info bar</div>
+            <div class="field" style="max-width:160px">
+              <label for="ov-global-infobar-font-size">Font size (px)</label>
+              <input type="number" id="ov-global-infobar-font-size" min="8" max="60">
+            </div>
+            <div class="check-row" style="margin-top:8px">
+              <input type="checkbox" id="ov-global-infobar-enabled">
+              <label for="ov-global-infobar-enabled">Enabled</label>
+            </div>
+            <div class="check-row">
+              <input type="checkbox" id="ov-global-infobar-clock">
+              <label for="ov-global-infobar-clock">Show clock</label>
+            </div>
+            <div class="check-row">
+              <input type="checkbox" id="ov-global-infobar-current-event">
+              <label for="ov-global-infobar-current-event">Show current event</label>
+            </div>
+            <div class="check-row">
+              <input type="checkbox" id="ov-global-infobar-next-event">
+              <label for="ov-global-infobar-next-event">Show next event</label>
+            </div>
+
+            <div class="section-label" style="margin-top:16px;margin-bottom:8px">Ticker</div>
+            <div class="check-row">
+              <input type="checkbox" id="ov-global-ticker-enabled">
+              <label for="ov-global-ticker-enabled">Enabled</label>
+            </div>
+            <div class="field">
+              <label>Messages</label>
+              <div id="ov-global-ticker-messages" style="display:flex;flex-direction:column;gap:6px"></div>
+              <button type="button" class="btn btn-secondary btn-sm" id="ov-global-ticker-add-msg" style="margin-top:6px;width:auto">+ Add message</button>
+            </div>
+            <div class="two-col">
+              <div class="field">
+                <label for="ov-global-ticker-mode">Mode</label>
+                <select id="ov-global-ticker-mode">
+                  <option value="scroll">Scroll (continuous)</option>
+                  <option value="fade">Fade (one at a time)</option>
+                </select>
+              </div>
+              <div class="field" id="ov-global-ticker-dwell-wrap">
+                <label for="ov-global-ticker-dwell">Dwell time (seconds)</label>
+                <input type="number" id="ov-global-ticker-dwell" min="1" max="60" step="1" value="5">
+              </div>
+            </div>
+            <div class="field" id="ov-global-ticker-align-wrap">
+              <label for="ov-global-ticker-align">Alignment</label>
+              <select id="ov-global-ticker-align">
+                <option value="start">Left</option>
+                <option value="center">Center</option>
+                <option value="end">Right</option>
+              </select>
+            </div>
+            <div class="two-col">
+              <div class="field">
+                <label for="ov-global-ticker-position">Position</label>
+                <select id="ov-global-ticker-position">
+                  <option value="bottom">Bottom</option>
+                  <option value="top">Top</option>
+                </select>
+              </div>
+              <div class="field">
+                <label for="ov-global-ticker-speed">Scroll speed (px/s)</label>
+                <input type="number" id="ov-global-ticker-speed" min="10" max="400" step="10" value="80">
+              </div>
+            </div>
+
+            <div class="section-label" style="margin-top:16px;margin-bottom:8px">Corner bug</div>
+            <div class="check-row">
+              <input type="checkbox" id="ov-global-bug-enabled">
+              <label for="ov-global-bug-enabled">Enabled</label>
+            </div>
+            <div class="field">
+              <label for="ov-global-bug-text">Text (e.g. #MyEvent)</label>
+              <input type="text" id="ov-global-bug-text" placeholder="#MyEvent">
+            </div>
+            <div class="field">
+              <label for="ov-global-bug-image">Image URL (optional)</label>
+              <input type="text" id="ov-global-bug-image" placeholder="/slide-assets/logo.png">
+            </div>
+            <div class="field">
+              <label for="ov-global-bug-corner">Corner</label>
+              <select id="ov-global-bug-corner">
+                <option value="top-left">Top Left</option>
+                <option value="top-right">Top Right</option>
+                <option value="bottom-left">Bottom Left</option>
+                <option value="bottom-right">Bottom Right</option>
+              </select>
+            </div>
+
+            <div class="section-label" style="margin-top:16px;margin-bottom:8px">QR widget</div>
+            <div class="check-row">
+              <input type="checkbox" id="ov-global-qrbug-enabled">
+              <label for="ov-global-qrbug-enabled">Enabled</label>
+            </div>
+            <div class="field">
+              <label for="ov-global-qrbug-url">URL to encode</label>
+              <input type="text" id="ov-global-qrbug-url" placeholder="https://...">
+            </div>
+            <div class="field">
+              <label for="ov-global-qrbug-label">Label (optional)</label>
+              <input type="text" id="ov-global-qrbug-label" placeholder="Scan me!">
+            </div>
+            <div class="field">
+              <label for="ov-global-qrbug-corner">Corner</label>
+              <select id="ov-global-qrbug-corner">
+                <option value="top-left">Top Left</option>
+                <option value="top-right">Top Right</option>
+                <option value="bottom-left">Bottom Left</option>
+                <option value="bottom-right">Bottom Right</option>
+              </select>
+            </div>
+
+          </div>
+        </details>
+
+        <!-- ── 4. Per-screen overlay overrides ─────────────────────────────── -->
+
+        <div class="section-label" style="margin-top:28px;margin-bottom:6px">Per-Screen Overlay Overrides</div>
+        <div class="overlays-grid" id="overlays-grid"></div>
 
       </div>
     </div>
@@ -693,11 +901,18 @@
               <input id="settings-public-base-url" type="url" placeholder="https://event.example.com">
               <div class="quick-hint">Public-facing base URL used for submit QR codes, OIDC redirect URIs, and server console output.</div>
             </div>
+            <div class="field">
+              <label for="theme-select">Visual theme (applied to all screens)</label>
+              <select id="theme-select">
+                <option value="">Default (no theme)</option>
+              </select>
+              <div class="quick-hint" id="theme-hint" style="margin-top:4px"></div>
+            </div>
           </div>
         </details>
 
         <details class="section" open>
-          <summary>Screens &amp; Display</summary>
+          <summary>Display</summary>
           <div class="section-body">
             <div class="field">
               <label for="settings-screen-count">Number of screens</label>
@@ -722,26 +937,14 @@
               <label for="settings-health-interval">Health broadcast interval (seconds)</label>
               <input id="settings-health-interval" type="number" min="1" max="30" step="1">
             </div>
-            <div class="quick-hint">Used for photo processing. Changing this does not reprocess existing photos.</div>
+            <div class="quick-hint">Display dimensions are used for photo processing. Changing this does not reprocess existing photos.</div>
           </div>
         </details>
 
-        <details class="section" open>
-          <summary>Theme</summary>
+        <details class="section">
+          <summary>Authentication</summary>
           <div class="section-body">
-            <div class="field">
-              <label for="theme-select">Visual theme (applied to all screens)</label>
-              <select id="theme-select">
-                <option value="">Default (no theme)</option>
-              </select>
-              <div class="quick-hint" id="theme-hint" style="margin-top:4px"></div>
-            </div>
-          </div>
-        </details>
-
-        <details class="section" open>
-          <summary>Users</summary>
-          <div class="section-body">
+            <div class="section-label" style="margin-bottom:8px">Local users</div>
             <div id="settings-users-list" style="display:flex;flex-direction:column;gap:8px"></div>
             <div class="two-col" style="margin-top:6px">
               <div class="field">
@@ -756,12 +959,8 @@
             <div class="action-row">
               <button class="btn btn-primary btn-sm" id="btn-add-user">Add user</button>
             </div>
-          </div>
-        </details>
 
-        <details class="section" open>
-          <summary>Single Sign-On (OIDC)</summary>
-          <div class="section-body">
+            <div class="section-label" style="margin-top:20px;margin-bottom:8px">Single Sign-On (OIDC)</div>
             <div class="quick-hint" id="oidc-status-label">OIDC is disabled</div>
             <div class="field">
               <label for="oidc-provider-name">Provider name (optional)</label>

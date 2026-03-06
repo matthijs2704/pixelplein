@@ -129,6 +129,12 @@ function _buildScreenForm(screenKey, cfg) {
     </details>
 
     <details class="adv-section">
+      <summary>Photo selection</summary>
+      ${_range(screenKey, 'recencyBias', 'Recency bias', 0, 100, 1, s.recencyBias ?? 60, v => v+'%')}
+      ${_checkbox(screenKey, 'kenBurnsEnabled', 'Ken Burns motion', s.kenBurnsEnabled !== false)}
+    </details>
+
+    <details class="adv-section">
       <summary>Safety / readability</summary>
       ${_range(screenKey, 'minTilePx', 'Minimum tile size', 120, 400, 10, s.minTilePx ?? 170, v => v+'px')}
     </details>
@@ -159,6 +165,13 @@ function _bindFormEvents() {
       const { screen, key } = el.dataset;
       let val = el.value;
       _setConfigValue(screen, key, val);
+    });
+  });
+
+  container.querySelectorAll('input[type="checkbox"][data-screen]').forEach(el => {
+    el.addEventListener('change', () => {
+      const { screen, key } = el.dataset;
+      _setConfigValue(screen, key, el.checked);
     });
   });
 
@@ -234,7 +247,7 @@ function _range(screen, key, label, min, max, step, value, fmt) {
 }
 
 function _formatRange(key, val) {
-  const pctKeys  = ['cinematicWeight','dynamicWeight','neutralWeight','groupMixPct'];
+  const pctKeys  = ['cinematicWeight','dynamicWeight','neutralWeight','groupMixPct','recencyBias'];
   const pxKeys   = ['minTilePx'];
   const xKeys    = ['mosaicSwapRounds'];
 
@@ -271,6 +284,18 @@ function _toggleGroup(screen, key, label, options, current) {
     <div class="adv-field">
       <label>${label}</label>
       <div class="adv-toggle-group">${buttons}</div>
+    </div>`;
+}
+
+function _checkbox(screen, key, label, checked) {
+  const id = `adv-${screen}-${key}`;
+  return `
+    <div class="adv-field">
+      <label style="display:flex;align-items:center;gap:8px;cursor:pointer">
+        <input type="checkbox" id="${id}" ${checked ? 'checked' : ''}
+          data-screen="${screen}" data-key="${key}">
+        ${label}
+      </label>
     </div>`;
 }
 

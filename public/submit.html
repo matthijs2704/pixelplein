@@ -1,42 +1,41 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="nl">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Submit Photo</title>
+  <title>Deel jouw moment</title>
   <link rel="icon" type="image/svg+xml" href="/favicon.svg">
   <link rel="stylesheet" href="/styles/base.css">
   <link rel="stylesheet" href="/styles/submit.css">
 </head>
 <body>
   <div class="wrap">
-    <h1 class="title" id="event-title">Share your moment</h1>
-    <p class="sub">Upload a photo or message for the live event wall. Submissions are reviewed before they appear.</p>
+    <h1 class="title" id="event-title">Deel jouw moment</h1>
+    <p class="sub">Upload een foto of bericht voor de live event muur. Inzendingen worden beoordeeld voordat ze verschijnen.</p>
 
     <div class="card" id="submit-card">
       <form id="submit-form">
         <div class="row">
-          <label id="submitter-label" for="submitter-value">Name</label>
-          <input id="submitter-value" name="submitterValue" type="text" maxlength="120" placeholder="Optional">
+          <label for="message">Bericht (optioneel)</label>
+          <textarea id="message" name="message" maxlength="800" placeholder="Schrijf een kort bericht..."></textarea>
         </div>
 
         <div class="row">
-          <label for="message">Message (optional)</label>
-          <textarea id="message" name="message" maxlength="800" placeholder="Write a short message..."></textarea>
+          <label id="submitter-label" for="submitter-value">Naam</label>
+          <input id="submitter-value" name="submitterValue" type="text" maxlength="120" placeholder="Optioneel">
         </div>
 
-        <div class="row photo-box">
-          <label for="photo">Photo</label>
-          <div class="photo-row">
+        <div class="row">
+          <label for="photo">Foto</label>
+          <div class="photo-row photo-box">
             <input id="photo" name="photo" type="file" accept="image/*">
-            <button type="button" id="clear-photo" class="btn btn-secondary hidden">Remove photo</button>
+            <button type="button" id="clear-photo" class="btn btn-secondary hidden">Foto verwijderen</button>
           </div>
           <img id="photo-preview" class="photo-preview" alt="Preview">
         </div>
 
-        <div class="row submit-actions">
-          <button id="submit-btn" class="btn" type="submit">Submit</button>
-          <span class="submit-hint">Thanks! We'll review it shortly.</span>
+        <div class="row submit-actions" style="width: 100%; margin-top: 2rem;">
+          <button id="submit-btn" class="btn" type="submit" style="width: 100%">Versturen</button>
         </div>
       </form>
 
@@ -44,7 +43,7 @@
     </div>
 
     <div id="closed-message" class="card hidden">
-      Submissions are currently closed.
+      Je kunt op dit moment geen foto's insturen.
     </div>
   </div>
 

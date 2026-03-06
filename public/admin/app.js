@@ -192,36 +192,26 @@ function _renderScreenUi() {
 
 function _screenCardHtml(id) {
   return `
-    <div class="screen-card" id="screen-card-${id}">
+    <div class="screen-card compact" id="screen-card-${id}">
       <div class="screen-card-header">
+        <div class="status-dot" id="s${id}-card-dot"></div>
         <span class="screen-num s${id}">${id}</span>
-        <div>
-          <div class="screen-card-name">Screen ${id}</div>
-          <div class="screen-card-meta" id="s${id}-layout-meta">–</div>
+        <div class="screen-card-info">
+          <span class="screen-card-layout" id="s${id}-layout">–</span>
+          <span class="screen-card-sep">·</span>
+          <span class="screen-card-seen" id="s${id}-seen">–</span>
         </div>
         <div class="screen-status-badge" id="s${id}-status-badge">Offline</div>
       </div>
-      <div class="screen-card-body">
-        <div class="playlist-assign-box">
-          <div class="playlist-assign-label">Playlist</div>
-          <div class="playlist-assign-row">
-            <select id="sc-s${id}-playlist"><option value="">— None (photo-only mode) —</option></select>
-          </div>
-          <div class="playlist-none-hint" id="s${id}-playlist-hint" style="display:none">
-            No playlist assigned. Slides won't play on this screen.
-          </div>
+      <div class="screen-card-compact-body">
+        <div class="playlist-assign-row">
+          <span class="playlist-assign-label">Playlist</span>
+          <select id="sc-s${id}-playlist"><option value="">— None —</option></select>
         </div>
-
-        <div class="screen-stats-grid">
-          <div class="screen-stat">
-            <div class="screen-stat-label">Last seen</div>
-            <div class="screen-stat-value" id="s${id}-seen">–</div>
-          </div>
-          <div class="screen-stat">
-            <div class="screen-stat-label">Layout</div>
-            <div class="screen-stat-value" id="s${id}-layout">–</div>
-          </div>
+        <div class="playlist-none-hint" id="s${id}-playlist-hint" style="display:none">
+          No playlist — slides won't play on this screen.
         </div>
+        <div class="screen-card-meta" id="s${id}-layout-meta" style="display:none"></div>
       </div>
     </div>
   `;
@@ -328,6 +318,7 @@ function _renderScreenHealth(prefix, data) {
   const dot  = document.getElementById(`nav-${prefix}-dot`);
   const chip = document.getElementById(`nav-${prefix}-chip`);
   // Screen card elements
+  const cardDot = document.getElementById(`${prefix}-card-dot`);
   const badge = document.getElementById(`${prefix}-status-badge`);
   const seen  = document.getElementById(`${prefix}-seen`);
   const layout = document.getElementById(`${prefix}-layout`);
@@ -335,8 +326,9 @@ function _renderScreenHealth(prefix, data) {
 
   const online = data?.connected && (data.heartbeatAgeMs == null || data.heartbeatAgeMs < 6000);
 
-  if (dot)  { dot.className  = 'status-dot' + (online ? ' online' : ''); }
-  if (chip) { chip.className = 'nav-screen-chip' + (online ? ' online' : ''); }
+  if (dot)     { dot.className     = 'status-dot' + (online ? ' online' : ''); }
+  if (cardDot) { cardDot.className = 'status-dot' + (online ? ' online' : ''); }
+  if (chip)    { chip.className    = 'nav-screen-chip' + (online ? ' online' : ''); }
 
   if (badge) {
     badge.textContent = online ? 'Online' : 'Offline';
@@ -356,12 +348,11 @@ function _renderScreenHealth(prefix, data) {
 // ---------------------------------------------------------------------------
 
 const PAGE_TITLES = {
-  screens:   'Screens',
+  screens:   'Dashboard',
   playlists: 'Playlists',
   content:   'Content',
   photos:    'Photos',
   signage:   'Signage',
-  alerts:    'Alerts',
   schedule:  'Schedule',
   submissions: 'Submissions',
   advanced:  'Advanced',
@@ -387,7 +378,7 @@ function setPage(page) {
   // Lazy-load page data
   if (page === 'photos')    refreshPhotos();
   if (page === 'playlists' || page === 'content') doLoadSlides();
-  if (page === 'alerts' || page === 'schedule') window._loadAlertsAndSchedule?.().catch(() => {});
+  if (page === 'signage' || page === 'schedule') window._loadAlertsAndSchedule?.().catch(() => {});
 }
 
 // ---------------------------------------------------------------------------

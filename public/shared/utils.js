@@ -159,6 +159,21 @@ export function slideDelay(ms) {
 }
 
 /**
+ * Overlay field names that support null-inherit from global defaults.
+ * Must stay in sync with OVERLAY_KEYS in server/config.js.
+ */
+const OVERLAY_KEYS = [
+  'tickerEnabled', 'tickerMessages', 'tickerMode', 'tickerAlign',
+  'tickerPosition', 'tickerSpeed', 'tickerFadeDwellSec',
+  'bugEnabled', 'bugText', 'bugCorner', 'bugImageUrl',
+  'qrBugEnabled', 'qrBugUrl', 'qrBugCorner', 'qrBugLabel',
+  'infoBarEnabled', 'infoBarShowClock', 'infoBarShowCurrentEvent',
+  'infoBarShowNextEvent',
+];
+
+export { OVERLAY_KEYS };
+
+/**
  * Extract the screen config slice for the given screen ID from a global config object.
  * Falls back to screen '1' if the screen ID is not found.
  * @param {object} config   Global config object
@@ -167,6 +182,23 @@ export function slideDelay(ms) {
  */
 export function getScreenCfg(config, screenId) {
   return config?.screens?.[String(screenId)] || config?.screens?.['1'] || {};
+}
+
+/**
+ * Resolve a per-screen config by filling in null overlay fields from global defaults.
+ * Returns a new object — does not mutate the input.
+ * @param {object} globalCfg - top-level config
+ * @param {object} screenCfg - per-screen config
+ * @returns {object}
+ */
+export function resolveScreenConfig(globalCfg, screenCfg) {
+  const resolved = { ...screenCfg };
+  for (const key of OVERLAY_KEYS) {
+    if (resolved[key] === null || resolved[key] === undefined) {
+      resolved[key] = globalCfg[key];
+    }
+  }
+  return resolved;
 }
 
 /**

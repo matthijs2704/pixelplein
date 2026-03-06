@@ -309,6 +309,16 @@ function _setVal(id, value) {
   if (el) el.value = String(value ?? '');
 }
 
+// Read the global alert duration default from the signage form
+function _getAlertDurationDefault() {
+  const el = document.getElementById('ov-global-alert-duration');
+  if (el) {
+    const v = parseInt(el.value, 10);
+    if (Number.isFinite(v) && v >= 0) return v;
+  }
+  return 18;
+}
+
 let _cachedAlerts = [];
 let _cachedSchedule = [];
 let _editingScheduleId = null;
@@ -326,6 +336,8 @@ async function loadAlertsAndSchedule() {
   _renderAlerts(alerts);
   _renderSchedule(schedule);
   _renderQuickAlertLiveList(alerts);
+  _renderDashAlertLiveList(alerts);
+  _renderDashEventsSummary(schedule);
 }
 
 async function loadSubmissions() {
@@ -339,8 +351,10 @@ async function loadSubmissions() {
   if (pendingRoot) pendingRoot.innerHTML = _renderSubmissionCards(pending, 'pending');
   if (approvedRoot) approvedRoot.innerHTML = _renderSubmissionCards(approved, 'approved');
 
-  _setPendingBadge(res.pendingCount || pending.length);
+  const pendingCount = res.pendingCount || pending.length;
+  _setPendingBadge(pendingCount);
   _applySubmissionSettings(res.settings);
+  _renderDashSubmissionsSummary(pendingCount);
 }
 
 async function createAlert(fireNow) {
@@ -381,10 +395,13 @@ async function fireQuickAlert() {
 
   if (!message.trim()) throw new Error('Please enter a message');
 
+  // Read duration from global alert defaults if available
+  const durationSec = _getAlertDurationDefault();
+
   await apiFetch('/api/alerts', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ style, position, message, durationSec: 18, fireNow: true, trigger: 'manual' }),
+    body: JSON.stringify({ style, position, message, durationSec, fireNow: true, trigger: 'manual' }),
   });
 
   showToast('Alert fired');
@@ -512,11 +529,151 @@ async function _saveEditEntry() {
   await loadAlertsAndSchedule();
 }
 
+// Read global alert style default from signage form
+function _getAlertStyleDefault() {
+  const el = document.getElementById('ov-global-alert-style');
+  return el?.value || 'banner';
+}
+
+// Read global alert position default from signage form
+function _getAlertPositionDefault() {
+  const el = document.getElementById('ov-global-alert-position');
+  return el?.value || 'top-center';
+}
+
+// Dashboard quick alert fire — uses global defaults unless customize disclosure is open
+async function fireDashQuickAlert() {
+  const customize = document.getElementById('dash-qa-customize');
+  const useOverrides = customize?.open === true;
+
+  const style    = useOverrides
+    ? (document.getElementById('dash-qa-style')?.value || 'banner')
+    : _getAlertStyleDefault();
+  const position = useOverrides
+    ? (document.getElementById('dash-qa-position')?.value || _defaultPosition(style))
+    : _getAlertPositionDefault();
+  const message  = document.getElementById('dash-qa-message')?.value || '';
+
+  if (!message.trim()) throw new Error('Please enter a message');
+
+  const durationSec = _getAlertDurationDefault();
+
+  await apiFetch('/api/alerts', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ style, position, message, durationSec, fireNow: true, trigger: 'manual' }),
+  });
+
+  showToast('Alert fired');
+  const msgEl = document.getElementById('dash-qa-message');
+  if (msgEl) msgEl.value = '';
+  await loadAlertsAndSchedule();
+}
+
+// Dashboard event summary rendering
+function _renderDashEventsSummary(schedule) {
+  const root = document.getElementById('dash-events-summary');
+  if (!root) return;
+
+  if (!schedule.length) {
+    root.innerHTML = '<div class="muted" style="font-size:12px">No events scheduled.</div>';
+    return;
+  }
+
+  const now = Date.now();
+  const upcoming = schedule
+    .filter(e => new Date(e.startTime).getTime() > now)
+    .sort((a, b) => new Date(a.startTime) - new Date(b.startTime));
+  const current = schedule.filter(e => {
+    const start = new Date(e.startTime).getTime();
+    const end = e.endTime ? new Date(e.endTime).getTime() : start + 3600000;
+    return start <= now && now < end;
+  });
+
+  let html = '';
+  if (current.length) {
+    html += current.map(e =>
+      `<div style="font-size:12px"><span class="status-pill live">now</span> <strong>${esc(e.name)}</strong>${e.location ? ` · ${esc(e.location)}` : ''}</div>`
+    ).join('');
+  }
+  if (upcoming.length) {
+    const next = upcoming[0];
+    const mins = Math.round((new Date(next.startTime).getTime() - now) / 60000);
+    const timeLabel = mins < 60 ? `in ${mins}m` : `in ${Math.floor(mins / 60)}h ${mins % 60}m`;
+    html += `<div style="font-size:12px"><span class="status-pill scheduled">next</span> <strong>${esc(next.name)}</strong> · ${esc(timeLabel)}${next.location ? ` · ${esc(next.location)}` : ''}</div>`;
+    if (upcoming.length > 1) {
+      html += `<div class="muted" style="font-size:11px;margin-top:4px">+${upcoming.length - 1} more upcoming</div>`;
+    }
+  }
+  if (!html) {
+    html = '<div class="muted" style="font-size:12px">No current or upcoming events.</div>';
+  }
+  root.innerHTML = html;
+}
+
+// Dashboard submissions summary
+function _renderDashSubmissionsSummary(pendingCount) {
+  const root = document.getElementById('dash-submissions-summary');
+  if (!root) return;
+
+  if (pendingCount > 0) {
+    root.innerHTML = `<div style="font-size:13px;font-weight:600;color:var(--yellow)">${pendingCount} pending</div>`;
+  } else {
+    root.innerHTML = '<div class="muted" style="font-size:12px">No pending submissions.</div>';
+  }
+}
+
+// Dashboard live alert list
+// Update the dashboard hint text to reflect current global defaults
+function _updateDashQaHint() {
+  const hint = document.getElementById('dash-qa-defaults-hint');
+  if (!hint) return;
+  const style = _getAlertStyleDefault();
+  const pos   = _getAlertPositionDefault();
+  const dur   = _getAlertDurationDefault();
+  hint.textContent = `Defaults: ${style}, ${pos}, ${dur}s`;
+}
+
+function _renderDashAlertLiveList(alerts) {
+  const root = document.getElementById('dash-qa-live-list');
+  if (!root) return;
+
+  const live = alerts.filter(a => a.active && !a.dismissed);
+  _updateLiveCount('dash-alert-live-count', live.length);
+
+  if (!live.length) {
+    root.innerHTML = '';
+    return;
+  }
+
+  root.innerHTML = live.map(alert => `
+    <div class="alert-item alert-item--live">
+      <div>${_statusPill('live')}</div>
+      <div class="alert-item-main">
+        <div class="alert-item-msg">${esc(alert.message || '(empty message)')}</div>
+        <div class="alert-item-meta">${esc(alert.style)} · ${alert.durationSec ? `${alert.durationSec}s` : 'persistent'}</div>
+      </div>
+      <div class="action-row">
+        <button class="sc-btn" data-alert-action="dismiss" data-alert-id="${esc(alert.id)}">Dismiss</button>
+      </div>
+    </div>
+  `).join('');
+}
+
 function bindActions() {
   // Contextual form wiring: position options and countdown field visibility
   _bindStylePositionSync('alerts-style', 'alerts-position');
   _bindCountdownFieldVisibility('alerts-style', 'alerts-countdown-wrap');
   _bindStylePositionSync('qa-style', 'qa-position');
+  _bindStylePositionSync('dash-qa-style', 'dash-qa-position');
+
+  // Keep dashboard hint in sync with global alert default fields
+  _updateDashQaHint();
+  for (const id of ['ov-global-alert-style', 'ov-global-alert-position', 'ov-global-alert-duration']) {
+    document.getElementById(id)?.addEventListener('change', _updateDashQaHint);
+    document.getElementById(id)?.addEventListener('input', _updateDashQaHint);
+  }
+
   document.getElementById('alerts-fire-now')?.addEventListener('click', async () => {
     try {
       await createAlert(true);
@@ -536,6 +693,28 @@ function bindActions() {
   document.getElementById('qa-fire')?.addEventListener('click', async () => {
     try {
       await fireQuickAlert();
+    } catch (err) {
+      showToast(err.message, true);
+    }
+  });
+
+  // Dashboard quick alert fire
+  document.getElementById('dash-qa-fire')?.addEventListener('click', async () => {
+    try {
+      await fireDashQuickAlert();
+    } catch (err) {
+      showToast(err.message, true);
+    }
+  });
+
+  // Dismiss live alerts from dashboard quick alert widget
+  document.getElementById('dash-qa-live-list')?.addEventListener('click', async e => {
+    const btn = e.target.closest('button[data-alert-action="dismiss"]');
+    if (!btn) return;
+    const id = btn.dataset.alertId;
+    try {
+      await apiFetch(`/api/alerts/${encodeURIComponent(id)}/dismiss`, { method: 'POST' });
+      await loadAlertsAndSchedule();
     } catch (err) {
       showToast(err.message, true);
     }

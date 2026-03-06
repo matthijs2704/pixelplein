@@ -90,7 +90,7 @@ function getSubmissionSettings() {
   const publicBaseUrl = String(cfg.publicBaseUrl || '').trim().replace(/\/+$/, '');
   return {
     submissionEnabled: cfg.submissionEnabled !== false,
-    submissionFieldLabel: String(cfg.submissionFieldLabel || 'Name'),
+    submissionFieldLabel: String(cfg.submissionFieldLabel || 'Naam'),
     submissionRequirePhoto: Boolean(cfg.submissionRequirePhoto),
     submissionDisplayMode: cfg.submissionDisplayMode || 'both',
     submissionDisplayIntervalSec: Number(cfg.submissionDisplayIntervalSec || 45),

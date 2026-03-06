@@ -362,6 +362,8 @@ details.section > .section-body { padding: 14px 16px; display: flex; flex-direct
 }
 .screen-num.s1 { color: var(--accent); }
 .screen-num.s2 { color: var(--accent2); }
+.screen-num.s3 { color: var(--green); }
+.screen-num.s4 { color: var(--yellow); }
 .screen-card-name {
   font-size: 14px;
   font-weight: 700;
@@ -430,6 +432,118 @@ details.section > .section-body { padding: 14px 16px; display: flex; flex-direct
 }
 .screen-stat-label { color: var(--muted); margin-bottom: 2px; }
 .screen-stat-value { color: #fff; font-weight: 600; font-variant-numeric: tabular-nums; }
+
+/* ─── Dashboard split (Quick Controls + right col) ──────────────────────── */
+.dashboard-split {
+  display: grid;
+  grid-template-columns: 3fr 2fr;
+  gap: 20px;
+  align-items: start;
+}
+@media (max-width: 760px) { .dashboard-split { grid-template-columns: 1fr; } }
+
+.dash-right-col {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+/* Dashboard quick-alert inline input + button */
+.dash-qa-input-row {
+  display: flex;
+  gap: 8px;
+}
+.dash-qa-input-row input { flex: 1; }
+.dash-qa-input-row .btn { white-space: nowrap; }
+
+.dash-qa-defaults-hint {
+  font-size: 11px;
+}
+
+/* Customize disclosure for dashboard quick-alert */
+.dash-qa-customize {
+  border: 1px solid var(--border);
+  border-radius: 7px;
+  overflow: hidden;
+  margin-top: 2px;
+}
+.dash-qa-customize > summary {
+  cursor: pointer;
+  padding: 6px 10px;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--muted);
+  list-style: none;
+  user-select: none;
+}
+.dash-qa-customize > summary::-webkit-details-marker { display: none; }
+.dash-qa-customize > summary::before { content: '\25B8 '; }
+.dash-qa-customize[open] > summary::before { content: '\25BE '; }
+.dash-qa-customize[open] > summary { border-bottom: 1px solid var(--border); }
+.dash-qa-customize-body {
+  padding: 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+/* Activity summary */
+.dash-activity {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+/* ─── Compact screen cards ───────────────────────────────────────────────── */
+.screen-card.compact .screen-card-header {
+  padding: 10px 14px;
+  gap: 10px;
+}
+.screen-card.compact .screen-card-info {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  color: var(--muted);
+  flex: 1;
+  min-width: 0;
+}
+.screen-card.compact .screen-card-layout {
+  color: var(--text);
+  font-weight: 600;
+}
+.screen-card.compact .screen-card-sep {
+  color: var(--border2);
+}
+.screen-card.compact .screen-card-seen {
+  color: var(--muted);
+}
+.screen-card-compact-body {
+  padding: 10px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.screen-card-compact-body .playlist-assign-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.screen-card-compact-body .playlist-assign-label {
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.07em;
+  color: var(--muted);
+  white-space: nowrap;
+  margin-bottom: 0;
+}
+.screen-card-compact-body .playlist-assign-row select {
+  flex: 1;
+  margin: 0;
+  font-size: 12px;
+  padding: 5px 8px;
+}
 
 /* Quick controls */
 .quick-controls { display: flex; flex-direction: column; gap: 10px; }
@@ -1054,4 +1168,11 @@ progress::-moz-progress-bar      { background: var(--accent); border-radius: 3px
   letter-spacing: 0.1em;
   color: var(--muted);
   margin-bottom: 10px;
+}
+
+/* ─── Overlay inherit state ──────────────────────────────────────────────── */
+.overlay-inherited {
+  opacity: 0.45;
+  pointer-events: none;
+  user-select: none;
 }

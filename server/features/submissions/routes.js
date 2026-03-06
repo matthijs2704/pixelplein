@@ -156,22 +156,22 @@ publicRouter.get('/public-config', (_req, res) => {
 publicRouter.post('/', upload.single('photo'), async (req, res) => {
   const settings = getSubmissionSettings();
   if (!settings.submissionEnabled) {
-    return res.status(403).json({ ok: false, error: 'Submissions are currently closed' });
+    return res.status(403).json({ ok: false, error: 'Inzendingen zijn momenteel gesloten' });
   }
 
   if (!_checkRateLimit(req.ip)) {
-    return res.status(429).json({ ok: false, error: 'Too many submissions. Please try again in a few minutes.' });
+    return res.status(429).json({ ok: false, error: 'Te veel inzendingen. Probeer het over een paar minuten opnieuw.' });
   }
 
   const message = String(req.body?.message || '').trim().slice(0, 800);
   const submitterValue = String(req.body?.submitterValue || '').trim().slice(0, 120);
 
   if (settings.submissionRequirePhoto && !req.file) {
-    return res.status(400).json({ ok: false, error: 'A photo is required for this event' });
+    return res.status(400).json({ ok: false, error: 'Een foto is verplicht voor dit evenement' });
   }
 
   if (!req.file && !message) {
-    return res.status(400).json({ ok: false, error: 'Please include a photo or message' });
+    return res.status(400).json({ ok: false, error: 'Voeg een foto of bericht toe' });
   }
 
   const submissionId = crypto.randomUUID();

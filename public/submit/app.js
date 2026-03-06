@@ -11,7 +11,7 @@ const closedMessageEl = document.getElementById('closed-message');
 
 let _settings = {
   submissionEnabled: true,
-  submissionFieldLabel: 'Name',
+  submissionFieldLabel: 'Naam',
   submissionRequirePhoto: false,
   eventName: '',
 };
@@ -22,8 +22,8 @@ function setStatus(msg, cls = '') {
 }
 
 function applySettings() {
-  eventTitleEl.textContent = _settings.eventName || 'Share your moment';
-  submitterLabelEl.textContent = _settings.submissionFieldLabel || 'Name';
+  eventTitleEl.textContent = _settings.eventName || 'Deel jouw moment';
+  submitterLabelEl.textContent = _settings.submissionFieldLabel || 'Naam';
   photoInputEl.required = Boolean(_settings.submissionRequirePhoto);
 
   const open = _settings.submissionEnabled !== false;
@@ -60,7 +60,7 @@ async function loadSettings() {
     applyTheme(_settings.theme);
     applySettings();
   } catch {
-    setStatus('Could not load submission settings. Please refresh.', 'err');
+    setStatus('Inzending laden niet gelukt. Vernieuw de pagina.', 'err');
   }
 }
 
@@ -96,7 +96,7 @@ clearPhotoBtn.addEventListener('click', () => {
 
 formEl.addEventListener('submit', async e => {
   e.preventDefault();
-  setStatus('Submitting...');
+  setStatus('Verzenden...');
   submitBtn.disabled = true;
 
   const fd = new FormData();
@@ -112,10 +112,10 @@ formEl.addEventListener('submit', async e => {
       throw new Error(data?.error || `HTTP ${res.status}`);
     }
 
-    setStatus('Thanks! Your submission is pending review.', 'ok');
+    setStatus('Bedankt! Je inzending wordt beoordeeld.', 'ok');
     resetForm();
   } catch (err) {
-    setStatus(err.message || 'Submission failed', 'err');
+    setStatus(err.message || 'Verzenden mislukt', 'err');
   } finally {
     submitBtn.disabled = false;
   }

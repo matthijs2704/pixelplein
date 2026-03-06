@@ -13,6 +13,17 @@ const ALERT_PRIORITIES = new Set(['normal', 'urgent']);
 const ALERT_TRIGGERS = new Set(['manual', 'scheduled', 'event_auto']);
 const SUBMISSION_DISPLAY_MODES = new Set(['off', 'single', 'grid', 'both']);
 
+// Overlay field names that support null-inherit from global defaults.
+// When a per-screen value is null the global default is used instead.
+const OVERLAY_KEYS = [
+  'tickerEnabled', 'tickerMessages', 'tickerMode', 'tickerAlign',
+  'tickerPosition', 'tickerSpeed', 'tickerFadeDwellSec',
+  'bugEnabled', 'bugText', 'bugCorner', 'bugImageUrl',
+  'qrBugEnabled', 'qrBugUrl', 'qrBugCorner', 'qrBugLabel',
+  'infoBarEnabled', 'infoBarShowClock', 'infoBarShowCurrentEvent',
+  'infoBarShowNextEvent',
+];
+
 function defaultScreenConfig() {
   return {
     layoutDuration: 8000,
@@ -48,25 +59,26 @@ function defaultScreenConfig() {
     preferHeroSide: 'auto',
     cyclePhaseMs: 0,
     playlistId: null,
-    tickerEnabled: false,
-    tickerMessages: [],
-    tickerMode: 'scroll',
-    tickerAlign: 'start',
-    tickerPosition: 'bottom',
-    tickerSpeed: 60,
-    tickerFadeDwellSec: 5,
-    bugEnabled: false,
-    bugText: '',
-    bugCorner: 'top-right',
-    bugImageUrl: '',
-    qrBugEnabled: false,
-    qrBugUrl: '',
-    qrBugCorner: 'bottom-right',
-    qrBugLabel: '',
-    infoBarEnabled: false,
-    infoBarShowClock: true,
-    infoBarShowCurrentEvent: true,
-    infoBarShowNextEvent: true,
+    // Overlay fields — null means "inherit from global defaults"
+    tickerEnabled: null,
+    tickerMessages: null,
+    tickerMode: null,
+    tickerAlign: null,
+    tickerPosition: null,
+    tickerSpeed: null,
+    tickerFadeDwellSec: null,
+    bugEnabled: null,
+    bugText: null,
+    bugCorner: null,
+    bugImageUrl: null,
+    qrBugEnabled: null,
+    qrBugUrl: null,
+    qrBugCorner: null,
+    qrBugLabel: null,
+    infoBarEnabled: null,
+    infoBarShowClock: null,
+    infoBarShowCurrentEvent: null,
+    infoBarShowNextEvent: null,
   };
 }
 
@@ -115,6 +127,31 @@ function defaultConfig() {
     theme: null,
     clock24h: true,
     infoBarFontSize: 15,
+    // Global overlay defaults (per-screen null fields inherit from these)
+    tickerEnabled: false,
+    tickerMessages: [],
+    tickerMode: 'scroll',
+    tickerAlign: 'start',
+    tickerPosition: 'bottom',
+    tickerSpeed: 60,
+    tickerFadeDwellSec: 5,
+    bugEnabled: false,
+    bugText: '',
+    bugCorner: 'top-right',
+    bugImageUrl: '',
+    qrBugEnabled: false,
+    qrBugUrl: '',
+    qrBugCorner: 'bottom-right',
+    qrBugLabel: '',
+    infoBarEnabled: false,
+    infoBarShowClock: true,
+    infoBarShowCurrentEvent: true,
+    infoBarShowNextEvent: true,
+    // Alert defaults (pre-fill for manually-created alerts)
+    alertStyle: 'banner',
+    alertPosition: 'top-center',
+    alertDurationSec: 18,
+    // Schedule alert defaults (for auto-generated schedule alerts)
     scheduleAlertStyle: 'banner',
     scheduleAlertPosition: 'top-center',
     scheduleAlertDurationSec: 18,
@@ -124,7 +161,7 @@ function defaultConfig() {
     eventSchedule: [],
     submissions: [],
     submissionEnabled: true,
-    submissionFieldLabel: 'Name',
+    submissionFieldLabel: 'Naam',
     submissionRequirePhoto: false,
     submissionDisplayMode: 'both',
     submissionDisplayIntervalSec: 45,
@@ -352,7 +389,7 @@ function _sanitizeSubmissionSettings(input, target) {
 
   if (Object.prototype.hasOwnProperty.call(input, 'submissionFieldLabel')) {
     const label = String(input.submissionFieldLabel || '').trim();
-    target.submissionFieldLabel = label ? label.slice(0, 40) : 'Name';
+    target.submissionFieldLabel = label ? label.slice(0, 40) : 'Naam';
   }
 
   if (Object.prototype.hasOwnProperty.call(input, 'submissionRequirePhoto')) {
@@ -432,6 +469,12 @@ function sanitizeScreenConfig(input, base) {
 
   for (const [key, value] of Object.entries(input || {})) {
     if (!SCREEN_CONFIG_KEYS.has(key)) continue;
+
+    // Overlay keys accept null to mean "inherit from global defaults"
+    if (value === null && OVERLAY_KEYS.includes(key)) {
+      next[key] = null;
+      continue;
+    }
 
     if (key === 'enabledLayouts') {
       const allowed = ['fullscreen', 'sidebyside', 'featuredduo', 'polaroid', 'mosaic'];
@@ -574,6 +617,125 @@ function sanitizeOidc(rawOidc) {
   };
 }
 
+// Sanitize global overlay default fields from a raw input into a target.
+function _sanitizeGlobalOverlayFields(raw, target) {
+  // Ticker
+  if (Object.prototype.hasOwnProperty.call(raw, 'tickerEnabled')) {
+    target.tickerEnabled = Boolean(raw.tickerEnabled);
+  }
+  if (Object.prototype.hasOwnProperty.call(raw, 'tickerMessages')) {
+    const msgs = Array.isArray(raw.tickerMessages) ? raw.tickerMessages : [];
+    target.tickerMessages = msgs
+      .map(v => String(v ?? '').trim())
+      .filter(Boolean)
+      .slice(0, 50)
+      .map(v => v.slice(0, 500));
+  }
+  if (Object.prototype.hasOwnProperty.call(raw, 'tickerMode')) {
+    target.tickerMode = raw.tickerMode === 'fade' ? 'fade' : 'scroll';
+  }
+  if (Object.prototype.hasOwnProperty.call(raw, 'tickerAlign')) {
+    const valid = ['start', 'center', 'end'];
+    target.tickerAlign = valid.includes(raw.tickerAlign) ? raw.tickerAlign : 'start';
+  }
+  if (Object.prototype.hasOwnProperty.call(raw, 'tickerPosition')) {
+    target.tickerPosition = raw.tickerPosition === 'top' ? 'top' : 'bottom';
+  }
+  if (Object.prototype.hasOwnProperty.call(raw, 'tickerSpeed')) {
+    const v = Number(raw.tickerSpeed);
+    if (Number.isFinite(v)) target.tickerSpeed = Math.max(10, Math.min(300, Math.floor(v)));
+  }
+  if (Object.prototype.hasOwnProperty.call(raw, 'tickerFadeDwellSec')) {
+    const v = Number(raw.tickerFadeDwellSec);
+    if (Number.isFinite(v)) target.tickerFadeDwellSec = Math.max(1, Math.min(60, Math.floor(v)));
+  }
+
+  // Corner bug
+  if (Object.prototype.hasOwnProperty.call(raw, 'bugEnabled')) {
+    target.bugEnabled = Boolean(raw.bugEnabled);
+  }
+  if (Object.prototype.hasOwnProperty.call(raw, 'bugText')) {
+    target.bugText = String(raw.bugText ?? '');
+  }
+  if (Object.prototype.hasOwnProperty.call(raw, 'bugCorner')) {
+    const corners = ['top-left', 'top-right', 'bottom-left', 'bottom-right'];
+    target.bugCorner = corners.includes(raw.bugCorner) ? raw.bugCorner : 'top-right';
+  }
+  if (Object.prototype.hasOwnProperty.call(raw, 'bugImageUrl')) {
+    target.bugImageUrl = String(raw.bugImageUrl ?? '');
+  }
+
+  // QR bug
+  if (Object.prototype.hasOwnProperty.call(raw, 'qrBugEnabled')) {
+    target.qrBugEnabled = Boolean(raw.qrBugEnabled);
+  }
+  if (Object.prototype.hasOwnProperty.call(raw, 'qrBugUrl')) {
+    target.qrBugUrl = String(raw.qrBugUrl ?? '');
+  }
+  if (Object.prototype.hasOwnProperty.call(raw, 'qrBugCorner')) {
+    const corners = ['top-left', 'top-right', 'bottom-left', 'bottom-right'];
+    target.qrBugCorner = corners.includes(raw.qrBugCorner) ? raw.qrBugCorner : 'bottom-right';
+  }
+  if (Object.prototype.hasOwnProperty.call(raw, 'qrBugLabel')) {
+    target.qrBugLabel = String(raw.qrBugLabel ?? '');
+  }
+
+  // Info bar
+  if (Object.prototype.hasOwnProperty.call(raw, 'infoBarEnabled')) {
+    target.infoBarEnabled = Boolean(raw.infoBarEnabled);
+  }
+  if (Object.prototype.hasOwnProperty.call(raw, 'infoBarShowClock')) {
+    target.infoBarShowClock = Boolean(raw.infoBarShowClock);
+  }
+  if (Object.prototype.hasOwnProperty.call(raw, 'infoBarShowCurrentEvent')) {
+    target.infoBarShowCurrentEvent = Boolean(raw.infoBarShowCurrentEvent);
+  }
+  if (Object.prototype.hasOwnProperty.call(raw, 'infoBarShowNextEvent')) {
+    target.infoBarShowNextEvent = Boolean(raw.infoBarShowNextEvent);
+  }
+}
+
+// Compare two values for overlay migration equality.
+// Arrays are compared by JSON serialization; primitives by strict equality.
+function _overlayValuesEqual(a, b) {
+  if (a === b) return true;
+  if (Array.isArray(a) && Array.isArray(b)) return JSON.stringify(a) === JSON.stringify(b);
+  return false;
+}
+
+// Migrate pre-existing per-screen overlay values: if a per-screen field has an
+// explicit value that matches the new global default, convert it to null so it
+// inherits automatically.  This preserves current behaviour transparently.
+function _migrateOverlayInherit(globalCfg, screens) {
+  let changed = false;
+  for (const sc of Object.values(screens)) {
+    for (const key of OVERLAY_KEYS) {
+      if (sc[key] !== null && sc[key] !== undefined && _overlayValuesEqual(sc[key], globalCfg[key])) {
+        sc[key] = null;
+        changed = true;
+      }
+    }
+  }
+  return changed;
+}
+
+/**
+ * Resolve a per-screen config by filling in null overlay fields from global defaults.
+ * Returns a new object — does not mutate the input.
+ * @param {object} globalCfg - top-level config
+ * @param {object} screenCfg - per-screen config
+ * @returns {object}
+ */
+function resolveScreenConfig(globalCfg, screenCfg) {
+  const resolved = { ...screenCfg };
+  for (const key of OVERLAY_KEYS) {
+    if (resolved[key] === null || resolved[key] === undefined) {
+      resolved[key] = globalCfg[key];
+    }
+  }
+  return resolved;
+}
+
 function sanitizeConfig(input, validThemeIds) {
   const raw = input && typeof input === 'object' ? input : {};
   const next = defaultConfig();
@@ -601,6 +763,18 @@ function sanitizeConfig(input, validThemeIds) {
 
   next.clock24h = raw.clock24h !== false;
 
+  // --- Global overlay defaults ---
+  _sanitizeGlobalOverlayFields(raw, next);
+
+  // --- Alert defaults (for manually-created alerts) ---
+  const alertStyle = String(raw.alertStyle || '');
+  next.alertStyle = ALERT_STYLES.has(alertStyle) ? alertStyle : 'banner';
+  const alertPos = String(raw.alertPosition || '');
+  next.alertPosition = ALERT_POSITIONS.has(alertPos) ? alertPos : 'top-center';
+  const alertDur = Number(raw.alertDurationSec);
+  next.alertDurationSec = Number.isFinite(alertDur) ? Math.max(0, Math.min(3600, Math.floor(alertDur))) : 18;
+
+  // --- Schedule alert defaults ---
   const schedAlertStyle = String(raw.scheduleAlertStyle || '');
   next.scheduleAlertStyle = ALERT_STYLES.has(schedAlertStyle) ? schedAlertStyle : 'banner';
   const schedAlertPos = String(raw.scheduleAlertPosition || '');
@@ -634,6 +808,9 @@ function sanitizeConfig(input, validThemeIds) {
 
   _sanitizeSubmissionSettings(raw, next);
 
+  // Migrate per-screen overlay values that match global defaults to null
+  _migrateOverlayInherit(next, next.screens);
+
   return next;
 }
 
@@ -643,9 +820,12 @@ function loadConfig() {
     const rawParsed = JSON.parse(fs.readFileSync(CONFIG_FILE, 'utf8'));
     const { migrated, changed } = _migrateLegacyRoot(rawParsed);
 
+    // Detect if any per-screen overlay fields need null-inherit migration
+    const hadGlobalOverlays = Object.prototype.hasOwnProperty.call(migrated, 'tickerEnabled');
     config = sanitizeConfig(migrated);
+    const needsSave = changed || !hadGlobalOverlays;
 
-    if (changed) saveConfig();
+    if (needsSave) saveConfig();
   } catch {
     console.warn('Config parse error, using defaults');
     config = defaultConfig();
@@ -744,6 +924,23 @@ function sanitizeGlobalConfig(input, target, validThemeIds) {
     }
   }
 
+  // Global overlay defaults
+  _sanitizeGlobalOverlayFields(input, target);
+
+  // Alert defaults (for manually-created alerts)
+  if (Object.prototype.hasOwnProperty.call(input, 'alertStyle')) {
+    const v = String(input.alertStyle || '');
+    target.alertStyle = ALERT_STYLES.has(v) ? v : 'banner';
+  }
+  if (Object.prototype.hasOwnProperty.call(input, 'alertPosition')) {
+    const v = String(input.alertPosition || '');
+    target.alertPosition = ALERT_POSITIONS.has(v) ? v : 'top-center';
+  }
+  if (Object.prototype.hasOwnProperty.call(input, 'alertDurationSec')) {
+    const v = Number(input.alertDurationSec);
+    if (Number.isFinite(v)) target.alertDurationSec = Math.max(0, Math.min(3600, Math.floor(v)));
+  }
+
   _sanitizeSubmissionSettings(input, target);
 
 }
@@ -776,6 +973,7 @@ function getConfig() { return config; }
 
 module.exports = {
   MAX_SCREENS,
+  OVERLAY_KEYS,
   defaultScreenConfig,
   defaultSlide,
   defaultPlaylist,
@@ -788,6 +986,7 @@ module.exports = {
   sanitizeOidc,
   sanitizeConfig,
   sanitizeGlobalConfig,
+  resolveScreenConfig,
   getScreenConfig,
   setScreenConfig,
   getPublicConfig,

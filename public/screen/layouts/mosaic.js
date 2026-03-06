@@ -38,9 +38,35 @@ export const layout = {
       heroPhoto = helpers.pickAndClaimHero(cfg, heroOptions, false);
     }
 
-    const totalSlots = tplDef ? tplDef.slots.filter(s => !s.recent).length : 6;
-    const slotCount  = totalSlots - (heroPhoto ? 1 : 0);
-    const others     = helpers.pickPhotos(Math.max(slotCount, 3), cfg, heroPhoto ? [heroPhoto.id] : []);
+    // Count normal (non-hero, non-recent) slots by orientation so we request
+    // the right number of landscape vs portrait photos upfront — avoids the
+    // old approach of picking blindly then discarding mismatched orientations.
+    const normalSlots     = tplDef ? tplDef.slots.filter(s => !s.hero && !s.recent) : [];
+    const portraitCount   = normalSlots.filter(s => s.portrait).length;
+    const landscapeCount  = normalSlots.length - portraitCount;
+
+    const excludeIds = heroPhoto ? [heroPhoto.id] : [];
+
+    // Pick landscape photos (soft preference — enforceOrientation=false so we
+    // still get results when the pool has few landscape photos).
+    const landscapePhotos = helpers.pickPhotos(
+      Math.max(landscapeCount, 1), cfg, excludeIds,
+      false, { orientation: 'landscape', enforceOrientation: false, orientationBoost: 1.5 },
+    );
+
+    // Pick portrait photos for portrait slots (if any)
+    const pickedIds = [...excludeIds, ...landscapePhotos.map(p => p.id)];
+    let portraitPhotos = [];
+    if (portraitCount > 0) {
+      portraitPhotos = helpers.pickPhotos(
+        portraitCount, cfg, pickedIds,
+        false, { orientation: 'portrait', enforceOrientation: false, orientationBoost: 1.5 },
+      );
+    }
+
+    // Combine: landscape first, then portrait — arrangePhotosForSlots will
+    // score each photo against each slot by aspect-ratio fit.
+    const others = [...landscapePhotos, ...portraitPhotos];
 
     return { tplName, heroPhoto, others };
   },

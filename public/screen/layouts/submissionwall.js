@@ -216,7 +216,7 @@ function _appendQr(shell, options = {}) {
   const img = el('img', { src: options.qrImageUrl, alt: '' });
   qr.appendChild(img);
 
-  qr.appendChild(el('div', { cls: 'sw-qr-label', text: 'submit yours' }));
+  qr.appendChild(el('div', { cls: 'sw-qr-label', text: 'deel jouw foto' }));
 
   shell.appendChild(qr);
 }
@@ -275,8 +275,8 @@ export function buildSubmissionWall(items, mode = 'both', options = {}) {
   if (!list.length) {
     shell.appendChild(el('div', { cls: 'sw-empty-wrap' },
       el('div', { cls: 'sw-empty' },
-        el('div', { cls: 'sw-empty-title', text: 'Share your photos' }),
-        el('div', { cls: 'sw-empty-sub',   text: 'Your approved submissions will appear here' }),
+        el('div', { cls: 'sw-empty-title', text: 'Deel jouw foto\'s' }),
+        el('div', { cls: 'sw-empty-sub',   text: 'Goedgekeurde inzendingen verschijnen hier' }),
       ),
     ));
     _appendQr(shell, options);

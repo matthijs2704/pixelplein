@@ -29,6 +29,7 @@ const PORTRAIT_SLOT_TARGET_RATIO = 0.82;    // ideal w/h for portrait slots (≈
 const PORTRAIT_MATCH_BONUS       = 0.25;    // extra fit score when photo is actually portrait
 const NORMAL_SLOT_TARGET_RATIO   = 1.3;     // ideal w/h for standard slots (≈4:3)
 const HERO_LANDSCAPE_PENALTY     = 0.5;     // penalty multiplier for portrait photos in hero slots
+const PORTRAIT_IN_LANDSCAPE_PENALTY = 0.6;  // fit penalty for portrait photos in landscape slots
 
 // ---------------------------------------------------------------------------
 // Group filtering
@@ -428,6 +429,7 @@ export function pickNewestPhotos(count, cfg, excludeIds = [], options = {}) {
  *  - Hero slots: wider landscape photos score higher; portrait photos
  *    receive a penalty multiplier (HERO_LANDSCAPE_PENALTY).
  *  - Normal slots: scored by closeness to NORMAL_SLOT_TARGET_RATIO (≈4:3).
+ *    Portrait photos receive a soft penalty but are not excluded.
  *
  * Photos are consumed greedily — once assigned to a slot they are removed
  * from the candidate list.  Returns one photo per slot (or null when no
@@ -442,18 +444,11 @@ export function arrangePhotosForSlots(slots, photos) {
   return slots.map(slot => {
     if (!remaining.length) return null;
 
-    const isPortraitSlot = Boolean(slot.portrait);
-    // Never place portrait photos in horizontal slots.
-    const candidates = isPortraitSlot
-      ? [...remaining]
-      : remaining.filter(p => !_isPortrait(p));
-    if (!candidates.length) return null;
-
     let bestIdx = 0;
     let bestFit = -Infinity;
 
-    for (let i = 0; i < candidates.length; i++) {
-      const p = candidates[i];
+    for (let i = 0; i < remaining.length; i++) {
+      const p = remaining[i];
       const ratio = _aspectRatio(p);
       let fit     = 0;
 
@@ -464,6 +459,9 @@ export function arrangePhotosForSlots(slots, photos) {
         fit = ratio >= 1 ? ratio : ratio * HERO_LANDSCAPE_PENALTY;
       } else {
         fit = -Math.abs(ratio - NORMAL_SLOT_TARGET_RATIO);
+        // Penalise portrait photos in landscape slots — prefer landscape but
+        // don't hard-exclude so we never leave a slot empty.
+        if (_isPortrait(p)) fit -= PORTRAIT_IN_LANDSCAPE_PENALTY;
       }
 
       if (fit > bestFit) {
@@ -472,10 +470,6 @@ export function arrangePhotosForSlots(slots, photos) {
       }
     }
 
-    const chosen = candidates[bestIdx] || null;
-    if (!chosen) return null;
-    const idx = remaining.findIndex(p => p.id === chosen.id);
-    if (idx < 0) return null;
-    return remaining.splice(idx, 1)[0];
+    return remaining.splice(bestIdx, 1)[0];
   });
 }
