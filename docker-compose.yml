@@ -2,8 +2,6 @@ services:
   pixelplein:
     build: .
     restart: unless-stopped
-    ports:
-      - "3000:3000"
     environment:
       - NODE_ENV=production
       - PORT=3000
@@ -12,6 +10,12 @@ services:
       # - DISPLAY_HEIGHT=1080
       # - THUMB_W=960
       # - THUMB_H=540
+    labels:
+      - traefik.enable=true
+      - traefik.http.routers.pixelplein.rule=Host(`rsw.logicbit.nl`)
+      - traefik.http.routers.pixelplein.entrypoints=websecure
+      - traefik.http.routers.pixelplein.tls.certresolver=le
+      - traefik.http.services.pixelplein.loadbalancer.server.port=3000
     volumes:
       - ./config.json:/app/config.json
       - photos:/app/photos
@@ -19,6 +23,12 @@ services:
       - cache:/app/cache
       - slide-assets:/app/slide-assets
       - submission-assets:/app/submission-assets
+    networks:
+      - web
+
+networks:
+  web:
+    external: true
 
 volumes:
   photos:
