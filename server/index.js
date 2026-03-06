@@ -76,6 +76,8 @@ async function _loadPhotoOverridesFromDb() {
 const app    = express();
 const server = httpMod.createServer(app);
 
+app.set('trust proxy', 1);
+
 app.use(compression());
 app.use(express.json());
 app.use(session({
