@@ -129,7 +129,11 @@ app.use('/thumbs', express.static(THUMB_DIR, {
 }));
 
 app.use('/photos-original',  express.static(PHOTOS_DIR));
-app.use('/slide-assets',     express.static(SLIDE_ASSETS_DIR));
+app.use('/slide-assets',     express.static(SLIDE_ASSETS_DIR, {
+  maxAge:       '7d',      // browser caches videos/images for 7 days
+  etag:         true,      // conditional GET on revisit
+  lastModified: true,
+}));
 app.use('/cache/qr',         express.static(QR_CACHE_DIR, {
   maxAge: '1y',
   immutable: true,

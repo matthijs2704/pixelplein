@@ -5,7 +5,7 @@
 // IMPORTANT: bump SHELL_VERSION whenever screen JS or CSS files change so
 // that all NUC clients pick up the new app shell on their next load.
 
-const SHELL_VERSION = 1;
+const SHELL_VERSION = 2;
 const SHELL_CACHE   = `pixelplein-shell-v${SHELL_VERSION}`;
 const MEDIA_CACHE   = 'pixelplein-media';
 
@@ -122,6 +122,16 @@ self.addEventListener('fetch', event => {
     return;
   }
 
+  // Slide images: Cache-first — images are immutable once uploaded, same
+  // bucket as photos so they survive offline.
+  // Videos are intentionally excluded: the SW Cache API cannot correctly serve
+  // 206 Partial Content range requests, so we let the browser's native HTTP
+  // cache (warmed by slide-preload.js + 7-day max-age from the server) handle it.
+  if (p.startsWith('/slide-assets/images/')) {
+    event.respondWith(_cacheFirst(request, MEDIA_CACHE));
+    return;
+  }
+
   // App shell files: Cache-first
   if (
     p === '/screen.html' ||
@@ -135,8 +145,7 @@ self.addEventListener('fetch', event => {
     return;
   }
 
-  // Everything else (API calls, admin, WS upgrades, themes, slide-assets):
-  // Network-only — do not intercept so the app gets live data or proper errors
+  // Everything else (API, admin, WS, videos, themes): Network-only
 });
 
 // ---------------------------------------------------------------------------
