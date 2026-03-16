@@ -19,7 +19,23 @@ function scheduleRescan() {
   }, 1200);
 }
 
+function _clearStaleTranscodeFlags() {
+  // On startup, any slide with _transcoding:true whose .mp4 file already exists
+  // is a crash remnant — clear the flag so the card renders normally.
+  const stale = getSlides().filter(s => s._transcoding);
+  if (!stale.length) return;
+  for (const slide of stale) {
+    const mp4Path = path.join(VIDEOS_DIR, slide.filename);
+    if (fs.existsSync(mp4Path)) {
+      updateSlide(slide.id, { _transcoding: false, _transcodeProgress: undefined });
+      console.log(`[videos] Cleared stale transcoding flag for: ${slide.filename}`);
+    }
+  }
+}
+
 function startWatcher() {
+  _clearStaleTranscodeFlags();
+
   // ── Photos watcher ────────────────────────────────────────────────────────
   const watcher = chokidar.watch(PHOTOS_DIR, {
     ignoreInitial: true,
@@ -71,25 +87,56 @@ function startWatcher() {
     if (!VIDEO_EXTS.test(filePath)) return;
 
     if (needsTranscode(filePath)) {
-      const mp4Path = filePath.replace(/\.(mov|m4v)$/i, '.mp4');
+      const mp4Path    = filePath.replace(/\.(mov|m4v)$/i, '.mp4');
+      const mp4Name    = path.basename(mp4Path);
+      const srcName    = path.basename(filePath);
       // Skip if already transcoded or a transcode is already running for this file
       if (fs.existsSync(mp4Path) || _transcoding.has(filePath)) return;
+
+      // Create (or find) a placeholder slide so the card appears immediately
+      let slide = getSlides().find(s => s.type === 'video' && s.filename === mp4Name);
+      if (!slide) {
+        slide = createSlide('video', {
+          label:              srcName,
+          filename:           mp4Name,
+          enabled:            false,
+          _transcoding:       true,
+          _transcodeProgress: 0,
+        });
+      } else {
+        updateSlide(slide.id, { _transcoding: true, _transcodeProgress: 0 });
+      }
+      broadcast({ type: 'slides_update', slides: getSlides() });
+
+      const slideId = slide.id;
       _transcoding.add(filePath);
-      transcodeToMp4(filePath)
+
+      const onProgress = (pct) => {
+        updateSlide(slideId, { _transcodeProgress: pct });
+        broadcast({ type: 'transcode_progress', slideId, filename: mp4Name, pct });
+      };
+
+      transcodeToMp4(filePath, onProgress)
+        .then(() => {
+          updateSlide(slideId, { _transcoding: false, _transcodeProgress: undefined });
+          broadcast({ type: 'slides_update', slides: getSlides() });
+          console.log(`[videos] Transcoded and registered: ${mp4Name}`);
+        })
         .catch(err => {
-          console.warn(`[videos] Transcode failed for ${path.basename(filePath)}:`, err.message);
+          console.warn(`[videos] Transcode failed for ${srcName}:`, err.message);
+          updateSlide(slideId, { _transcoding: false, _transcodeProgress: undefined, _missing: true });
+          broadcast({ type: 'slides_update', slides: getSlides() });
         })
         .finally(() => {
           _transcoding.delete(filePath);
         });
-      // Do NOT register a slide here — the .mp4 appearing will trigger another
-      // 'add' event which registers the slide normally below.
       return;
     }
 
     const filename = path.basename(filePath);
+    // .mp4 files created by transcoding already have a placeholder slide — skip
     const existing = getSlides().find(s => s.type === 'video' && s.filename === filename);
-    if (existing) return; // already registered
+    if (existing) return;
     const slide = createSlide('video', { label: filename, filename, enabled: false });
     broadcast({ type: 'slides_update', slides: require('../slides/store').getSlides() });
     console.log(`[videos] Auto-registered new video: ${filename} (id: ${slide.id}, enabled: false)`);

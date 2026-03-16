@@ -72,7 +72,8 @@ function _renderLibrary() {
 
 function _makeSlideCard(slide) {
   const card = document.createElement('div');
-  card.className = 'slide-card' + (slide.enabled === false ? ' slide-disabled' : '');
+  card.className = 'slide-card' + (slide.enabled === false ? ' slide-disabled' : '') +
+                   (slide._transcoding ? ' slide-transcoding' : '');
   card.dataset.id = slide.id;
 
   const typeIconMap = {
@@ -85,6 +86,7 @@ function _makeSlideCard(slide) {
   };
   const typeIcon = typeIconMap[slide.type] || icon('document');
   const label    = _esc(slide.label || slide.filename || slide.title || slide.url || '(untitled)');
+  const pct      = slide._transcodeProgress ?? 0;
 
   card.innerHTML = `
     <div class="slide-card-header">
@@ -96,10 +98,39 @@ function _makeSlideCard(slide) {
       </div>
     </div>
     <div class="slide-card-label">${label}</div>
-    ${slide.enabled === false ? '<div class="slide-disabled-tag">disabled</div>' : ''}
-    ${slide._missing          ? '<div class="slide-missing-tag">file missing</div>' : ''}
+    ${slide._transcoding ? `
+      <div class="slide-transcode-wrap">
+        <div class="slide-transcode-track">
+          <div class="slide-transcode-fill" style="width:${pct}%"></div>
+        </div>
+        <span class="slide-transcode-pct">${pct}%</span>
+      </div>
+    ` : ''}
+    ${!slide._transcoding && slide.enabled === false ? '<div class="slide-disabled-tag">disabled</div>' : ''}
+    ${slide._missing ? '<div class="slide-missing-tag">file missing</div>' : ''}
   `;
   return card;
+}
+
+/**
+ * Update the progress bar on a transcoding slide card without a full re-render.
+ * Called by admin/app.js when a transcode_progress WS message arrives.
+ *
+ * @param {string} slideId
+ * @param {number} pct  0–100
+ */
+export function onTranscodeProgress(slideId, pct) {
+  // Keep in-memory slide state in sync
+  const slide = _slides.find(s => s.id === slideId);
+  if (slide) slide._transcodeProgress = pct;
+
+  // Surgically update only the progress elements on the card
+  const card = document.querySelector(`.slide-card[data-id="${slideId}"]`);
+  if (!card) return;
+  const fill  = card.querySelector('.slide-transcode-fill');
+  const label = card.querySelector('.slide-transcode-pct');
+  if (fill)  fill.style.width   = pct + '%';
+  if (label) label.textContent  = pct + '%';
 }
 
 // ---------------------------------------------------------------------------

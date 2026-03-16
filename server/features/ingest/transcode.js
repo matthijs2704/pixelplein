@@ -19,13 +19,25 @@ function needsTranscode(filename) {
 }
 
 /**
+ * Parse HH:MM:SS.ms or HH:MM:SS time string to seconds.
+ * @param {string} t
+ * @returns {number}
+ */
+function _parseTime(t) {
+  const parts = t.split(':');
+  if (parts.length !== 3) return 0;
+  return parseInt(parts[0], 10) * 3600 + parseInt(parts[1], 10) * 60 + parseFloat(parts[2]);
+}
+
+/**
  * Transcodes a .mov or .m4v file to an H.264/AAC .mp4 using ffmpeg.
  * The output file is written alongside the input with a .mp4 extension.
  *
- * @param {string} inputPath  Absolute path to the source file
+ * @param {string}   inputPath   Absolute path to the source file
+ * @param {Function} [onProgress]  Called with (pct: number 0–100) ~once per second
  * @returns {Promise<string>} Resolves with the output .mp4 path on success
  */
-function transcodeToMp4(inputPath) {
+function transcodeToMp4(inputPath, onProgress) {
   const ext        = path.extname(inputPath);
   const outputPath = inputPath.slice(0, -ext.length) + '.mp4';
   const filename   = path.basename(inputPath);
@@ -47,8 +59,34 @@ function transcodeToMp4(inputPath) {
 
     const proc = spawn('ffmpeg', args, { stdio: ['ignore', 'ignore', 'pipe'] });
 
-    let stderr = '';
-    proc.stderr.on('data', chunk => { stderr += chunk.toString(); });
+    let stderr         = '';
+    let totalSec       = 0;
+    let lastReportedAt = 0;
+
+    proc.stderr.on('data', chunk => {
+      const text = chunk.toString();
+      stderr += text;
+
+      // Extract total duration once from the header block
+      if (!totalSec) {
+        const m = text.match(/Duration:\s*(\d+:\d+:\d+(?:\.\d+)?)/);
+        if (m) totalSec = _parseTime(m[1]);
+      }
+
+      // Extract current encode position and report progress ~1/sec
+      if (totalSec && onProgress) {
+        const m = text.match(/time=(\d+:\d+:\d+(?:\.\d+)?)/);
+        if (m) {
+          const curSec = _parseTime(m[1]);
+          const pct    = Math.min(99, Math.round((curSec / totalSec) * 100));
+          const now    = Date.now();
+          if (now - lastReportedAt >= 1000) {
+            lastReportedAt = now;
+            onProgress(pct);
+          }
+        }
+      }
+    });
 
     proc.on('error', err => {
       if (err.code === 'ENOENT') {
@@ -60,6 +98,7 @@ function transcodeToMp4(inputPath) {
 
     proc.on('close', code => {
       if (code === 0) {
+        if (onProgress) onProgress(100);
         console.log(`[transcode] Done: ${path.basename(outputPath)}`);
         resolve(outputPath);
       } else {

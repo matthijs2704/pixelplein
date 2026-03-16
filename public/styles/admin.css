@@ -663,7 +663,80 @@ progress::-moz-progress-bar      { background: var(--accent); border-radius: 3px
   padding: 11px 14px;
   font-size: 12px;
 }
-.slide-card.slide-disabled { opacity: 0.5; }
+.slide-card.slide-disabled   { opacity: 0.5; }
+.slide-card.slide-transcoding { opacity: 1; }
+
+/* Transcoding progress bar inside slide card */
+.slide-transcode-wrap {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 7px;
+}
+.slide-transcode-track {
+  flex: 1;
+  height: 4px;
+  background: var(--border);
+  border-radius: 999px;
+  overflow: hidden;
+}
+.slide-transcode-fill {
+  height: 100%;
+  background: linear-gradient(90deg, var(--accent), #a78bfa);
+  border-radius: 999px;
+  transition: width 0.5s ease;
+}
+.slide-transcode-pct {
+  font-size: 10px;
+  font-variant-numeric: tabular-nums;
+  color: var(--accent);
+  min-width: 28px;
+  text-align: right;
+}
+
+/* Dashboard transcoding section */
+.transcode-jobs {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.transcode-job {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  grid-template-rows: auto auto;
+  gap: 4px 8px;
+  align-items: center;
+}
+.transcode-job-name {
+  font-size: 12px;
+  color: var(--text);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  grid-column: 1;
+}
+.transcode-job-pct {
+  font-size: 12px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  color: var(--accent);
+  grid-column: 2;
+  grid-row: 1 / 3;
+  align-self: center;
+}
+.transcode-job-track {
+  grid-column: 1;
+  height: 4px;
+  background: var(--border);
+  border-radius: 999px;
+  overflow: hidden;
+}
+.transcode-job-fill {
+  height: 100%;
+  background: linear-gradient(90deg, var(--accent), #a78bfa);
+  border-radius: 999px;
+  transition: width 0.5s ease;
+}
 .slide-card-header {
   display: flex;
   align-items: center;

@@ -6,7 +6,7 @@ import { esc as _esc, fmtAgo as _fmtAgo, activeScreenIds as _activeScreenIds } f
 import { initQuickTab, refreshFromConfig as quickRefresh, updateGroups as quickUpdateGroups } from './tabs/quick.js';
 import { initAdvancedTab, refreshFromConfig as advRefresh, updateGroups as advUpdateGroups, applySafeFallback } from './tabs/advanced.js';
 import { initPhotosTab, refreshPhotos, onNewPhoto, onRemovePhoto, onPhotoUpdate, updateGroups as photosUpdateGroups } from './tabs/photos.js';
-import { initSlidesTab, refreshSlides, createNewPlaylist } from './tabs/slides.js';
+import { initSlidesTab, refreshSlides, createNewPlaylist, onTranscodeProgress } from './tabs/slides.js';
 import { initOverlaysTab, refreshFromConfig as ovRefresh } from './tabs/overlays.js';
 import { initSettingsTab, refreshFromConfig as settingsRefresh } from './tabs/settings.js';
 
@@ -17,6 +17,9 @@ import { initSettingsTab, refreshFromConfig as settingsRefresh } from './tabs/se
 let config         = { screens: {}, screenCount: 2 };
 let _playlists     = [];
 let pendingChanges = false;
+
+/** @type {Object.<string, { filename: string, pct: number }>} */
+let _transcodings  = {}; // slideId → { filename, pct }
 
 export function getConfig() { return config; }
 
@@ -272,6 +275,43 @@ async function doLoadStats() {
   }
 }
 
+// ---------------------------------------------------------------------------
+// Transcoding progress
+// ---------------------------------------------------------------------------
+
+function _handleTranscodeProgress(msg) {
+  const { slideId, filename, pct } = msg;
+  if (!slideId) return;
+
+  if (pct >= 100) {
+    delete _transcodings[slideId];
+  } else {
+    _transcodings[slideId] = { filename: filename || slideId, pct: pct || 0 };
+  }
+
+  onTranscodeProgress(slideId, pct); // update slide card live
+  _renderTranscodingSection();
+}
+
+function _renderTranscodingSection() {
+  const section = document.getElementById('transcoding-section');
+  const jobs    = document.getElementById('transcoding-jobs');
+  if (!section || !jobs) return;
+
+  const entries = Object.entries(_transcodings);
+  section.style.display = entries.length ? '' : 'none';
+
+  jobs.innerHTML = entries.map(([, job]) => `
+    <div class="transcode-job">
+      <div class="transcode-job-name">${_esc(job.filename)}</div>
+      <div class="transcode-job-pct">${job.pct}%</div>
+      <div class="transcode-job-track">
+        <div class="transcode-job-fill" style="width:${job.pct}%"></div>
+      </div>
+    </div>
+  `).join('');
+}
+
 // Render health into the NEW DOM structure (screens page + nav dots)
 function _renderHealth(stats) {
   if (!stats) return;
@@ -421,7 +461,18 @@ function connectWs() {
       return;
     }
 
+    if (msg.type === 'transcode_progress') {
+      _handleTranscodeProgress(msg);
+      return;
+    }
+
     if (msg.type === 'slides_update' && msg.slides) {
+      // Remove finished jobs from the dashboard transcoding section
+      const transcodingIds = new Set(msg.slides.filter(s => s._transcoding).map(s => s.id));
+      for (const id of Object.keys(_transcodings)) {
+        if (!transcodingIds.has(id)) delete _transcodings[id];
+      }
+      _renderTranscodingSection();
       refreshSlides(msg.slides, null);
       return;
     }
