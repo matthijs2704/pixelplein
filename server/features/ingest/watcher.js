@@ -58,6 +58,10 @@ function startWatcher() {
   // registered against the resulting .mp4, not the original source file.
   const VIDEO_EXTS = /\.(mp4|webm|mov|m4v)$/i;
 
+  // Track files currently being transcoded so duplicate chokidar 'add' events
+  // (which can occur during slow copies) don't spawn multiple ffmpeg processes.
+  const _transcoding = new Set();
+
   const videoWatcher = chokidar.watch(VIDEOS_DIR, {
     ignoreInitial: false, // pick up files already present on startup
     awaitWriteFinish: { stabilityThreshold: 1000, pollInterval: 200 },
@@ -68,11 +72,16 @@ function startWatcher() {
 
     if (needsTranscode(filePath)) {
       const mp4Path = filePath.replace(/\.(mov|m4v)$/i, '.mp4');
-      // Skip if already transcoded (safe on server restart)
-      if (fs.existsSync(mp4Path)) return;
-      transcodeToMp4(filePath).catch(err => {
-        console.warn(`[videos] Transcode failed for ${path.basename(filePath)}:`, err.message);
-      });
+      // Skip if already transcoded or a transcode is already running for this file
+      if (fs.existsSync(mp4Path) || _transcoding.has(filePath)) return;
+      _transcoding.add(filePath);
+      transcodeToMp4(filePath)
+        .catch(err => {
+          console.warn(`[videos] Transcode failed for ${path.basename(filePath)}:`, err.message);
+        })
+        .finally(() => {
+          _transcoding.delete(filePath);
+        });
       // Do NOT register a slide here — the .mp4 appearing will trigger another
       // 'add' event which registers the slide normally below.
       return;
