@@ -263,23 +263,23 @@
 
           <!-- Library -->
           <section class="slides-col slides-col-library">
-            <div class="slides-col-head">
+            <div class="slides-col-head slides-col-head-toolbar">
               <span class="slides-col-title">Library</span>
+              <div class="slides-head-actions">
+                <select id="slides-create-type">
+                  <option value="image">Image</option>
+                  <option value="text-card">Text Card</option>
+                  <option value="article">Article</option>
+                  <option value="video">Video</option>
+                  <option value="qr">QR Code</option>
+                  <option value="webpage">Webpage</option>
+                </select>
+                <button class="btn btn-primary btn-sm" id="slides-create-btn">+ Create Slide</button>
+                <input type="file" id="slides-video-input" accept="video/*" style="display:none">
+                <input type="file" id="slides-image-input" accept="image/jpeg,image/png,image/gif,image/webp,image/avif" style="display:none">
+              </div>
             </div>
-            <div class="content-lib-toolbar">
-              <select id="slides-create-type" style="width:auto;padding:6px 10px;font-size:12px">
-                <option value="image">Image</option>
-                <option value="text-card">Text Card</option>
-                <option value="article">Article</option>
-                <option value="video">Video</option>
-                <option value="qr">QR Code</option>
-                <option value="webpage">Webpage</option>
-              </select>
-              <button class="btn btn-primary btn-sm" id="slides-create-btn">+ Create Slide</button>
-              <input type="file" id="slides-video-input" accept="video/*" style="display:none">
-              <input type="file" id="slides-image-input" accept="image/jpeg,image/png,image/gif,image/webp,image/avif" style="display:none">
-              <span id="slides-video-status" style="font-size:12px;color:var(--muted)"></span>
-            </div>
+            <div id="slides-video-status" class="slides-inline-status"></div>
             <div id="slides-library-grid" class="content-lib-body">
               <div class="empty-state"><span class="empty-state-icon"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" class="icon" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M3.375 19.5h17.25m-17.25 0a1.125 1.125 0 0 1-1.125-1.125M3.375 19.5h1.5C5.496 19.5 6 18.996 6 18.375m-3.75.125v-1.875m0 0a1.125 1.125 0 0 1 1.125-1.125M3.375 15H18.75M3.375 15h.75M3.375 15a1.125 1.125 0 0 0-1.125 1.125M3 16.125V5.625m0 10.5V15m0-9.375A1.125 1.125 0 0 1 4.125 4.5h15.75A1.125 1.125 0 0 1 21 5.625v12.75c0 .621-.504 1.125-1.125 1.125M21 18.375V15m0 0a1.125 1.125 0 0 0-1.125-1.125M21 15h-1.5m1.5 0v-9.375M18.75 15h-.75m-12.75-9h15M6 6.75v1.5m12-1.5v1.5M6 12.75v1.5m12-1.5v1.5"/></svg></span><span>No slides yet. Create one above.</span></div>
             </div>
@@ -287,12 +287,12 @@
 
           <!-- Playlists + editor -->
           <section class="slides-col slides-col-playlists">
+            <div class="slides-col-head slides-col-head-toolbar">
+              <span class="slides-col-title">Playlist Manager</span>
+              <button class="btn btn-primary btn-sm" id="btn-new-playlist">+ New</button>
+            </div>
             <div class="playlists-split">
               <div class="pl-sidebar">
-                <div class="pl-sidebar-header">
-                  <span class="pl-sidebar-title">Playlist Manager</span>
-                  <button class="btn btn-primary btn-sm" id="btn-new-playlist">+ New</button>
-                </div>
                 <div id="playlists-list" class="pl-list">
                   <div class="empty-state"><span class="empty-state-icon"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" class="icon" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M5.25 5.653c0-.856.917-1.398 1.667-.986l11.54 6.347a1.125 1.125 0 0 1 0 1.972l-11.54 6.347a1.125 1.125 0 0 1-1.667-.986V5.653Z"/></svg></span><span>No playlists yet.</span></div>
                 </div>
@@ -311,8 +311,10 @@
 
           <!-- Screen assignment -->
           <aside class="slides-col slides-col-assign">
-            <div class="slides-assign-card">
-              <div class="card-title">Screen assignments</div>
+            <div class="slides-col-head">
+              <span class="slides-col-title">Screen Assignments</span>
+            </div>
+            <div class="slides-assign-body">
               <div class="slides-assign-hint">Assign playlists to screens. Changes are staged until you click Save &amp; Apply.</div>
               <div id="slides-screen-assignments" class="slides-screen-list">
                 <div class="muted" style="font-size:12px">Loading screens…</div>
