@@ -14,11 +14,12 @@ import { getPreloadStats } from './preload.js';
 // State
 // ---------------------------------------------------------------------------
 
-let _total        = 0;   // total photos the server is sending (from photo_batch progress)
-let _metaSent     = 0;   // how many metadata records received so far
-let _done         = false;
-let _pollTimer    = null;
-let _cycleStarted = false;
+let _total              = 0;     // total photos the server is sending (from photo_batch progress)
+let _metaSent           = 0;     // how many metadata records received so far
+let _done               = false;
+let _pollTimer          = null;
+let _cycleStarted       = false;
+let _offlineBadgeShowing = false;
 
 // ---------------------------------------------------------------------------
 // DOM helpers
@@ -80,10 +81,24 @@ export function hideSyncStatus() {
   _render(); // push to 100 %
   setTimeout(() => {
     _stopPolling();
-    const overlay = _getOverlay();
-    if (overlay) overlay.classList.remove('visible');
+    // Don't hide the overlay if the offline badge took over in the meantime
+    if (!_offlineBadgeShowing) {
+      const overlay = _getOverlay();
+      if (overlay) overlay.classList.remove('visible');
+    }
     // waiting-screen block fades with #waiting itself
   }, 800);
+}
+
+/**
+ * Immediately stop any in-progress sync display.
+ * Used when the WS closes so the offline badge can take over cleanly.
+ */
+export function resetSyncStatus() {
+  _done = true;
+  _stopPolling();
+  const overlay = _getOverlay();
+  if (overlay) overlay.classList.remove('visible');
 }
 
 /** Called by app.js when the photo cycle starts (waiting screen hides). */
@@ -173,6 +188,7 @@ function _render() {
 // ---------------------------------------------------------------------------
 
 export function showOfflineBadge() {
+  _offlineBadgeShowing = true;
   _cycleStarted = true; // ensure we use the overlay, not the waiting block
   const overlay = _getOverlay();
   if (!overlay) return;
@@ -186,8 +202,7 @@ export function showOfflineBadge() {
 }
 
 export function hideOfflineBadge() {
-  // Only hide the badge if we're not actively showing sync progress
-  if (!_done && _pollTimer) return;
+  _offlineBadgeShowing = false;
   const overlay = _getOverlay();
   if (overlay) overlay.classList.remove('visible');
 }

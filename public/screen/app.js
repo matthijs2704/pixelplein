@@ -35,6 +35,7 @@ import { preloadBatch, getPreloadedCount } from './preload.js';
 import {
   showSyncStatus,
   hideSyncStatus,
+  resetSyncStatus,
   onCycleStarted,
   showOfflineBadge,
   hideOfflineBadge,
@@ -180,7 +181,7 @@ function connect() {
   ws.onclose = () => {
     clearWs();
     stopHeartbeat();
-    hideSyncStatus();
+    resetSyncStatus(); // immediate — offline badge takes over if cycle is running
 
     if (_cycleRunning && photoRegistry.size > 0) {
       // Keep the cycle alive from cached photos; reconnect quietly in background
