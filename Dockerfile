@@ -1,9 +1,10 @@
 FROM node:20-slim
 
-# sharp needs a few native libs at runtime
+# sharp needs libvips; ffmpeg is required for .mov/.m4v → .mp4 transcoding
 RUN apt-get update && \
     apt-get install -y --no-install-recommends \
       libvips-dev \
+      ffmpeg \
     && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
