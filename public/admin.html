@@ -946,6 +946,11 @@
               <input id="settings-health-interval" type="number" min="1" max="30" step="1">
             </div>
             <div class="quick-hint">Display dimensions are used for photo processing. Changing this does not reprocess existing photos.</div>
+            <div class="check-row" style="margin-top:12px">
+              <input type="checkbox" id="settings-transcode-videos">
+              <label for="settings-transcode-videos">Auto-transcode .mov / .m4v to .mp4 on ingest (requires ffmpeg, CPU-intensive)</label>
+            </div>
+            <div class="quick-hint">When disabled, .mov and .m4v files are served as-is. Chromium on macOS plays them natively; on Linux playback depends on the installed codec.</div>
           </div>
         </details>
 

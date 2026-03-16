@@ -129,6 +129,7 @@ function defaultConfig() {
     displayWidth: 1920,
     displayHeight: 1080,
     healthBroadcastIntervalMs: 3000,
+    transcodeVideos: false,   // opt-in: auto-transcode .mov/.m4v → .mp4 via ffmpeg
     sessionSecret: null,
     theme: null,
     clock24h: true,
@@ -920,6 +921,10 @@ function sanitizeGlobalConfig(input, target, validThemeIds) {
   if (Object.prototype.hasOwnProperty.call(input, 'healthBroadcastIntervalMs')) {
     const ms = Number(input.healthBroadcastIntervalMs);
     if (Number.isFinite(ms)) target.healthBroadcastIntervalMs = Math.max(1000, Math.min(30000, Math.floor(ms)));
+  }
+
+  if (Object.prototype.hasOwnProperty.call(input, 'transcodeVideos')) {
+    target.transcodeVideos = Boolean(input.transcodeVideos);
   }
 
   if (Object.prototype.hasOwnProperty.call(input, 'screenCount')) {

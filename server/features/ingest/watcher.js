@@ -7,6 +7,7 @@ const { upsertPhotoFromPath, removePhotoByPath, scanPhotos, PHOTOS_DIR } = requi
 const { createSlide, getSlides, updateSlide } = require('../slides/store');
 const { broadcast }                           = require('../ws/broadcast');
 const { needsTranscode, transcodeToMp4 }      = require('./transcode');
+const { getConfig }                           = require('../../config');
 
 const VIDEOS_DIR = path.join(__dirname, '..', '..', '..', 'slide-assets', 'videos');
 
@@ -87,49 +88,66 @@ function startWatcher() {
     if (!VIDEO_EXTS.test(filePath)) return;
 
     if (needsTranscode(filePath)) {
-      const mp4Path    = filePath.replace(/\.(mov|m4v)$/i, '.mp4');
-      const mp4Name    = path.basename(mp4Path);
-      const srcName    = path.basename(filePath);
-      // Skip if already transcoded or a transcode is already running for this file
-      if (fs.existsSync(mp4Path) || _transcoding.has(filePath)) return;
+      const srcName = path.basename(filePath);
 
-      // Create (or find) a placeholder slide so the card appears immediately
-      let slide = getSlides().find(s => s.type === 'video' && s.filename === mp4Name);
-      if (!slide) {
-        slide = createSlide('video', {
-          label:              srcName,
-          filename:           mp4Name,
-          enabled:            false,
-          _transcoding:       true,
-          _transcodeProgress: 0,
-        });
-      } else {
-        updateSlide(slide.id, { _transcoding: true, _transcodeProgress: 0 });
+      if (getConfig().transcodeVideos) {
+        // ── Transcoding enabled ────────────────────────────────────────────
+        const mp4Path = filePath.replace(/\.(mov|m4v)$/i, '.mp4');
+        const mp4Name = path.basename(mp4Path);
+
+        // Skip if already transcoded or a transcode is already running
+        if (fs.existsSync(mp4Path) || _transcoding.has(filePath)) return;
+
+        // Create (or find) a placeholder slide so the card appears immediately
+        let slide = getSlides().find(s => s.type === 'video' && s.filename === mp4Name);
+        if (!slide) {
+          slide = createSlide('video', {
+            label:              srcName,
+            filename:           mp4Name,
+            enabled:            false,
+            _transcoding:       true,
+            _transcodeProgress: 0,
+          });
+        } else {
+          updateSlide(slide.id, { _transcoding: true, _transcodeProgress: 0 });
+        }
+        broadcast({ type: 'slides_update', slides: getSlides() });
+
+        const slideId = slide.id;
+        _transcoding.add(filePath);
+
+        const onProgress = (pct) => {
+          updateSlide(slideId, { _transcodeProgress: pct });
+          broadcast({ type: 'transcode_progress', slideId, filename: mp4Name, pct });
+        };
+
+        transcodeToMp4(filePath, onProgress)
+          .then(() => {
+            updateSlide(slideId, { _transcoding: false, _transcodeProgress: undefined });
+            broadcast({ type: 'slides_update', slides: getSlides() });
+            console.log(`[videos] Transcoded and registered: ${mp4Name}`);
+          })
+          .catch(err => {
+            console.warn(`[videos] Transcode failed for ${srcName}:`, err.message);
+            updateSlide(slideId, { _transcoding: false, _transcodeProgress: undefined, _missing: true });
+            broadcast({ type: 'slides_update', slides: getSlides() });
+          })
+          .finally(() => {
+            _transcoding.delete(filePath);
+          });
+        return;
       }
+
+      // ── Transcoding disabled: register the source file directly ───────────
+      // The browser will attempt to play the original .mov/.m4v; Chromium on
+      // macOS handles H.264-in-MOV natively. On Linux it may not, but the
+      // video slide renderer will display a minimum hold time on error rather
+      // than instantly skipping.
+      const existing = getSlides().find(s => s.type === 'video' && s.filename === srcName);
+      if (existing) return;
+      const slide = createSlide('video', { label: srcName, filename: srcName, enabled: false });
       broadcast({ type: 'slides_update', slides: getSlides() });
-
-      const slideId = slide.id;
-      _transcoding.add(filePath);
-
-      const onProgress = (pct) => {
-        updateSlide(slideId, { _transcodeProgress: pct });
-        broadcast({ type: 'transcode_progress', slideId, filename: mp4Name, pct });
-      };
-
-      transcodeToMp4(filePath, onProgress)
-        .then(() => {
-          updateSlide(slideId, { _transcoding: false, _transcodeProgress: undefined });
-          broadcast({ type: 'slides_update', slides: getSlides() });
-          console.log(`[videos] Transcoded and registered: ${mp4Name}`);
-        })
-        .catch(err => {
-          console.warn(`[videos] Transcode failed for ${srcName}:`, err.message);
-          updateSlide(slideId, { _transcoding: false, _transcodeProgress: undefined, _missing: true });
-          broadcast({ type: 'slides_update', slides: getSlides() });
-        })
-        .finally(() => {
-          _transcoding.delete(filePath);
-        });
+      console.log(`[videos] Registered source video (transcoding disabled): ${srcName} (id: ${slide.id})`);
       return;
     }
 
@@ -146,16 +164,27 @@ function startWatcher() {
     if (!VIDEO_EXTS.test(filePath)) return;
     const filename = path.basename(filePath);
 
-    // When the source .mov/.m4v is removed, also remove the transcoded .mp4
     if (needsTranscode(filePath)) {
-      const mp4Path = filePath.replace(/\.(mov|m4v)$/i, '.mp4');
-      fs.unlink(mp4Path, () => {}); // best-effort
-      const mp4Name = path.basename(mp4Path);
-      const mp4Slide = getSlides().find(s => s.type === 'video' && s.filename === mp4Name);
-      if (mp4Slide) {
-        updateSlide(mp4Slide.id, { enabled: false, _missing: true });
-        broadcast({ type: 'slides_update', slides: require('../slides/store').getSlides() });
-        console.log(`[videos] Source removed, transcoded video marked missing: ${mp4Name}`);
+      if (getConfig().transcodeVideos) {
+        // Transcoding was enabled: clean up the derived .mp4 as well
+        const mp4Path = filePath.replace(/\.(mov|m4v)$/i, '.mp4');
+        fs.unlink(mp4Path, () => {}); // best-effort
+        const mp4Name  = path.basename(mp4Path);
+        const mp4Slide = getSlides().find(s => s.type === 'video' && s.filename === mp4Name);
+        if (mp4Slide) {
+          updateSlide(mp4Slide.id, { enabled: false, _missing: true });
+          broadcast({ type: 'slides_update', slides: getSlides() });
+          console.log(`[videos] Source removed, transcoded video marked missing: ${mp4Name}`);
+        }
+      } else {
+        // Transcoding disabled: source file was registered directly
+        const srcName  = path.basename(filePath);
+        const srcSlide = getSlides().find(s => s.type === 'video' && s.filename === srcName);
+        if (srcSlide) {
+          updateSlide(srcSlide.id, { enabled: false, _missing: true });
+          broadcast({ type: 'slides_update', slides: getSlides() });
+          console.log(`[videos] Source video removed: ${srcName}`);
+        }
       }
       return;
     }

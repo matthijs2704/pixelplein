@@ -31,6 +31,7 @@ export function refreshFromConfig() {
   _setVal('settings-display-width', cfg.displayWidth || 1920);
   _setVal('settings-display-height', cfg.displayHeight || 1080);
   _setVal('settings-health-interval', Math.round((cfg.healthBroadcastIntervalMs || 3000) / 1000));
+  _setChecked('settings-transcode-videos', cfg.transcodeVideos ?? false);
 }
 
 function _bind() {
@@ -63,6 +64,12 @@ function _bind() {
     const parsed = parseInt(e.target.value || '3', 10);
     const seconds = Number.isFinite(parsed) ? Math.max(1, Math.min(30, parsed)) : 3;
     cfg.healthBroadcastIntervalMs = seconds * 1000;
+    _onChanged?.();
+  });
+
+  document.getElementById('settings-transcode-videos')?.addEventListener('change', e => {
+    const cfg = _getConfig();
+    cfg.transcodeVideos = e.target.checked;
     _onChanged?.();
   });
 
@@ -203,6 +210,11 @@ async function _loadOidcSection() {
 function _setVal(id, val) {
   const el = document.getElementById(id);
   if (el) el.value = String(val ?? '');
+}
+
+function _setChecked(id, val) {
+  const el = document.getElementById(id);
+  if (el) el.checked = Boolean(val);
 }
 
 function _getVal(id) {
