@@ -19,7 +19,7 @@ import {
 } from './layouts/index.js';
 import { startHeartbeat, stopHeartbeat } from './heartbeat.js';
 import { setWs, clearWs, sendSyncPhotos }  from './ws-send.js';
-import { updateSlides, updatePlaylists, triggerPlaySoon, handleSlideAdvance } from './slides/index.js';
+import { updateSlides as _updateSlides, updatePlaylists as _updatePlaylists, triggerPlaySoon, handleSlideAdvance } from './slides/index.js';
 import {
   initOverlays,
   applyOverlays,
@@ -32,6 +32,7 @@ import {
 import { setApprovedSubmissions, addApprovedSubmission } from './submissions.js';
 import { applyTheme }    from './theme.js';
 import { preloadBatch, getPreloadedCount } from './preload.js';
+import { preloadSlideAssets, resetSlidePreload } from './slide-preload.js';
 import {
   showSyncStatus,
   hideSyncStatus,
@@ -92,6 +93,21 @@ let ws             = null;
 let retryTimer     = null;
 let cycleStartTimer = null;
 let _cycleRunning  = false;  // true once startCycle() has been called
+
+// Local mirrors of slide library + playlists so slide_update handlers can
+// cross-reference without importing from slides/index.js (which owns them).
+let _slides    = [];
+let _playlists = [];
+
+function updateSlides(slides) {
+  _slides = slides || [];
+  _updateSlides(_slides);
+}
+
+function updatePlaylists(playlists) {
+  _playlists = playlists || [];
+  _updatePlaylists(_playlists);
+}
 
 const RECONNECT_BASE      = 2500;
 const RECONNECT_JITTER    = 1500;
@@ -156,6 +172,7 @@ async function bootFromCache() {
   }
 
   preloadBatch(photos);
+  if (slides && playlists) preloadSlideAssets(slides, playlists);
   scheduleCycleStart();
 }
 
@@ -223,6 +240,14 @@ async function handleMessage(msg) {
       if (msg.playlists) {
         updatePlaylists(msg.playlists);
         idbSaveMeta('playlists', msg.playlists).catch(() => {});
+      }
+      // Kick off slide asset preloading whenever we have fresh slides+playlists
+      if (msg.slides || msg.playlists) {
+        const allSlides    = msg.slides    || [];
+        const allPlaylists = msg.playlists || [];
+        if (allSlides.length && allPlaylists.length) {
+          preloadSlideAssets(allSlides, allPlaylists);
+        }
       }
       if (msg.alerts)          setAlerts(msg.alerts);
       if (msg.eventSchedule)   setSchedule(msg.eventSchedule);
@@ -315,6 +340,9 @@ async function handleMessage(msg) {
       if (msg.slides) {
         updateSlides(msg.slides);
         idbSaveMeta('slides', msg.slides).catch(() => {});
+        // Re-run preload in case new slides were added or enabled
+        resetSlidePreload();
+        preloadSlideAssets(msg.slides, _playlists);
       }
       break;
 
@@ -322,6 +350,8 @@ async function handleMessage(msg) {
       if (msg.playlists) {
         updatePlaylists(msg.playlists);
         idbSaveMeta('playlists', msg.playlists).catch(() => {});
+        resetSlidePreload();
+        preloadSlideAssets(_slides, msg.playlists);
       }
       break;
 

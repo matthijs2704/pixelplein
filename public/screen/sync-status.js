@@ -8,7 +8,8 @@
 //   Once the photo cycle starts (hideWaiting is called from app.js), the same
 //   data is shown in a small corner panel (#sync-status) until sync_complete.
 
-import { getPreloadStats } from './preload.js';
+import { getPreloadStats }      from './preload.js';
+import { getSlidePreloadStats } from './slide-preload.js';
 
 // ---------------------------------------------------------------------------
 // State
@@ -133,23 +134,34 @@ function _stopPolling() {
 // ---------------------------------------------------------------------------
 
 function _render() {
-  const stats = getPreloadStats();
+  const photoStats = getPreloadStats();
+  const slideStats = getSlidePreloadStats();
 
-  // The meaningful "total" for progress is the larger of:
-  //  - what the server said it's sending (metadata count)
-  //  - what preload.js knows about (may grow as batches arrive)
-  const knownTotal = Math.max(_total, stats.total, 1);
+  // Combined totals across photos and slide assets
+  const photoTotal = Math.max(_total, photoStats.total);
+  const slideTotal = slideStats.total;
+  const combined   = photoTotal + slideTotal;
+  const knownTotal = Math.max(combined, 1);
+  const preloaded  = photoStats.preloaded + slideStats.preloaded;
 
-  // Progress = preloaded / total (preloading is the slow, meaningful part)
   const pct = _done
     ? 100
-    : Math.min(100, Math.round((stats.preloaded / knownTotal) * 100));
+    : Math.min(100, Math.round((preloaded / knownTotal) * 100));
 
-  const countText = _done
-    ? `${stats.preloaded} photos`
-    : `${stats.preloaded} / ${knownTotal}`;
+  // Label: show photos + slides breakdown when both are non-zero
+  let countText;
+  if (_done) {
+    countText = `${photoStats.preloaded} photos`;
+    if (slideTotal > 0) countText += ` · ${slideStats.preloaded} slides`;
+  } else if (slideTotal > 0) {
+    countText = `${photoStats.preloaded}/${photoTotal} photos · ${slideStats.preloaded}/${slideTotal} slides`;
+  } else {
+    countText = `${photoStats.preloaded} / ${photoTotal}`;
+  }
 
-  const speedText = _fmtSpeed(stats.bytesPerSec);
+  // Use the faster of the two speed readings
+  const bytesPerSec = Math.max(photoStats.bytesPerSec, slideStats.bytesPerSec);
+  const speedText = _fmtSpeed(bytesPerSec);
 
   // Phase 1: waiting-screen block
   if (!_cycleStarted) {

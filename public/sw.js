@@ -25,6 +25,7 @@ const SHELL_URLS = [
   '/screen/photo-selection.js',
   '/screen/photos.js',
   '/screen/preload.js',
+  '/screen/slide-preload.js',
   '/screen/submissions.js',
   '/screen/sync-status.js',
   '/screen/templates.js',
