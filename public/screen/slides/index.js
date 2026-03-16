@@ -30,6 +30,13 @@ let _playSoonIds  = [];    // queue of slide IDs to play soon (FIFO)
 // Maps playlistId → resolve function (there is at most one pending per screen)
 const _advanceWaiters = new Map();
 
+// Lookahead: pre-built slide element for the next slide in the playlist.
+// Building ahead of time gives videos an entire slide-duration to buffer
+// before they need to play.
+//
+// @type {Map<string, { el: HTMLElement, play: () => Promise<void> }>}
+const _lookahead = new Map();
+
 // ---------------------------------------------------------------------------
 // Public init / update hooks
 // ---------------------------------------------------------------------------
@@ -46,22 +53,25 @@ export function updateSlidesConfig(config) {
 
 export function updateSlides(slides) {
   _slides = slides || [];
+  // Drop any lookahead entries whose slides were updated/removed
+  for (const [id] of _lookahead) {
+    const s = _slides.find(s => s.id === id);
+    if (!s || s.enabled === false || s._missing) _lookahead.delete(id);
+  }
 }
 
 export function updatePlaylists(playlists) {
   _playlists = playlists || [];
+  _lookahead.clear(); // playlist order may have changed
 }
 
 /** Called when server broadcasts play_soon for a slideId */
 export function triggerPlaySoon(slideId) {
-  // Validate the slide exists, is enabled, and is not missing
   const slide = _slides.find(s => s.id === slideId);
   if (!slide || slide.enabled === false || slide._missing) return;
 
-  // Accept if: this screen has no playlist (override mode), or the playlist contains the slide
   const pl = _getActivePlaylist();
   if (!pl || pl.slideIds.includes(slideId)) {
-    // Avoid duplicate queuing
     if (!_playSoonIds.includes(slideId)) {
       _playSoonIds.push(slideId);
     }
@@ -78,7 +88,6 @@ export function hasPlaySoon() {
 
 /**
  * Called when server sends slide_advance for a coordinated playlist.
- * Resolves any pending waiter for that playlistId.
  */
 export function handleSlideAdvance(playlistId) {
   const resolve = _advanceWaiters.get(playlistId);
@@ -94,22 +103,19 @@ export function handleSlideAdvance(playlistId) {
 // ---------------------------------------------------------------------------
 
 export async function runNextSlide(currentDisplayEl) {
-  // Choose which slide to play
+  // ── 1. Choose which slide to play ────────────────────────────────────────
   let slideId;
   let usingPlaySoon = false;
 
   if (_playSoonIds.length > 0) {
-    // Dequeue the next Play Soon slide
     slideId      = _playSoonIds.shift();
     usingPlaySoon = true;
-    // Advance playlist pointer to just after this slide for continuity
     const pl = _getActivePlaylist();
     if (pl) {
       const idx = pl.slideIds.indexOf(slideId);
       if (idx !== -1) _pointer = (idx + 1) % pl.slideIds.length;
     }
   } else {
-    // Normal playlist advance
     const pl = _getActivePlaylist();
     if (!pl || !pl.slideIds.length) return false;
 
@@ -130,39 +136,39 @@ export async function runNextSlide(currentDisplayEl) {
   const slide = _slides.find(s => s.id === slideId);
   if (!slide || slide.enabled === false || slide._missing) return false;
 
-  // Build slide element
-  let built;
-  try {
-    if (slide.type === 'video')          built = buildVideoSlide(slide);
-    else if (slide.type === 'webpage')   built = buildWebpageSlide(slide);
-    else if (slide.type === 'text-card') built = buildTextCardSlide(slide);
-    else if (slide.type === 'qr')        built = await buildQrSlide(slide);
-    else if (slide.type === 'image')     built = buildImageSlide(slide);
-    else if (slide.type === 'article')   built = await buildArticleSlide(slide);
-    else return false;
-  } catch (err) {
-    console.warn('[slides] failed to build slide', slide.id, slide.type, err.message);
-    return false;
+  // ── 2. Use pre-built lookahead element, or build fresh ───────────────────
+  let built = _lookahead.get(slideId);
+  _lookahead.delete(slideId); // consume it
+
+  if (!built) {
+    try {
+      built = await _buildSlide(slide);
+    } catch (err) {
+      console.warn('[slides] failed to build slide', slide.id, slide.type, err.message);
+      return false;
+    }
   }
 
-  const { el, play } = built;
+  // ── 3. Kick off lookahead for the NEXT slide immediately ─────────────────
+  // This happens in the background — the next slide starts buffering (for
+  // videos) or rendering while the current slide is visible.
+  _scheduleLookahead();
 
-  // Transition in
+  // ── 4. Transition in + play ───────────────────────────────────────────────
+  const { el, play } = built;
   el.style.opacity = '0';
   _container.appendChild(el);
+
   const transType = _config?.transition    || 'fade';
   const transMs   = _config?.transitionTime || 800;
   await runTransition(currentDisplayEl, el, transType, transMs);
 
-  // Play (waits for video end or durationSec)
   await play();
 
-  // Notify server — coordinated playlists use slide_ready and wait for
-  // slide_advance; non-coordinated use the legacy slide_ended.
+  // ── 5. Notify server ──────────────────────────────────────────────────────
   const activePl = _getActivePlaylist();
   if (activePl?.coordinated) {
     sendSlideReady(slide.id, activePl.id);
-    // Wait for server to say "go" before returning control to the cycle
     await _waitForAdvance(activePl.id);
   } else {
     sendSlideEnded(slide.id);
@@ -172,18 +178,67 @@ export async function runNextSlide(currentDisplayEl) {
 }
 
 // ---------------------------------------------------------------------------
+// Lookahead builder
+// ---------------------------------------------------------------------------
+
+let _lookaheadTimer = null;
+
+/**
+ * Schedule the pre-build of the next playlist slide.
+ * Runs asynchronously on the next microtask to avoid blocking the
+ * current slide's transition.
+ */
+function _scheduleLookahead() {
+  clearTimeout(_lookaheadTimer);
+  _lookaheadTimer = setTimeout(_buildLookahead, 0);
+}
+
+async function _buildLookahead() {
+  const pl = _getActivePlaylist();
+  if (!pl || !pl.slideIds.length) return;
+
+  // Find the next enabled slide starting from the current pointer
+  for (let i = 0; i < pl.slideIds.length; i++) {
+    const id    = pl.slideIds[(_pointer + i) % pl.slideIds.length];
+    const slide = _slides.find(s => s.id === id);
+    if (!slide || slide.enabled === false || slide._missing) continue;
+
+    // Skip if already pre-built
+    if (_lookahead.has(id)) return;
+
+    try {
+      const built = await _buildSlide(slide);
+      _lookahead.set(id, built);
+    } catch {
+      // Non-fatal — will build fresh when needed
+    }
+    return; // only pre-build one slide at a time
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Slide builder (dispatches to per-type renderer)
+// ---------------------------------------------------------------------------
+
+async function _buildSlide(slide) {
+  if (slide.type === 'video')          return buildVideoSlide(slide);
+  if (slide.type === 'webpage')        return buildWebpageSlide(slide);
+  if (slide.type === 'text-card')      return buildTextCardSlide(slide);
+  if (slide.type === 'qr')             return buildQrSlide(slide);
+  if (slide.type === 'image')          return buildImageSlide(slide);
+  if (slide.type === 'article')        return buildArticleSlide(slide);
+  throw new Error(`unknown slide type: ${slide.type}`);
+}
+
+// ---------------------------------------------------------------------------
 // Coordination waiter
 // ---------------------------------------------------------------------------
 
-/**
- * Returns a Promise that resolves when the server sends slide_advance for
- * the given playlistId, or after a local safety timeout (20 s).
- */
 function _waitForAdvance(playlistId) {
   return new Promise(resolve => {
     const timer = setTimeout(() => {
       _advanceWaiters.delete(playlistId);
-      resolve(); // advance unilaterally after timeout
+      resolve();
     }, 20_000);
 
     _advanceWaiters.set(playlistId, () => {
@@ -202,10 +257,6 @@ function _getActivePlaylist() {
   return _playlists.find(p => p.id === _playlistId) || null;
 }
 
-/**
- * Returns the effective interleaveEvery for this screen.
- * Reads from the active playlist only (0 = disabled).
- */
 export function getInterleaveEvery() {
   const pl = _getActivePlaylist();
   if (pl && typeof pl.interleaveEvery === 'number') return pl.interleaveEvery;
