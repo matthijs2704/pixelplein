@@ -1,29 +1,213 @@
-// Optional sync progress badge for batched photo sync.
+// Two-phase sync progress display for the screen player.
+//
+// Phase 1 — waiting screen:
+//   A progress block (#sync-progress) is injected inside #waiting showing a
+//   bar, photo count, and approximate download speed.
+//
+// Phase 2 — compact overlay:
+//   Once the photo cycle starts (hideWaiting is called from app.js), the same
+//   data is shown in a small corner panel (#sync-status) until sync_complete.
 
-let _el = null;
+import { getPreloadStats } from './preload.js';
 
-function _ensureEl() {
-  if (_el) return _el;
-  _el = document.getElementById('sync-status');
-  return _el;
+// ---------------------------------------------------------------------------
+// State
+// ---------------------------------------------------------------------------
+
+let _total        = 0;   // total photos the server is sending (from photo_batch progress)
+let _metaSent     = 0;   // how many metadata records received so far
+let _done         = false;
+let _pollTimer    = null;
+let _cycleStarted = false;
+
+// ---------------------------------------------------------------------------
+// DOM helpers
+// ---------------------------------------------------------------------------
+
+function _getOverlay() {
+  return document.getElementById('sync-status');
 }
 
+function _getOrCreateWaitingBlock() {
+  let el = document.getElementById('sync-progress');
+  if (el) return el;
+
+  const waiting = document.getElementById('waiting');
+  if (!waiting) return null;
+
+  el = document.createElement('div');
+  el.id = 'sync-progress';
+  el.innerHTML = `
+    <div class="sync-progress-row">
+      <span class="sync-progress-label">Syncing</span>
+      <span>
+        <span class="sync-progress-count" id="sp-count">–</span>
+        <span class="sync-progress-speed" id="sp-speed"></span>
+      </span>
+    </div>
+    <div class="sync-bar-track"><div class="sync-bar-fill" id="sp-bar"></div></div>
+  `;
+  waiting.appendChild(el);
+  return el;
+}
+
+// ---------------------------------------------------------------------------
+// Public API — called by app.js
+// ---------------------------------------------------------------------------
+
+/**
+ * Called on every photo_batch progress update.
+ * @param {number} sent   photos received so far
+ * @param {number} total  total photos the server will send
+ */
 export function showSyncStatus(sent, total) {
-  const el = _ensureEl();
-  if (!el) return;
+  _metaSent = Number(sent)  || 0;
+  _total    = Number(total) || 0;
+  _done     = false;
 
-  const s = Number(sent) || 0;
-  const t = Number(total) || 0;
-  if (t <= 0) {
-    el.textContent = 'Syncing photos...';
-  } else {
-    el.textContent = `Syncing photos ${Math.min(s, t)}/${t}`;
-  }
-  el.classList.add('visible');
+  if (!_pollTimer) _startPolling();
+
+  // Ensure waiting-screen block is visible
+  const block = _getOrCreateWaitingBlock();
+  if (block) block.classList.add('visible');
+
+  _render();
 }
 
+/** Called on sync_complete — let the progress reach 100 % then fade out. */
 export function hideSyncStatus() {
-  const el = _ensureEl();
-  if (!el) return;
-  el.classList.remove('visible');
+  _done = true;
+  _render(); // push to 100 %
+  setTimeout(() => {
+    _stopPolling();
+    const overlay = _getOverlay();
+    if (overlay) overlay.classList.remove('visible');
+    // waiting-screen block fades with #waiting itself
+  }, 800);
+}
+
+/** Called by app.js when the photo cycle starts (waiting screen hides). */
+export function onCycleStarted() {
+  _cycleStarted = true;
+  // If still syncing, switch to compact overlay mode
+  if (!_done) {
+    const overlay = _getOverlay();
+    if (overlay) overlay.classList.add('visible');
+    _render();
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Polling
+// ---------------------------------------------------------------------------
+
+const POLL_INTERVAL_MS = 500;
+
+function _startPolling() {
+  if (_pollTimer) return;
+  _pollTimer = setInterval(_render, POLL_INTERVAL_MS);
+}
+
+function _stopPolling() {
+  clearInterval(_pollTimer);
+  _pollTimer = null;
+}
+
+// ---------------------------------------------------------------------------
+// Render
+// ---------------------------------------------------------------------------
+
+function _render() {
+  const stats = getPreloadStats();
+
+  // The meaningful "total" for progress is the larger of:
+  //  - what the server said it's sending (metadata count)
+  //  - what preload.js knows about (may grow as batches arrive)
+  const knownTotal = Math.max(_total, stats.total, 1);
+
+  // Progress = preloaded / total (preloading is the slow, meaningful part)
+  const pct = _done
+    ? 100
+    : Math.min(100, Math.round((stats.preloaded / knownTotal) * 100));
+
+  const countText = _done
+    ? `${stats.preloaded} photos`
+    : `${stats.preloaded} / ${knownTotal}`;
+
+  const speedText = _fmtSpeed(stats.bytesPerSec);
+
+  // Phase 1: waiting-screen block
+  if (!_cycleStarted) {
+    _setTextById('sp-count', countText);
+    _setTextById('sp-speed', speedText ? `· ${speedText}` : '');
+    _setBarById('sp-bar', pct);
+  }
+
+  // Phase 2: compact overlay
+  if (_cycleStarted) {
+    const overlay = _getOverlay();
+    if (!overlay) return;
+
+    // Build / update overlay internals lazily
+    if (!overlay.querySelector('.sync-status-bar-track')) {
+      overlay.innerHTML = `
+        <div class="sync-status-row">
+          <span class="sync-status-label">Caching</span>
+          <span class="sync-status-count" id="ss-count">–</span>
+          <span class="sync-status-speed" id="ss-speed"></span>
+        </div>
+        <div class="sync-status-bar-track">
+          <div class="sync-status-bar-fill" id="ss-bar"></div>
+        </div>
+      `;
+    }
+
+    _setTextById('ss-count', countText);
+    _setTextById('ss-speed', speedText);
+    _setBarById('ss-bar', pct);
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Offline badge — shown when the WS is down but cycle runs from cache
+// ---------------------------------------------------------------------------
+
+export function showOfflineBadge() {
+  _cycleStarted = true; // ensure we use the overlay, not the waiting block
+  const overlay = _getOverlay();
+  if (!overlay) return;
+  overlay.innerHTML = `
+    <div class="sync-status-row">
+      <span class="sync-status-label">Offline</span>
+      <span class="sync-status-count" style="color:rgba(255,200,80,0.9)">Using cached photos</span>
+    </div>
+  `;
+  overlay.classList.add('visible');
+}
+
+export function hideOfflineBadge() {
+  // Only hide the badge if we're not actively showing sync progress
+  if (!_done && _pollTimer) return;
+  const overlay = _getOverlay();
+  if (overlay) overlay.classList.remove('visible');
+}
+
+// ---------------------------------------------------------------------------
+// Helpers
+// ---------------------------------------------------------------------------
+
+function _fmtSpeed(bytesPerSec) {
+  if (!bytesPerSec || bytesPerSec < 1024) return '';
+  if (bytesPerSec < 1024 * 1024) return `${(bytesPerSec / 1024).toFixed(0)} KB/s`;
+  return `${(bytesPerSec / (1024 * 1024)).toFixed(1)} MB/s`;
+}
+
+function _setTextById(id, text) {
+  const el = document.getElementById(id);
+  if (el) el.textContent = text;
+}
+
+function _setBarById(id, pct) {
+  const el = document.getElementById(id);
+  if (el) el.style.width = pct + '%';
 }

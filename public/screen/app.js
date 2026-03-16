@@ -18,7 +18,7 @@ import {
   displayState,
 } from './layouts/index.js';
 import { startHeartbeat, stopHeartbeat } from './heartbeat.js';
-import { setWs, clearWs, sendSyncPhotos } from './ws-send.js';
+import { setWs, clearWs, sendSyncPhotos }  from './ws-send.js';
 import { updateSlides, updatePlaylists, triggerPlaySoon, handleSlideAdvance } from './slides/index.js';
 import {
   initOverlays,
@@ -30,9 +30,22 @@ import {
   setSchedule,
 } from './overlays/index.js';
 import { setApprovedSubmissions, addApprovedSubmission } from './submissions.js';
-import { applyTheme } from './theme.js';
+import { applyTheme }    from './theme.js';
 import { preloadBatch, getPreloadedCount } from './preload.js';
-import { showSyncStatus, hideSyncStatus } from './sync-status.js';
+import {
+  showSyncStatus,
+  hideSyncStatus,
+  onCycleStarted,
+  showOfflineBadge,
+  hideOfflineBadge,
+} from './sync-status.js';
+import {
+  savePhotos  as idbSavePhotos,
+  loadPhotos  as idbLoadPhotos,
+  saveMeta    as idbSaveMeta,
+  loadMeta    as idbLoadMeta,
+  removePhotos as idbRemovePhotos,
+} from './idb.js';
 
 // ---------------------------------------------------------------------------
 // Waiting screen
@@ -56,7 +69,7 @@ function showWaiting() {
 // Screen identity
 // ---------------------------------------------------------------------------
 
-const params   = new URLSearchParams(location.search);
+const params    = new URLSearchParams(location.search);
 const SCREEN_ID = params.get('screen') || '1';
 
 document.title = `Screen ${SCREEN_ID}`;
@@ -74,14 +87,16 @@ initOverlays(SCREEN_ID);
 // WebSocket connection
 // ---------------------------------------------------------------------------
 
-let ws       = null;
-let retryTimer = null;
+let ws             = null;
+let retryTimer     = null;
 let cycleStartTimer = null;
-const RECONNECT_BASE   = 2500;
-const RECONNECT_JITTER = 1500;
-const PRELOAD_WAIT_MAX_MS    = 1200;  // max wait for preloads before starting cycle
-const PRELOAD_POLL_MS        = 120;   // interval for checking preload readiness
-const PRELOAD_INITIAL_DELAY  = 80;    // delay before first preload check
+let _cycleRunning  = false;  // true once startCycle() has been called
+
+const RECONNECT_BASE      = 2500;
+const RECONNECT_JITTER    = 1500;
+const PRELOAD_WAIT_MAX_MS = 1200;  // max wait for preloads before starting cycle
+const PRELOAD_POLL_MS     = 120;   // interval for checking preload readiness
+const PRELOAD_INITIAL_DELAY = 80;  // delay before first preload check
 
 function scheduleCycleStart() {
   if (cycleStartTimer) return;
@@ -94,7 +109,11 @@ function scheduleCycleStart() {
     const waitedMs = Date.now() - startedAt;
     if (getPreloadedCount() > 0 || waitedMs >= PRELOAD_WAIT_MAX_MS) {
       hideWaiting();
-      startCycle();
+      if (!_cycleRunning) {
+        _cycleRunning = true;
+        startCycle();
+        onCycleStarted();
+      }
       return;
     }
 
@@ -104,12 +123,48 @@ function scheduleCycleStart() {
   cycleStartTimer = setTimeout(tick, PRELOAD_INITIAL_DELAY);
 }
 
+// ---------------------------------------------------------------------------
+// Boot from IDB cache (offline / pre-connect path)
+// ---------------------------------------------------------------------------
+
+async function bootFromCache() {
+  let photos, config, slides, playlists;
+  try {
+    [photos, config, slides, playlists] = await Promise.all([
+      idbLoadPhotos(),
+      idbLoadMeta('config'),
+      idbLoadMeta('slides'),
+      idbLoadMeta('playlists'),
+    ]);
+  } catch {
+    return; // IDB unavailable — proceed to normal WS connect
+  }
+
+  if (!photos?.length) return; // nothing cached yet
+
+  if (config) {
+    updateConfig(config);
+    applyTheme(config.theme ?? null).catch(() => {});
+    applyOverlays(config);
+  }
+  if (slides)    updateSlides(slides);
+  if (playlists) updatePlaylists(playlists);
+
+  for (const photo of photos) {
+    if (photo?.status === 'ready') addPhoto(photo);
+  }
+
+  preloadBatch(photos);
+  scheduleCycleStart();
+}
+
 function connect() {
   const proto = location.protocol === 'https:' ? 'wss' : 'ws';
   ws = new WebSocket(`${proto}://${location.host}`);
 
   ws.onopen = () => {
     clearTimeout(retryTimer);
+    hideOfflineBadge();
     setWs(ws, SCREEN_ID);
     startHeartbeat(SCREEN_ID, () => displayState);
   };
@@ -125,14 +180,23 @@ function connect() {
   ws.onclose = () => {
     clearWs();
     stopHeartbeat();
-    stopCycle();
-    removeAllOverlays();
     hideSyncStatus();
-    resetPhotoState();
-    if (cycleStartTimer) {
-      clearTimeout(cycleStartTimer);
-      cycleStartTimer = null;
+
+    if (_cycleRunning && photoRegistry.size > 0) {
+      // Keep the cycle alive from cached photos; reconnect quietly in background
+      showOfflineBadge();
+    } else {
+      // Nothing cached yet — fall back to the waiting screen
+      stopCycle();
+      removeAllOverlays();
+      resetPhotoState();
+      _cycleRunning = false;
+      if (cycleStartTimer) {
+        clearTimeout(cycleStartTimer);
+        cycleStartTimer = null;
+      }
     }
+
     retryTimer = setTimeout(connect, RECONNECT_BASE + Math.random() * RECONNECT_JITTER);
   };
 }
@@ -148,12 +212,19 @@ async function handleMessage(msg) {
         updateConfig(msg.config);
         await applyTheme(msg.config.theme ?? null);
         applyOverlays(msg.config);
+        idbSaveMeta('config', msg.config).catch(() => {});
       }
       if (msg.heroLocks) updateHeroLocks(msg.heroLocks);
-      if (msg.slides)    updateSlides(msg.slides);
-      if (msg.playlists) updatePlaylists(msg.playlists);
-      if (msg.alerts) setAlerts(msg.alerts);
-      if (msg.eventSchedule) setSchedule(msg.eventSchedule);
+      if (msg.slides) {
+        updateSlides(msg.slides);
+        idbSaveMeta('slides', msg.slides).catch(() => {});
+      }
+      if (msg.playlists) {
+        updatePlaylists(msg.playlists);
+        idbSaveMeta('playlists', msg.playlists).catch(() => {});
+      }
+      if (msg.alerts)          setAlerts(msg.alerts);
+      if (msg.eventSchedule)   setSchedule(msg.eventSchedule);
       if (msg.approvedSubmissions) setApprovedSubmissions(msg.approvedSubmissions);
 
       if (photoRegistry.size > 0) {
@@ -161,7 +232,7 @@ async function handleMessage(msg) {
       }
 
       if (ws && ws.readyState === 1) {
-        const knownIds = Array.from(photoRegistry.keys());
+        const knownIds    = Array.from(photoRegistry.keys());
         const totalPhotos = Number(msg.totalPhotos || 0);
         if (totalPhotos > 0 || knownIds.length > 0) showSyncStatus(0, totalPhotos);
         sendSyncPhotos(knownIds);
@@ -170,7 +241,10 @@ async function handleMessage(msg) {
 
     case 'photo_batch': {
       const removed = Array.isArray(msg.remove) ? msg.remove : [];
-      if (removed.length) removePhotos(removed);
+      if (removed.length) {
+        removePhotos(removed);
+        idbRemovePhotos(removed).catch(() => {});
+      }
 
       const incoming = Array.isArray(msg.photos) ? msg.photos : [];
       for (const photo of incoming) {
@@ -192,6 +266,8 @@ async function handleMessage(msg) {
       hideSyncStatus();
       if (photoRegistry.size > 0) {
         scheduleCycleStart();
+        // Persist the full up-to-date registry so cache is consistent
+        idbSavePhotos(Array.from(photoRegistry.values())).catch(() => {});
       }
       break;
 
@@ -199,12 +275,14 @@ async function handleMessage(msg) {
       if (msg.photo?.status === 'ready') {
         addPhoto(msg.photo);
         preloadBatch([msg.photo]);
-        scheduleCycleStart(); // first photo arrived — start once preload warms
+        idbSavePhotos([msg.photo]).catch(() => {});
+        scheduleCycleStart();
       }
       break;
 
     case 'remove_photo':
       removePhoto(msg.id);
+      idbRemovePhotos([msg.id]).catch(() => {});
       break;
 
     case 'photo_update':
@@ -216,6 +294,7 @@ async function handleMessage(msg) {
         updateConfig(msg.config);
         await applyTheme(msg.config.theme ?? null);
         applyOverlays(msg.config);
+        idbSaveMeta('config', msg.config).catch(() => {});
       }
       break;
 
@@ -232,11 +311,17 @@ async function handleMessage(msg) {
       break;
 
     case 'slides_update':
-      if (msg.slides) updateSlides(msg.slides);
+      if (msg.slides) {
+        updateSlides(msg.slides);
+        idbSaveMeta('slides', msg.slides).catch(() => {});
+      }
       break;
 
     case 'playlists_update':
-      if (msg.playlists) updatePlaylists(msg.playlists);
+      if (msg.playlists) {
+        updatePlaylists(msg.playlists);
+        idbSaveMeta('playlists', msg.playlists).catch(() => {});
+      }
       break;
 
     case 'play_soon':
@@ -270,7 +355,7 @@ async function handleMessage(msg) {
 }
 
 // ---------------------------------------------------------------------------
-// Start
+// Start — boot from cache first, then open WS in parallel
 // ---------------------------------------------------------------------------
 
-connect();
+bootFromCache().catch(() => {}).finally(() => connect());

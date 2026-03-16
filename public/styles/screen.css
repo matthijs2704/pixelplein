@@ -48,28 +48,114 @@
     40%           { transform: scale(1.0); opacity: 1;   }
   }
 
-  /* Optional sync progress badge (batched delta sync) */
+  /* ── Sync progress — waiting-screen block ────────────────────────────── */
+  #sync-progress {
+    width: clamp(240px, 40vw, 420px);
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    margin-top: 8px;
+    opacity: 0;
+    transition: opacity 0.3s ease;
+  }
+  #sync-progress.visible { opacity: 1; }
+
+  .sync-progress-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+  }
+  .sync-progress-label {
+    font-size: clamp(11px, 1.4vw, 13px);
+    color: rgba(255,255,255,0.55);
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+  }
+  .sync-progress-count {
+    font-size: clamp(12px, 1.6vw, 15px);
+    font-weight: 600;
+    color: rgba(255,255,255,0.85);
+    font-variant-numeric: tabular-nums;
+  }
+  .sync-progress-speed {
+    font-size: clamp(10px, 1.3vw, 12px);
+    color: rgba(255,255,255,0.38);
+    font-variant-numeric: tabular-nums;
+  }
+  .sync-bar-track {
+    height: 3px;
+    background: rgba(255,255,255,0.12);
+    border-radius: 999px;
+    overflow: hidden;
+  }
+  .sync-bar-fill {
+    height: 100%;
+    background: linear-gradient(90deg, #6c63ff, #a78bfa);
+    border-radius: 999px;
+    width: 0%;
+    transition: width 0.4s ease;
+  }
+
+  /* ── Sync progress — compact corner overlay (shown while cycle runs) ── */
   #sync-status {
     position: fixed;
     left: 16px;
     bottom: 16px;
-    padding: 7px 12px;
-    border-radius: 999px;
-    background: rgba(0, 0, 0, 0.58);
+    min-width: 180px;
+    padding: 10px 14px;
+    border-radius: 10px;
+    background: rgba(0, 0, 0, 0.62);
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
     color: rgba(255, 255, 255, 0.88);
     font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
-    font-size: 13px;
-    letter-spacing: 0.01em;
+    font-size: 12px;
     z-index: 40;
     pointer-events: none;
     opacity: 0;
     transform: translateY(4px);
-    transition: opacity 0.2s ease, transform 0.2s ease;
+    transition: opacity 0.25s ease, transform 0.25s ease;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
   }
-
   #sync-status.visible {
     opacity: 1;
     transform: translateY(0);
+  }
+  .sync-status-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 12px;
+  }
+  .sync-status-label {
+    color: rgba(255,255,255,0.45);
+    font-size: 11px;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+  }
+  .sync-status-count {
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
+  }
+  .sync-status-speed {
+    color: rgba(255,255,255,0.45);
+    font-variant-numeric: tabular-nums;
+  }
+  .sync-status-bar-track {
+    height: 2px;
+    background: rgba(255,255,255,0.15);
+    border-radius: 999px;
+    overflow: hidden;
+  }
+  .sync-status-bar-fill {
+    height: 100%;
+    background: linear-gradient(90deg, #6c63ff, #a78bfa);
+    border-radius: 999px;
+    width: 0%;
+    transition: width 0.4s ease;
   }
 
   /* Theme frame overlay (injected by theme.js) */
