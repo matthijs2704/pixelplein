@@ -104,24 +104,31 @@ export function crossFadeSlot(slot, photo, durationMs) {
   next.src   = preferThumb ? photoThumbUrl(photo) : photoUrl(photo);
   next.alt   = photo.name;
   // Base styles — fit will be applied once photo dimensions are known
-  next.style.cssText  = 'display:block;width:100%;height:100%;position:absolute;inset:0;';
-  next.style.opacity    = '0';
-  next.style.transition = `opacity ${ms}ms ${EASE}`;
+  next.style.cssText = 'display:block;width:100%;height:100%;position:absolute;inset:0;';
+  next.style.opacity = '0';
 
   slot.style.position = 'relative';
   slot.appendChild(next);
 
   next.onload = () => {
     applySmartFit(next, photo, slotIsPortrait);
+    // Double rAF: first frame commits opacity:0 + no-transition state,
+    // second frame starts the transition — same pattern as slide/zoom.
+    // Without the double rAF, cached images fire onload before the browser
+    // has painted the initial opacity:0, causing the transition to be skipped.
+    next.style.transition = 'none';
     requestAnimationFrame(() => {
-      next.style.opacity = '1';
-      img.style.transition = `opacity ${ms}ms ${EASE}`;
-      img.style.opacity  = '0';
-      setTimeout(() => {
-        img.remove();
-        next.style.position = '';
-        next.style.inset    = '';
-      }, ms);
+      requestAnimationFrame(() => {
+        next.style.transition = `opacity ${ms}ms ${EASE}`;
+        next.style.opacity = '1';
+        img.style.transition = `opacity ${ms}ms ${EASE}`;
+        img.style.opacity  = '0';
+        setTimeout(() => {
+          img.remove();
+          next.style.position = '';
+          next.style.inset    = '';
+        }, ms);
+      });
     });
   };
 
