@@ -10,7 +10,7 @@ import {
   photoRegistry,
 } from '../photos.js';
 import {
-  hasApprovedSubmissions,
+  getSubmissionWallState,
   pickSubmissionWindow,
   updateSubmissionWallSettings,
   getSubmissionWallOptions,
@@ -170,14 +170,14 @@ function _readyPoolSize(cfg) {
 
 function _buildSubmissionWallLayout(cycleStart, submissionMode, hasSubmissions, hideWhenEmpty, wallOptions) {
   const mode = submissionMode === 'off' ? 'both' : submissionMode;
-  const pageSize = 6;
+  const pageSize = Math.max(3, Math.min(12, Number(wallOptions?.pageSize) || 6));
   const count = mode === 'single' ? 1 : pageSize * 4;
   const items = hasSubmissions ? pickSubmissionWindow(count, Math.max(24, pageSize * 8)) : [];
 
   if (!items.length && hideWhenEmpty) return null;
 
   const effectiveMode = items.length ? mode : 'single';
-  const built = buildSubmissionWall(items, effectiveMode, wallOptions);
+  const built = buildSubmissionWall(items, effectiveMode, { ...wallOptions, pageSize });
   const duration = Math.max(5000, Math.min(120000, Number(_globalConfig?.submissionDisplayDurationSec || 12) * 1000));
   _lastSubmissionWallAt = cycleStart;
 
@@ -249,10 +249,13 @@ async function runCycle() {
   const cycleStart = Date.now();
   const submissionMode = _globalConfig?.submissionDisplayMode || 'off';
   const wallOptions = { ...getSubmissionWallOptions(), bottomInset: getBottomInset() };
-  const hasSubmissions = hasApprovedSubmissions();
+  const wallState = getSubmissionWallState();
+  const hasSubmissions = wallState.totalCount > 0;
   const hideWhenEmpty = wallOptions.hideWhenEmpty !== false;
-  const submissionsEnabled = submissionMode !== 'off' && (hasSubmissions || !hideWhenEmpty);
-  const submissionIntervalMs = Math.max(10, Number(_globalConfig?.submissionDisplayIntervalSec || 45)) * 1000;
+  const submissionsEnabled = wallOptions.enabled !== false
+    && submissionMode !== 'off'
+    && (wallState.canShow || (hasSubmissions && !hideWhenEmpty));
+  const submissionIntervalMs = wallState.intervalMs;
   const shouldRunSubmissionWall = submissionsEnabled && ((cycleStart - _lastSubmissionWallAt) >= submissionIntervalMs);
 
   const poolSize = _readyPoolSize(cfg);

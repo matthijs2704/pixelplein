@@ -7,8 +7,8 @@ import { el } from '../../shared/utils.js';
 
 /* ── Sizing maths ─────────────────────────────────────────────────────── */
 
-// PAGE_SIZE caps how many cards go on one page.
-const PAGE_SIZE     = 6;
+// Default cards per page; actual page size comes from admin config.
+const DEFAULT_PAGE_SIZE = 6;
 const PAGE_DWELL_MS = 6000;
 const PAGE_EXIT_MS  = 380;
 
@@ -18,32 +18,15 @@ const PAGE_EXIT_MS  = 380;
  * Returns pixel values derived from the viewport so cards always fit
  * without scrolling but retain natural polaroid proportions.
  *
- * Layout is always arranged as rows of at most 3 cards:
- *   1 → [1]   (hero, single centred card — wider)
- *   2 → [2]
- *   3 → [3]
- *   4 → [2,2]
- *   5 → [3,2]
- *   6 → [3,3]
+ * Layout is arranged in a balanced grid with up to 4 cards per row.
  */
 /**
  * Compute card dimensions for the submission wall grid.
  *
  * Derives pixel values from the current viewport so cards always fit without
- * scrolling while retaining natural polaroid proportions.  Cards are arranged
- * in rows of at most 3:
+ * scrolling while retaining natural polaroid proportions.
  *
- *   1 → [1]   (hero — single centred card)
- *   2 → [2]
- *   3 → [3]
- *   4 → [2,2]
- *   5 → [3,2]
- *   6 → [3,3]
- *
- * When the computed grid exceeds the usable viewport height the entire card
- * size is scaled down uniformly so everything still fits.
- *
- * @param {number} n            - number of cards on this page (1–6)
+ * @param {number} n            - number of cards on this page
  * @param {number} bottomInset  - pixels reserved at the bottom (e.g. info bar)
  * @returns {{ cols, rows, pad, gap, cardW, cardH, border, photoSize, footerH, msgSize, metaSize, quoteSize }}
  */
@@ -52,8 +35,8 @@ function _sizing(n, bottomInset) {
   const vh = window.innerHeight || 1080;
   const usableH = vh - (bottomInset || 0);
 
-  const cols = n === 1 ? 1 : n <= 3 ? n : 3;
-  const rows = n === 1 ? 1 : n <= 3 ? 1 : Math.ceil(n / 3);
+  const cols = n === 1 ? 1 : Math.min(4, n);
+  const rows = Math.max(1, Math.ceil(n / cols));
 
   // Gaps and padding in px
   const pad  = Math.round(Math.min(vw * 0.022, 32));
@@ -112,10 +95,18 @@ function _sizing(n, bottomInset) {
 
 /** Array of row lengths for n cards in a max-3 grid. */
 function _rowSizes(n) {
-  if (n <= 3) return [n];
-  if (n === 4) return [2, 2];
-  if (n === 5) return [3, 2];
-  return [3, 3]; // 6
+  if (n <= 1) return [1];
+  const cols = Math.min(4, n);
+  const rows = Math.ceil(n / cols);
+  const base = Math.floor(n / rows);
+  const remainder = n % rows;
+  const out = [];
+
+  for (let i = 0; i < rows; i++) {
+    out.push(base + (i < remainder ? 1 : 0));
+  }
+
+  return out;
 }
 
 /* ── Card builder ─────────────────────────────────────────────────────── */
@@ -259,11 +250,12 @@ function _startPaging(shell, pageChunks, firstPage, bottomInset) {
 /**
  * @param {Array}  items
  * @param {string} mode   'single' | 'grid' | 'both'
- * @param {{ showQr?: boolean, qrImageUrl?: string, bottomInset?: number }} options
+ * @param {{ showQr?: boolean, qrImageUrl?: string, bottomInset?: number, pageSize?: number }} options
  */
 export function buildSubmissionWall(items, mode = 'both', options = {}) {
   const list        = Array.isArray(items) ? items : [];
   const bottomInset = Number(options.bottomInset) || 0;
+  const pageSize    = Math.max(3, Math.min(12, Math.floor(Number(options.pageSize) || DEFAULT_PAGE_SIZE)));
 
   const rootEl = el('div', { cls: 'layout sw-layout' });
   if (bottomInset > 0) rootEl.style.paddingBottom = `${bottomInset}px`;
@@ -302,8 +294,8 @@ export function buildSubmissionWall(items, mode = 'both', options = {}) {
 
   // Grid with optional paging
   const pageChunks = [];
-  for (let i = 0; i < list.length; i += PAGE_SIZE) {
-    pageChunks.push(list.slice(i, i + PAGE_SIZE));
+  for (let i = 0; i < list.length; i += pageSize) {
+    pageChunks.push(list.slice(i, i + pageSize));
   }
 
   const firstPage = _buildPage(pageChunks[0], true, bottomInset);
