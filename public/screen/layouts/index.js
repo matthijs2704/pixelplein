@@ -294,14 +294,15 @@ async function runCycle() {
     slotEls       = built.slotEls || null;
   }
 
-  // Apply mosaic duration factor so the mosaic layout can run slightly shorter
-  // than other layouts while still scaling proportionally with layoutDuration.
+  // Mosaic duration: scale up with swap rounds so each "scene" gets comparable
+  // screen time to other layouts.  Each round adds 40% of layoutDuration.
+  // mosaicDurationFactor (30-100%) then optionally trims the result.
   if (!cfg._overrideDuration && layoutType === 'mosaic') {
+    const base   = cfg.layoutDuration || DEFAULT_LAYOUT_DUR_MS;
+    const rounds = cfg.mosaicSwapRounds ?? 1;
     const factor = (cfg.mosaicDurationFactor ?? 100) / 100;
-    if (factor < 1.0) {
-      const base = cfg.layoutDuration || DEFAULT_LAYOUT_DUR_MS;
-      cfg = { ...cfg, _overrideDuration: Math.round(base * Math.max(0.3, factor)) };
-    }
+    const scaled = Math.round(base * (1 + rounds * 0.4) * Math.max(0.3, Math.min(1.0, factor)));
+    cfg = { ...cfg, _overrideDuration: scaled };
   }
 
   const duration = cfg._overrideDuration || cfg.layoutDuration || DEFAULT_LAYOUT_DUR_MS;

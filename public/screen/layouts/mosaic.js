@@ -228,7 +228,8 @@ export async function runMosaicTransitions(slotEls, cfg, pickMorePhotos, signal)
   const swapCount    = cfg.mosaicSwapCount        ?? 2;
   const baseDur      = cfg.layoutDuration         || 8000;
   const factor       = (cfg.mosaicDurationFactor  ?? 100) / 100;
-  const layoutDur    = Math.round(baseDur * Math.max(0.3, Math.min(1.0, factor)));
+  // Mirror the duration formula from index.js so usableMs is accurate.
+  const layoutDur    = Math.round(baseDur * (1 + rounds * 0.4) * Math.max(0.3, Math.min(1.0, factor)));
   const transitionMs = cfg.transitionTime         || 800;
   const staggerMs    = cfg.swapStaggerMs          ?? 140;
   const groupSync    = Boolean(cfg.mosaicGroupSync);

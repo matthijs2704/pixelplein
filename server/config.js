@@ -800,6 +800,11 @@ function sanitizeConfig(input, validThemeIds) {
 
   next.clock24h = raw.clock24h !== false;
 
+  const rawFontSize = Number(raw.infoBarFontSize);
+  next.infoBarFontSize = Number.isFinite(rawFontSize)
+    ? Math.max(8, Math.min(60, Math.floor(rawFontSize)))
+    : 15;
+
   // --- Global overlay defaults ---
   _sanitizeGlobalOverlayFields(raw, next);
 
