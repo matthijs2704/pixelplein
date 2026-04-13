@@ -36,14 +36,14 @@ const KIND_COPY = {
     success: 'Bedankt! Je inzending wordt bekeken en kan straks op het scherm verschijnen.',
   },
   kampkrant_tip: {
-    pageSub: 'Heb je iets opvallends, grappigs of leuks meegemaakt? Stuur een tip door naar de kampkrant.',
-    modeNote: 'Je tip komt bij de mediaredactie terecht en verschijnt niet op het fotoscherm.',
+    pageSub: 'Heb je iets opvallends, grappigs of leuks meegemaakt? Stuur een tip door naar Team Media voor de kampkrant.',
+    modeNote: 'Je tip komt bij Team Media terecht en verschijnt niet op het fotoscherm.',
     messageLabel: 'Jouw tip',
     messagePlaceholder: 'Typ hier je tip, verhaal of roddel...',
     photoLabel: "Foto of screenshot (optioneel)",
     photoHint: 'Een foto mag, maar een duidelijke tiptekst is het belangrijkste.',
-    buttonText: 'Tip doorsturen',
-    success: 'Bedankt! Je tip is doorgestuurd naar de kampkrant.',
+    buttonText: 'Tip doorsturen naar Team Media',
+    success: 'Bedankt! Je tip is doorgestuurd naar Team Media.',
   },
 };
 
