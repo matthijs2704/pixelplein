@@ -31,7 +31,6 @@ export function applySimpleControl(screen, key, value) {
   if (key === 'pace') {
     screen.layoutDuration  = Math.round(lerp(18000, 5000,  t));
     screen.transitionTime  = Math.round(lerp(1400,  450,   t));
-    screen.mosaicSwapDelay = Math.round(lerp(4200,  1200,  t));
     screen.swapStaggerMs   = Math.round(lerp(260,   90,    t));
     return;
   }

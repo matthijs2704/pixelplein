@@ -41,7 +41,6 @@ function defaultScreenConfig() {
     groupMixPct: 20,
     mosaicSwapRounds: 1,
     mosaicSwapCount: 2,
-    mosaicSwapDelay: 2200,
     mosaicMinDwellMs: 3000,
     mosaicGroupSync: false,
     cinematicWeight: 65,
@@ -235,7 +234,6 @@ const SCREEN_CONFIG_SCHEMA = {
   // Mosaic rhythm
   mosaicSwapRounds:        { type: 'number',      min: 0,     max: 4     },
   mosaicSwapCount:         { type: 'number',      min: 1,     max: 12    },
-  mosaicSwapDelay:         { type: 'number',      min: 700,   max: 8000  },
   mosaicMinDwellMs:        { type: 'number',      min: 500,   max: 30000 },
   mosaicGroupSync:         { type: 'bool' },
   swapStaggerMs:           { type: 'number',      min: 60,    max: 500   },

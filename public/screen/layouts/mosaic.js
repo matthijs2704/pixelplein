@@ -236,13 +236,16 @@ export async function runMosaicTransitions(slotEls, cfg, cycleStart, pickMorePho
   // Tile fade duration: 70% of layout transition, capped at 700ms
   const fadeDuration = Math.min(Math.round(transitionMs * 0.70), 700);
 
-  // Settle window: wait for layout transition to fully complete + small breathing room
-  const settleMs = transitionMs + 200;
+  // First swap fires after the layout transition settles AND tiles have met their
+  // minimum dwell time — whichever is later.  This prevents a minDwellMs > settleMs
+  // situation where rounds fire but every tile fails the dwell check.
+  const settleMs    = transitionMs + 200;
+  const firstSwapMs = Math.max(settleMs, minDwellMs);
 
-  // Space rounds evenly across the usable window (after settle, before next cycle)
+  // Space rounds evenly across the usable window (after first swap, before next cycle).
   // Reserve the last 1.5 s before next cycle as quiet time so no swap is mid-fade
   // when the next layout transition fires.
-  const usableWindow = layoutDur - settleMs - 1500;
+  const usableWindow  = layoutDur - firstSwapMs - 1500;
   const roundInterval = rounds > 1 ? Math.floor(usableWindow / rounds) : usableWindow;
 
   const newIds = [];
@@ -252,7 +255,7 @@ export async function runMosaicTransitions(slotEls, cfg, cycleStart, pickMorePho
     if (signal?.aborted) break;
 
     // When should this round fire, measured from cycleStart?
-    const targetMs = settleMs + round * roundInterval;
+    const targetMs = firstSwapMs + round * roundInterval;
     const elapsed  = Date.now() - cycleStart;
     const waitMs   = Math.max(0, targetMs - elapsed);
 

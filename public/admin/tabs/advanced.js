@@ -118,7 +118,6 @@ function _buildScreenForm(screenKey, cfg) {
       ${_checkbox(screenKey, 'mosaicGroupSync', 'Swap all small tiles together', Boolean(s.mosaicGroupSync))}
       ${_range(screenKey, 'mosaicMinDwellMs',  'Min. time on screen',  500, 15000, 500, s.mosaicMinDwellMs  ?? 3000, v => (v/1000).toFixed(1)+'s')}
       ${_range(screenKey, 'swapStaggerMs',     'Swap stagger',         60, 500,   10,  s.swapStaggerMs     ?? 140,  v => v+'ms')}
-      ${_range(screenKey, 'mosaicSwapDelay',   'Swap delay',           700, 8000, 100, s.mosaicSwapDelay   ?? 2200, v => v+'ms')}
     </details>
 
     <details class="adv-section">
@@ -255,7 +254,6 @@ function _formatRange(key, val) {
 
   if (key === 'layoutDuration')  return (val/1000).toFixed(1)+'s';
   if (key === 'transitionTime')  return val+'ms';
-  if (key === 'mosaicSwapDelay')   return val+'ms';
   if (key === 'mosaicMinDwellMs') return (val/1000).toFixed(1)+'s';
   if (key === 'swapStaggerMs')   return val+'ms';
   if (key === 'cyclePhaseMs')    return val+'ms';
@@ -327,7 +325,6 @@ export function applySafeFallback(getConfig, onChanged) {
     groupMixPct: 20,
     mosaicSwapRounds: 1,
     mosaicSwapCount: 2,
-    mosaicSwapDelay: 2200,
     swapStaggerMs: 130,
     mosaicMinDwellMs: 3000,
     mosaicGroupSync: false,
