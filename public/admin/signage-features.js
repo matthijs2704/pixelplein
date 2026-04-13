@@ -251,24 +251,50 @@ function _renderQuickAlertLiveList(alerts) {
 
 function _renderSubmissionCards(items, kind) {
   if (!items.length) {
-    return `<div class="muted" style="font-size:12px">No ${kind} submissions.</div>`;
+    const emptyText = {
+      'screen-pending': 'No pending screen submissions.',
+      'screen-approved': 'No approved screen submissions.',
+      'tip-pending': 'No pending kampkrant tips.',
+      'tip-handled': 'No handled kampkrant tips.',
+    };
+    return `<div class="muted" style="font-size:12px">${emptyText[kind] || 'No submissions.'}</div>`;
   }
 
   return items.map(item => {
     const age = fmtAgo(Date.now() - Number(item.submittedAt || 0));
     const message = String(item.message || '').trim();
+    const kindBadge = item.kind === 'kampkrant_tip'
+      ? '<span class="status-pill scheduled">kampkrant tip</span>'
+      : '<span class="status-pill live">scherm</span>';
+    let actions = `<button class="sc-btn sc-btn-del" data-sub-action="delete" data-sub-id="${esc(item.id)}">Delete</button>`;
+
+    if (kind === 'screen-pending') {
+      actions = `
+        <button class="sc-btn" data-sub-action="approve" data-sub-id="${esc(item.id)}">Approve</button>
+        <button class="sc-btn" data-sub-action="approve-photo" data-sub-id="${esc(item.id)}">Approve photo only</button>
+        <button class="sc-btn sc-btn-del" data-sub-action="reject" data-sub-id="${esc(item.id)}">Reject</button>
+        ${actions}
+      `;
+    }
+
+    if (kind === 'tip-pending') {
+      actions = `
+        <button class="sc-btn" data-sub-action="handle" data-sub-id="${esc(item.id)}">Mark handled</button>
+        <button class="sc-btn sc-btn-del" data-sub-action="reject" data-sub-id="${esc(item.id)}">Reject</button>
+        ${actions}
+      `;
+    }
+
     return `
       <div class="queue-card">
         ${item.photoThumbUrl ? `<img class="queue-thumb" src="${esc(item.photoThumbUrl)}" alt="">` : ''}
+        <div style="margin-bottom:8px">${kindBadge}</div>
         ${message
     ? `<div class="queue-msg">${esc(message)}</div>`
     : '<div class="queue-msg muted" style="font-size:12px">photo-only submission</div>'}
         <div class="queue-meta">${esc(item.submitterValue || 'anonymous')} · ${esc(age)}</div>
         <div class="queue-actions">
-          ${kind === 'pending' ? `<button class="sc-btn" data-sub-action="approve" data-sub-id="${esc(item.id)}">Approve</button>
-          <button class="sc-btn" data-sub-action="approve-photo" data-sub-id="${esc(item.id)}">Approve photo only</button>
-          <button class="sc-btn sc-btn-del" data-sub-action="reject" data-sub-id="${esc(item.id)}">Reject</button>` : ''}
-          <button class="sc-btn sc-btn-del" data-sub-action="delete" data-sub-id="${esc(item.id)}">Delete</button>
+          ${actions}
         </div>
       </div>
     `;
@@ -296,10 +322,14 @@ function _applySubmissionSettings(settings) {
   _setVal('submissions-enabled', String(settings.submissionEnabled !== false));
   _setVal('submissions-field-label', settings.submissionFieldLabel || 'Name');
   _setVal('submissions-require-photo', String(Boolean(settings.submissionRequirePhoto)));
+  _setVal('submissions-wall-enabled', String(settings.submissionWallEnabled !== false));
   _setVal('submissions-display-mode', settings.submissionDisplayMode || 'both');
   _setVal('submissions-display-interval', settings.submissionDisplayIntervalSec ?? 45);
   _setVal('submissions-display-duration', settings.submissionDisplayDurationSec ?? 12);
   _setVal('submissions-grid-count', settings.submissionGridCount ?? 6);
+  _setVal('submissions-wall-fresh-min', settings.submissionWallFreshForMin ?? 90);
+  _setVal('submissions-wall-repeat-cycles', settings.submissionWallRepeatAfterCycles ?? 3);
+  _setVal('submissions-wall-min-approved', settings.submissionWallMinApproved ?? 2);
   _setVal('submissions-wall-show-qr', String(settings.submissionWallShowQr !== false));
   _setVal('submissions-wall-hide-empty', String(settings.submissionWallHideWhenEmpty !== false));
 }
@@ -343,15 +373,21 @@ async function loadAlertsAndSchedule() {
 async function loadSubmissions() {
   const res = await apiFetch('/api/submissions');
   const all = Array.isArray(res?.submissions) ? res.submissions : [];
-  const pending = all.filter(item => item.status === 'pending');
-  const approved = all.filter(item => item.status === 'approved');
+  const screenPending = all.filter(item => item.kind !== 'kampkrant_tip' && item.status === 'pending');
+  const screenApproved = all.filter(item => item.kind !== 'kampkrant_tip' && item.status === 'approved');
+  const tipPending = all.filter(item => item.kind === 'kampkrant_tip' && item.status === 'pending');
+  const tipHandled = all.filter(item => item.kind === 'kampkrant_tip' && item.status === 'handled');
 
-  const pendingRoot = document.getElementById('submissions-pending');
-  const approvedRoot = document.getElementById('submissions-approved');
-  if (pendingRoot) pendingRoot.innerHTML = _renderSubmissionCards(pending, 'pending');
-  if (approvedRoot) approvedRoot.innerHTML = _renderSubmissionCards(approved, 'approved');
+  const screenPendingRoot = document.getElementById('submissions-screen-pending');
+  const screenApprovedRoot = document.getElementById('submissions-screen-approved');
+  const tipPendingRoot = document.getElementById('submissions-tip-pending');
+  const tipHandledRoot = document.getElementById('submissions-tip-handled');
+  if (screenPendingRoot) screenPendingRoot.innerHTML = _renderSubmissionCards(screenPending, 'screen-pending');
+  if (screenApprovedRoot) screenApprovedRoot.innerHTML = _renderSubmissionCards(screenApproved, 'screen-approved');
+  if (tipPendingRoot) tipPendingRoot.innerHTML = _renderSubmissionCards(tipPending, 'tip-pending');
+  if (tipHandledRoot) tipHandledRoot.innerHTML = _renderSubmissionCards(tipHandled, 'tip-handled');
 
-  const pendingCount = res.pendingCount || pending.length;
+  const pendingCount = res.pendingCount || (screenPending.length + tipPending.length);
   _setPendingBadge(pendingCount);
   _applySubmissionSettings(res.settings);
   _renderDashSubmissionsSummary(pendingCount);
@@ -445,10 +481,14 @@ async function saveSubmissionSettings() {
     submissionEnabled: document.getElementById('submissions-enabled')?.value === 'true',
     submissionFieldLabel: document.getElementById('submissions-field-label')?.value || 'Name',
     submissionRequirePhoto: document.getElementById('submissions-require-photo')?.value === 'true',
+    submissionWallEnabled: document.getElementById('submissions-wall-enabled')?.value === 'true',
     submissionDisplayMode: document.getElementById('submissions-display-mode')?.value || 'both',
     submissionDisplayIntervalSec: Number(document.getElementById('submissions-display-interval')?.value || 45),
     submissionDisplayDurationSec: Number(document.getElementById('submissions-display-duration')?.value || 12),
     submissionGridCount: Number(document.getElementById('submissions-grid-count')?.value || 6),
+    submissionWallFreshForMin: Number(document.getElementById('submissions-wall-fresh-min')?.value || 90),
+    submissionWallRepeatAfterCycles: Number(document.getElementById('submissions-wall-repeat-cycles')?.value || 3),
+    submissionWallMinApproved: Number(document.getElementById('submissions-wall-min-approved')?.value || 2),
     submissionWallShowQr: document.getElementById('submissions-wall-show-qr')?.value === 'true',
     submissionWallHideWhenEmpty: document.getElementById('submissions-wall-hide-empty')?.value === 'true',
   };
@@ -795,7 +835,7 @@ function bindActions() {
     }
   });
 
-  document.getElementById('submissions-pending')?.addEventListener('click', async e => {
+  const onSubmissionQueueClick = async e => {
     const btn = e.target.closest('button[data-sub-action]');
     if (!btn) return;
     const id = btn.dataset.subId;
@@ -814,6 +854,12 @@ function bindActions() {
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ status: 'approved', message: '' }),
         });
+      } else if (action === 'handle') {
+        await apiFetch(`/api/submissions/${encodeURIComponent(id)}`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ status: 'handled' }),
+        });
       } else if (action === 'reject') {
         await apiFetch(`/api/submissions/${encodeURIComponent(id)}`, {
           method: 'PATCH',
@@ -827,19 +873,12 @@ function bindActions() {
     } catch (err) {
       showToast(err.message, true);
     }
-  });
+  };
 
-  document.getElementById('submissions-approved')?.addEventListener('click', async e => {
-    const btn = e.target.closest('button[data-sub-action="delete"]');
-    if (!btn) return;
-    const id = btn.dataset.subId;
-    try {
-      await apiFetch(`/api/submissions/${encodeURIComponent(id)}`, { method: 'DELETE' });
-      await loadSubmissions();
-    } catch (err) {
-      showToast(err.message, true);
-    }
-  });
+  document.getElementById('submissions-screen-pending')?.addEventListener('click', onSubmissionQueueClick);
+  document.getElementById('submissions-screen-approved')?.addEventListener('click', onSubmissionQueueClick);
+  document.getElementById('submissions-tip-pending')?.addEventListener('click', onSubmissionQueueClick);
+  document.getElementById('submissions-tip-handled')?.addEventListener('click', onSubmissionQueueClick);
 
   document.getElementById('submissions-save-settings')?.addEventListener('click', async () => {
     try {
