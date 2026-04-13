@@ -96,9 +96,14 @@ const _layoutsReady = _loadLayouts();
 // Helpers object passed to layout.pick()
 // ---------------------------------------------------------------------------
 
-function _buildHelpers() {
+function _buildHelpers(cfg) {
+  // Wrap pickPhotos to inject avoidRecentMs = layoutDuration so photos shown
+  // in the previous cycle are hard-excluded from the primary pool (but still
+  // used as last-resort fallback when the pool is small).
+  const avoidRecentMs = cfg?.layoutDuration || DEFAULT_LAYOUT_DUR_MS;
   return {
-    pickPhotos,
+    pickPhotos: (count, c, excludeIds, hardExclude, options = {}) =>
+      pickPhotos(count, c, excludeIds, hardExclude, { avoidRecentMs, ...options }),
     pickAndClaimHero: _pickAndClaimHero,
   };
 }
@@ -282,7 +287,7 @@ async function runCycle() {
 
   if (!built) {
     layoutDesc = _layouts.get(layoutType) || _layouts.get('fullscreen');
-    const helpers = _buildHelpers();
+    const helpers = _buildHelpers(cfg);
     const picked  = layoutDesc.pick(cfg, helpers);
     built         = layoutDesc.build(picked, cfg);
     resolvedType  = built.templateName || layoutDesc.name;
@@ -321,6 +326,7 @@ async function runCycle() {
               [...visibleIds, ...(options.excludeIds || [])],
               false,
               {
+                avoidRecentMs: cfg.layoutDuration || DEFAULT_LAYOUT_DUR_MS,
                 orientation: options.orientation || 'any',
                 enforceOrientation: options.enforceOrientation,
                 orientationBoost: options.orientationBoost,
