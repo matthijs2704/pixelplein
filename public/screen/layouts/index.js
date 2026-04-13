@@ -294,6 +294,16 @@ async function runCycle() {
     slotEls       = built.slotEls || null;
   }
 
+  // Apply mosaic duration factor so the mosaic layout can run slightly shorter
+  // than other layouts while still scaling proportionally with layoutDuration.
+  if (!cfg._overrideDuration && layoutType === 'mosaic') {
+    const factor = (cfg.mosaicDurationFactor ?? 100) / 100;
+    if (factor < 1.0) {
+      const base = cfg.layoutDuration || DEFAULT_LAYOUT_DUR_MS;
+      cfg = { ...cfg, _overrideDuration: Math.round(base * Math.max(0.3, factor)) };
+    }
+  }
+
   const duration = cfg._overrideDuration || cfg.layoutDuration || DEFAULT_LAYOUT_DUR_MS;
   const visibleIds = built.visibleIds || [];
   const startMotionAfterShow = resolvedType === 'submissionwall';

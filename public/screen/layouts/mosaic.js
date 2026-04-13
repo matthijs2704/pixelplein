@@ -90,7 +90,7 @@ export const layout = {
    */
   async postMount(ctx) {
     const newIds = await runMosaicTransitions(
-      ctx.slotEls, ctx.cfg, ctx.cycleStart, ctx.pickMorePhotos, ctx.signal,
+      ctx.slotEls, ctx.cfg, ctx.pickMorePhotos, ctx.signal,
     );
     return newIds;
   },
@@ -223,28 +223,26 @@ export function buildMosaic(templateName, heroPhoto, otherPhotos, minTilePx, cfg
  * @param {AbortSignal}   [signal]
  * @returns {Promise<string[]>} New visible IDs after swaps
  */
-export async function runMosaicTransitions(slotEls, cfg, cycleStart, pickMorePhotos, signal) {
-  const rounds       = cfg.mosaicSwapRounds  ?? 1;
-  const swapCount    = cfg.mosaicSwapCount   ?? 2;
-  const layoutDur    = cfg.layoutDuration    || 8000;
-  const transitionMs = cfg.transitionTime    || 800;
-  const staggerMs    = cfg.swapStaggerMs     ?? 140;
-  const minDwellMs   = cfg.mosaicMinDwellMs  ?? 3000;
+export async function runMosaicTransitions(slotEls, cfg, pickMorePhotos, signal) {
+  const rounds       = cfg.mosaicSwapRounds      ?? 1;
+  const swapCount    = cfg.mosaicSwapCount        ?? 2;
+  const baseDur      = cfg.layoutDuration         || 8000;
+  const factor       = (cfg.mosaicDurationFactor  ?? 100) / 100;
+  const layoutDur    = Math.round(baseDur * Math.max(0.3, Math.min(1.0, factor)));
+  const transitionMs = cfg.transitionTime         || 800;
+  const staggerMs    = cfg.swapStaggerMs          ?? 140;
   const groupSync    = Boolean(cfg.mosaicGroupSync);
 
-  // Tile fade duration: 70% of layout transition, capped at 700ms
+  // Swap timing derived from layout duration so it scales naturally with pace.
+  // First swap fires at ~45% of the mosaic display window; quiet zone at the end.
   const fadeDuration = Math.min(Math.round(transitionMs * 0.70), 700);
+  const minDwellMs   = Math.round(layoutDur * 0.45);
+  const usableMs     = Math.max(0, layoutDur - minDwellMs - 1500 - fadeDuration);
+  const roundInterval = rounds > 1 ? Math.floor(usableMs / rounds) : usableMs;
 
-  // This function is called from onDidShow, so tiles are now fully visible.
-  // Stamp shownAt here (visible time) so minDwellMs is measured from when
-  // tiles actually appear on screen, not from the earlier build/cycleStart time.
+  // Stamp shownAt when tiles become visible (called from onDidShow).
   const visibleAt = Date.now();
   slotEls.forEach(s => { if (s.dataset.photoId) s.dataset.shownAt = String(visibleAt); });
-
-  // Space rounds evenly across the usable window (minDwellMs…cycle end - 1.5s quiet).
-  // cycleStart is used only to know when the cycle ends.
-  const usableMs      = Math.max(0, cycleStart + layoutDur - visibleAt - minDwellMs - 1500 - fadeDuration);
-  const roundInterval = rounds > 1 ? Math.floor(usableMs / rounds) : usableMs;
 
   const newIds = [];
   const reservedIds = new Set(slotEls.map(s => s.dataset.photoId).filter(Boolean));

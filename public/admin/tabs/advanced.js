@@ -113,11 +113,11 @@ function _buildScreenForm(screenKey, cfg) {
 
     <details class="adv-section">
       <summary>Mosaic rhythm</summary>
-      ${_range(screenKey, 'mosaicSwapRounds',  'Swaps per cycle',      0, 4,      1,   s.mosaicSwapRounds  ?? 1,    v => v+'×')}
-      ${_range(screenKey, 'mosaicSwapCount',   'Photos per swap',      1, 12,     1,   s.mosaicSwapCount   ?? 2,    v => v)}
+      ${_range(screenKey, 'mosaicSwapRounds',    'Swaps per cycle',   0, 4,    1,    s.mosaicSwapRounds    ?? 1,   v => v+'×')}
+      ${_range(screenKey, 'mosaicSwapCount',    'Photos per swap',   1, 12,   1,    s.mosaicSwapCount    ?? 2,   v => v)}
       ${_checkbox(screenKey, 'mosaicGroupSync', 'Swap all small tiles together', Boolean(s.mosaicGroupSync))}
-      ${_range(screenKey, 'mosaicMinDwellMs',  'Min. time on screen',  500, 15000, 500, s.mosaicMinDwellMs  ?? 3000, v => (v/1000).toFixed(1)+'s')}
-      ${_range(screenKey, 'swapStaggerMs',     'Swap stagger',         60, 500,   10,  s.swapStaggerMs     ?? 140,  v => v+'ms')}
+      ${_range(screenKey, 'mosaicDurationFactor', 'Mosaic speed',    30, 100, 5,    s.mosaicDurationFactor ?? 100, v => v+'%')}
+      ${_range(screenKey, 'swapStaggerMs',      'Swap stagger',      60, 500,  10,   s.swapStaggerMs      ?? 140, v => v+'ms')}
     </details>
 
     <details class="adv-section">
@@ -254,7 +254,7 @@ function _formatRange(key, val) {
 
   if (key === 'layoutDuration')  return (val/1000).toFixed(1)+'s';
   if (key === 'transitionTime')  return val+'ms';
-  if (key === 'mosaicMinDwellMs') return (val/1000).toFixed(1)+'s';
+  if (key === 'mosaicDurationFactor') return val+'%';
   if (key === 'swapStaggerMs')   return val+'ms';
   if (key === 'cyclePhaseMs')    return val+'ms';
   if (key === 'heroCooldownSec' || key === 'crossScreenHeroLockSec') return val+'s';
@@ -325,8 +325,8 @@ export function applySafeFallback(getConfig, onChanged) {
     groupMixPct: 20,
     mosaicSwapRounds: 1,
     mosaicSwapCount: 2,
+    mosaicDurationFactor: 100,
     swapStaggerMs: 130,
-    mosaicMinDwellMs: 3000,
     mosaicGroupSync: false,
     crossScreenHeroLockSec: 40,
     heroCooldownSec: 45,
