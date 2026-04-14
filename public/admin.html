@@ -85,7 +85,7 @@
 
     <!-- ── Control Room page ──────────────────────────────────────────── -->
     <div class="page active" data-page="control">
-      <div class="page-body" style="max-width:1100px">
+      <div class="page-body">
 
         <!-- Health stats -->
         <div>
@@ -131,10 +131,10 @@
           <div class="screens-grid" id="screens-grid-container"></div>
         </div>
 
-        <!-- Quick Controls + Quick Alert / Activity -->
-        <div class="dashboard-split">
+        <!-- Quick Controls + Quick Alert + Pending Review -->
+        <div class="dashboard-3col">
 
-          <!-- Live Controls (left, wider) -->
+          <!-- Live Controls -->
           <div class="card">
             <div class="card-title">Live Controls</div>
             <div class="quick-controls">
@@ -191,10 +191,10 @@
             </div>
           </div>
 
-          <!-- Right column: Quick Alert + Activity -->
-          <div class="dash-right-col">
+          <!-- Middle column: Quick Alert + Schedule Activity -->
+          <div class="dash-mid-col">
 
-            <!-- Quick Alert (compact, uses global defaults) -->
+            <!-- Quick Alert -->
             <div class="card">
               <div class="card-title" style="display:flex;align-items:center;gap:10px">
                 Quick Alert
@@ -240,19 +240,26 @@
               <div id="dash-qa-live-list" class="alert-list" style="margin-top:12px"></div>
             </div>
 
-            <!-- Activity summary -->
+            <!-- Schedule Activity -->
             <div class="card">
-              <div class="card-title">Activity</div>
-              <div class="dash-activity">
-                <div id="dash-events-summary">
-                  <div class="muted" style="font-size:12px">No events scheduled.</div>
-                </div>
-                <div id="dash-submissions-summary">
-                  <div class="muted" style="font-size:12px">No pending submissions.</div>
-                </div>
+              <div class="card-title">Schedule</div>
+              <div id="dash-events-summary">
+                <div class="muted" style="font-size:12px">No events scheduled.</div>
               </div>
             </div>
 
+          </div>
+
+          <!-- Right column: Pending Review -->
+          <div class="card dash-submissions-col">
+            <div class="card-title" style="display:flex;align-items:center;gap:8px">
+              Pending Review
+              <span id="dash-sub-badge" class="nav-badge" style="display:none">0</span>
+              <button id="dash-sub-review-btn" class="btn btn-secondary btn-sm" style="margin-left:auto;display:none">View all</button>
+            </div>
+            <div id="dash-submissions-pending" class="dash-sub-list">
+              <div class="muted" style="font-size:12px">No pending submissions.</div>
+            </div>
           </div>
 
         </div>
@@ -400,18 +407,18 @@
               <div class="field">
                 <label for="qa-style">Style</label>
                 <select id="qa-style">
-                  <option value="banner">Banner</option>
-                  <option value="popup">Popup</option>
-                  <option value="countdown">Countdown</option>
+                  <option value="banner">Banner — strips across top or bottom</option>
+                  <option value="popup">Popup — centered box overlay</option>
+                  <option value="countdown">Countdown — timer with message</option>
                 </select>
               </div>
               <div class="field">
                 <label for="qa-position">Position</label>
                 <select id="qa-position">
-                  <option value="bottom-bar">Info bar (countdown)</option>
                   <option value="top-center">Top center</option>
                   <option value="top-left">Top left</option>
                   <option value="top-right">Top right</option>
+                  <option value="bottom-center">Bottom center</option>
                   <option value="bottom-left">Bottom left</option>
                   <option value="bottom-right">Bottom right</option>
                   <option value="center">Center (popup)</option>
@@ -423,9 +430,14 @@
                 <label for="qa-message">Message</label>
                 <input id="qa-message" type="text" maxlength="400" placeholder="Dinner is ready!">
               </div>
-              <div class="field" style="display:flex;align-items:flex-end">
-                <button id="qa-fire" class="btn btn-primary btn-sm" style="width:100%">Fire alert</button>
+              <div class="field">
+                <label for="qa-duration">Duration (sec, 0 = persistent)</label>
+                <input id="qa-duration" type="number" min="0" max="3600" value="18" style="width:80px">
               </div>
+            </div>
+            <div style="margin-top:10px;display:flex;gap:8px;align-items:center">
+              <button id="qa-fire" class="btn btn-primary btn-sm">Fire alert now</button>
+              <span class="muted" style="font-size:11px">Alert appears on all screens immediately</span>
             </div>
           </div>
           <div id="qa-live-list" class="alert-list" style="margin-top:12px"></div>
@@ -851,129 +863,79 @@
 
     <!-- ── Submissions page ─────────────────────────────────────────────── -->
     <div class="page" data-page="submissions">
-      <div class="page-body" style="max-width:1100px">
-        <div class="card">
-          <div class="card-title">Submission settings</div>
-          <div class="two-col">
+      <div class="page-body">
+
+        <!-- Quick controls bar — applies immediately without Save & Apply -->
+        <div class="card sub-quick-bar">
+          <div class="sub-quick-bar-inner">
             <div class="field">
-              <label for="submissions-enabled">Submissions</label>
-              <select id="submissions-enabled">
+              <label for="sub-quick-enabled">Submissions</label>
+              <select id="sub-quick-enabled">
                 <option value="true">Enabled</option>
                 <option value="false">Disabled</option>
               </select>
             </div>
             <div class="field">
-              <label for="submissions-field-label">Custom field label</label>
-              <input id="submissions-field-label" type="text" maxlength="40" placeholder="Subcamp">
+              <label for="sub-quick-field-label">Field label</label>
+              <input type="text" id="sub-quick-field-label" maxlength="40" placeholder="Name">
             </div>
-          </div>
-          <div class="two-col" style="margin-top:10px">
             <div class="field">
-              <label for="submissions-require-photo">Require photo</label>
-              <select id="submissions-require-photo">
+              <label for="sub-quick-require-photo">Require photo</label>
+              <select id="sub-quick-require-photo">
                 <option value="false">No</option>
                 <option value="true">Yes</option>
               </select>
             </div>
             <div class="field">
-              <label for="submissions-wall-enabled">Submission wall</label>
-              <select id="submissions-wall-enabled">
-                <option value="true">Visible when relevant</option>
+              <label for="sub-quick-wall-enabled">Submission wall</label>
+              <select id="sub-quick-wall-enabled">
+                <option value="true">Visible</option>
                 <option value="false">Hidden</option>
               </select>
             </div>
+            <button class="btn btn-primary btn-sm" id="sub-quick-save">Apply</button>
           </div>
-          <div class="two-col" style="margin-top:10px">
-            <div class="field">
-              <label for="submissions-display-mode">Social wall mode</label>
-              <select id="submissions-display-mode">
-                <option value="off">Off</option>
-                <option value="single">Single</option>
-                <option value="grid">Grid</option>
-                <option value="both">Both</option>
-              </select>
-            </div>
-          </div>
-          <div class="two-col" style="margin-top:10px">
-            <div class="field">
-              <label for="submissions-display-interval">Wall interval (sec)</label>
-              <input id="submissions-display-interval" type="number" min="10" max="300" step="1" value="45">
-            </div>
-            <div class="field">
-              <label for="submissions-display-duration">Wall duration (sec)</label>
-              <input id="submissions-display-duration" type="number" min="5" max="120" step="1" value="12">
-            </div>
-          </div>
-          <div class="two-col" style="margin-top:10px">
-            <div class="field">
-              <label for="submissions-wall-show-qr">Show QR on wall</label>
-              <select id="submissions-wall-show-qr">
-                <option value="true">Yes</option>
-                <option value="false">No</option>
-              </select>
-            </div>
-            <div class="field">
-              <label for="submissions-wall-hide-empty">Hide wall when empty</label>
-              <select id="submissions-wall-hide-empty">
-                <option value="true">Yes</option>
-                <option value="false">No (show prompt)</option>
-              </select>
-            </div>
-          </div>
-          <div class="two-col" style="margin-top:10px">
-            <div class="field">
-              <label for="submissions-grid-count">Grid card count</label>
-              <input id="submissions-grid-count" type="number" min="3" max="12" step="1" value="6">
-            </div>
-            <div class="field">
-              <label for="submissions-wall-fresh-min">Fresh for (min)</label>
-              <input id="submissions-wall-fresh-min" type="number" min="5" max="1440" step="5" value="90">
-            </div>
-          </div>
-          <div class="two-col" style="margin-top:10px">
-            <div class="field">
-              <label for="submissions-wall-repeat-cycles">Repeat after wall cycles</label>
-              <input id="submissions-wall-repeat-cycles" type="number" min="0" max="20" step="1" value="3">
-            </div>
-            <div class="field">
-              <label for="submissions-wall-min-approved">Min approved before older items return</label>
-              <input id="submissions-wall-min-approved" type="number" min="1" max="20" step="1" value="2">
-            </div>
-          </div>
-          <div class="two-col" style="margin-top:10px">
-            <div class="field" style="display:flex;align-items:flex-end">
-              <button id="submissions-save-settings" class="btn btn-primary btn-sm">Save settings</button>
-            </div>
-          </div>
+          <p class="quick-hint" style="margin:6px 0 0">Changes apply immediately — no Save &amp; Apply needed. Detailed display settings are in Settings → Submissions.</p>
         </div>
 
+        <!-- Pending screen submissions -->
+        <div class="section-label" style="margin-top:20px">
+          Pending — Screen Submissions
+          <span id="sub-screen-pending-count" class="nav-badge" style="display:none;margin-left:6px">0</span>
+        </div>
         <div class="card">
-          <div class="card-title">Scherminzendingen wacht op moderatie</div>
-          <div id="submissions-screen-pending" class="queue-grid">
+          <div id="submissions-screen-pending" class="sub-list">
             <div class="muted" style="font-size:12px">No pending screen submissions.</div>
           </div>
         </div>
 
+        <!-- Approved screen submissions -->
+        <div class="section-label" style="margin-top:16px">Approved — Screen Submissions</div>
         <div class="card">
-          <div class="card-title">Goedgekeurde scherminzendingen</div>
-          <div id="submissions-screen-approved" class="queue-grid">
+          <div id="submissions-screen-approved" class="sub-list">
             <div class="muted" style="font-size:12px">No approved screen submissions yet.</div>
           </div>
         </div>
 
+        <!-- Pending newsletter tips -->
+        <div class="section-label" style="margin-top:16px">
+          Pending — Newsletter Tips
+          <span id="sub-tip-pending-count" class="nav-badge" style="display:none;margin-left:6px">0</span>
+        </div>
         <div class="card">
-          <div class="card-title">Kampkrant tips</div>
-          <div id="submissions-tip-pending" class="queue-grid">
-            <div class="muted" style="font-size:12px">No pending kampkrant tips.</div>
+          <div id="submissions-tip-pending" class="sub-list">
+            <div class="muted" style="font-size:12px">No pending newsletter tips.</div>
           </div>
         </div>
 
+        <!-- Handled newsletter tips -->
+        <div class="section-label" style="margin-top:16px">Handled — Newsletter Tips</div>
         <div class="card">
-          <div class="card-title">Afgehandelde kampkrant tips</div>
-          <div id="submissions-tip-handled" class="queue-grid">
-            <div class="muted" style="font-size:12px">No handled kampkrant tips yet.</div>
+          <div id="submissions-tip-handled" class="sub-list">
+            <div class="muted" style="font-size:12px">No handled newsletter tips yet.</div>
           </div>
         </div>
+
       </div>
     </div>
 

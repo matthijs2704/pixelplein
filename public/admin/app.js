@@ -457,7 +457,7 @@ function setPage(page) {
   if (fallbackBtn) fallbackBtn.style.display = page === 'display' ? '' : 'none';
 
   // Show/hide save bar buttons on runtime-only pages
-  const CONFIG_PAGES = new Set(['control', 'slides', 'overlays', 'signage', 'schedule', 'display', 'settings']);
+  const CONFIG_PAGES = new Set(['control', 'slides', 'overlays', 'display', 'settings']);
   const saveBarBtns = document.getElementById('save-bar-buttons');
   if (saveBarBtns) saveBarBtns.style.display = CONFIG_PAGES.has(page) ? '' : 'none';
   if (!CONFIG_PAGES.has(page)) {
