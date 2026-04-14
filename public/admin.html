@@ -20,15 +20,16 @@
     </div>
 
     <div class="nav-section">
-      <div class="nav-section-label">Manage</div>
-      <button class="nav-item active" data-page="screens">
-        <span class="nav-icon"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" class="icon" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M9 17.25v1.007a3 3 0 0 1-.879 2.122L7.5 21h9l-.621-.621A3 3 0 0 1 15 18.257V17.25m6-12V15a2.25 2.25 0 0 1-2.25 2.25H5.25A2.25 2.25 0 0 1 3 15V5.25m18 0A2.25 2.25 0 0 0 18.75 3H5.25A2.25 2.25 0 0 0 3 5.25m18 0H3"/></svg></span> Dashboard
-      </button>
-      <button class="nav-item" data-page="slides">
-        <span class="nav-icon"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" class="icon" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M5.25 5.653c0-.856.917-1.398 1.667-.986l11.54 6.347a1.125 1.125 0 0 1 0 1.972l-11.54 6.347a1.125 1.125 0 0 1-1.667-.986V5.653Z"/></svg></span> Slides
+      <div class="nav-section-label">Live</div>
+      <button class="nav-item active" data-page="control">
+        <span class="nav-icon"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" class="icon" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M9 17.25v1.007a3 3 0 0 1-.879 2.122L7.5 21h9l-.621-.621A3 3 0 0 1 15 18.257V17.25m6-12V15a2.25 2.25 0 0 1-2.25 2.25H5.25A2.25 2.25 0 0 1 3 15V5.25m18 0A2.25 2.25 0 0 0 18.75 3H5.25A2.25 2.25 0 0 0 3 5.25m18 0H3"/></svg></span> Control Room
       </button>
       <button class="nav-item" data-page="photos">
         <span class="nav-icon"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" class="icon" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="m2.25 15.75 5.159-5.159a2.25 2.25 0 0 1 3.182 0l5.159 5.159m-1.5-1.5 1.409-1.409a2.25 2.25 0 0 1 3.182 0l2.909 2.909m-18 3.75h16.5a1.5 1.5 0 0 0 1.5-1.5V6a1.5 1.5 0 0 0-1.5-1.5H3.75A1.5 1.5 0 0 0 2.25 6v12a1.5 1.5 0 0 0 1.5 1.5Zm10.5-11.25h.008v.008h-.008V8.25Zm.375 0a.375.375 0 1 1-.75 0 .375.375 0 0 1 .75 0Z"/></svg></span> Photos
+      </button>
+      <button class="nav-item" data-page="submissions">
+        <span class="nav-icon"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" class="icon" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M12 6v12m6-6H6"/><path stroke-linecap="round" stroke-linejoin="round" d="M4.5 12a7.5 7.5 0 1 0 15 0 7.5 7.5 0 0 0-15 0Z"/></svg></span> Submissions
+        <span class="nav-badge" id="nav-submissions-badge" style="display:none">0</span>
       </button>
       <button class="nav-item" data-page="signage">
         <span class="nav-icon"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" class="icon" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M3.75 6A2.25 2.25 0 0 1 6 3.75h2.25A2.25 2.25 0 0 1 10.5 6v2.25a2.25 2.25 0 0 1-2.25 2.25H6a2.25 2.25 0 0 1-2.25-2.25V6ZM3.75 15.75A2.25 2.25 0 0 1 6 13.5h2.25a2.25 2.25 0 0 1 2.25 2.25V18a2.25 2.25 0 0 1-2.25 2.25H6A2.25 2.25 0 0 1 3.75 18v-2.25ZM13.5 6a2.25 2.25 0 0 1 2.25-2.25H18A2.25 2.25 0 0 1 20.25 6v2.25A2.25 2.25 0 0 1 18 10.5h-2.25a2.25 2.25 0 0 1-2.25-2.25V6ZM13.5 15.75a2.25 2.25 0 0 1 2.25-2.25H18a2.25 2.25 0 0 1 2.25 2.25V18A2.25 2.25 0 0 1 18 20.25h-2.25A2.25 2.25 0 0 1 13.5 18v-2.25Z"/></svg></span> Signage
@@ -37,12 +38,20 @@
       <button class="nav-item" data-page="schedule">
         <span class="nav-icon"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" class="icon" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M6.75 3v2.25M17.25 3v2.25M3 18.75V7.5a2.25 2.25 0 0 1 2.25-2.25h13.5A2.25 2.25 0 0 1 21 7.5v11.25m-18 0A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75m-18 0v-7.5A2.25 2.25 0 0 1 5.25 9h13.5A2.25 2.25 0 0 1 21 11.25v7.5"/></svg></span> Schedule
       </button>
-      <button class="nav-item" data-page="submissions">
-        <span class="nav-icon"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" class="icon" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M12 6v12m6-6H6"/><path stroke-linecap="round" stroke-linejoin="round" d="M4.5 12a7.5 7.5 0 1 0 15 0 7.5 7.5 0 0 0-15 0Z"/></svg></span> Submissions
-        <span class="nav-badge" id="nav-submissions-badge" style="display:none">0</span>
+    </div>
+
+    <div class="nav-section-divider"></div>
+
+    <div class="nav-section">
+      <div class="nav-section-label">Setup</div>
+      <button class="nav-item" data-page="slides">
+        <span class="nav-icon"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" class="icon" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M5.25 5.653c0-.856.917-1.398 1.667-.986l11.54 6.347a1.125 1.125 0 0 1 0 1.972l-11.54 6.347a1.125 1.125 0 0 1-1.667-.986V5.653Z"/></svg></span> Slides
       </button>
-      <button class="nav-item" data-page="advanced">
-        <span class="nav-icon"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" class="icon" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M9.594 3.94c.09-.542.56-.94 1.11-.94h2.593c.55 0 1.02.398 1.11.94l.213 1.281c.063.374.313.686.645.87.074.04.147.083.22.127.325.196.72.257 1.075.124l1.217-.456a1.125 1.125 0 0 1 1.37.49l1.296 2.247a1.125 1.125 0 0 1-.26 1.431l-1.003.827c-.293.241-.438.613-.43.992a7.723 7.723 0 0 1 0 .255c-.008.378.137.75.43.991l1.004.827c.424.35.534.955.26 1.43l-1.298 2.247a1.125 1.125 0 0 1-1.369.491l-1.217-.456c-.355-.133-.75-.072-1.076.124a6.47 6.47 0 0 1-.22.128c-.331.183-.581.495-.644.869l-.213 1.281c-.09.543-.56.94-1.11.94h-2.594c-.55 0-1.019-.398-1.11-.94l-.213-1.281c-.062-.374-.312-.686-.644-.87a6.52 6.52 0 0 1-.22-.127c-.325-.196-.72-.257-1.076-.124l-1.217.456a1.125 1.125 0 0 1-1.369-.49l-1.297-2.247a1.125 1.125 0 0 1 .26-1.431l1.004-.827c.292-.24.437-.613.43-.991a6.932 6.932 0 0 1 0-.255c.007-.38-.138-.751-.43-.992l-1.004-.827a1.125 1.125 0 0 1-.26-1.43l1.297-2.247a1.125 1.125 0 0 1 1.37-.491l1.216.456c.356.133.751.072 1.076-.124.072-.044.146-.086.22-.128.332-.183.582-.495.644-.869l.214-1.28Z"/><path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z"/></svg></span> Advanced
+      <button class="nav-item" data-page="overlays">
+        <span class="nav-icon"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" class="icon" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M6 13.5V3.75m0 9.75a1.5 1.5 0 0 1 0 3m0-3a1.5 1.5 0 0 0 0 3m0 3.75V16.5m12-3V3.75m0 9.75a1.5 1.5 0 0 1 0 3m0-3a1.5 1.5 0 0 0 0 3m0 3.75V16.5m-6-9V3.75m0 3.75a1.5 1.5 0 0 1 0 3m0-3a1.5 1.5 0 0 0 0 3m0 9.75V10.5"/></svg></span> Overlays
+      </button>
+      <button class="nav-item" data-page="display">
+        <span class="nav-icon"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" class="icon" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M9.594 3.94c.09-.542.56-.94 1.11-.94h2.593c.55 0 1.02.398 1.11.94l.213 1.281c.063.374.313.686.645.87.074.04.147.083.22.127.325.196.72.257 1.075.124l1.217-.456a1.125 1.125 0 0 1 1.37.49l1.296 2.247a1.125 1.125 0 0 1-.26 1.431l-1.003.827c-.293.241-.438.613-.43.992a7.723 7.723 0 0 1 0 .255c-.008.378.137.75.43.991l1.004.827c.424.35.534.955.26 1.43l-1.298 2.247a1.125 1.125 0 0 1-1.369.491l-1.217-.456c-.355-.133-.75-.072-1.076.124a6.47 6.47 0 0 1-.22.128c-.331.183-.581.495-.644.869l-.213 1.281c-.09.543-.56.94-1.11.94h-2.594c-.55 0-1.019-.398-1.11-.94l-.213-1.281c-.062-.374-.312-.686-.644-.87a6.52 6.52 0 0 1-.22-.127c-.325-.196-.72-.257-1.076-.124l-1.217.456a1.125 1.125 0 0 1-1.369-.49l-1.297-2.247a1.125 1.125 0 0 1 .26-1.431l1.004-.827c.292-.24.437-.613.43-.991a6.932 6.932 0 0 1 0-.255c.007-.38-.138-.751-.43-.992l-1.004-.827a1.125 1.125 0 0 1-.26-1.43l1.297-2.247a1.125 1.125 0 0 1 1.37-.491l1.216.456c.356.133.751.072 1.076-.124.072-.044.146-.086.22-.128.332-.183.582-.495.644-.869l.214-1.28Z"/><path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z"/></svg></span> Display
       </button>
       <button class="nav-item" data-page="settings">
         <span class="nav-icon"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" class="icon" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M11.25 3.75h1.5m-1.5 16.5h1.5m-7.5-8.25h1.5m10.5 0h1.5M6.15 6.15l1.06 1.06m9.58 9.58 1.06 1.06m0-11.7-1.06 1.06m-9.58 9.58-1.06 1.06M12 15.75a3.75 3.75 0 1 0 0-7.5 3.75 3.75 0 0 0 0 7.5Z"/></svg></span> Settings
@@ -64,16 +73,18 @@
 
     <!-- Global save bar -->
     <div class="save-bar">
-      <span class="save-bar-title" id="page-title">Dashboard</span>
+      <span class="save-bar-title" id="page-title">Control Room</span>
       <span class="save-bar-dirty" id="save-dirty">Unsaved changes</span>
       <div id="toast"></div>
-      <button class="btn btn-secondary btn-sm" id="btn-revert">Revert</button>
-      <button class="btn btn-primary btn-sm" id="btn-save">Save &amp; Apply</button>
-      <button class="btn btn-secondary btn-sm" id="btn-fallback" style="display:none">Safe Fallback</button>
+      <div id="save-bar-buttons">
+        <button class="btn btn-secondary btn-sm" id="btn-revert">Revert</button>
+        <button class="btn btn-primary btn-sm" id="btn-save">Save &amp; Apply</button>
+        <button class="btn btn-secondary btn-sm" id="btn-fallback" style="display:none">Safe Fallback</button>
+      </div>
     </div>
 
-    <!-- ── Dashboard (Screens) page ─────────────────────────────────────── -->
-    <div class="page active" data-page="screens">
+    <!-- ── Control Room page ──────────────────────────────────────────── -->
+    <div class="page active" data-page="control">
       <div class="page-body" style="max-width:1100px">
 
         <!-- Health stats -->
@@ -123,10 +134,11 @@
         <!-- Quick Controls + Quick Alert / Activity -->
         <div class="dashboard-split">
 
-          <!-- Quick Controls (left, wider) -->
+          <!-- Live Controls (left, wider) -->
           <div class="card">
-            <div class="card-title">Quick Controls</div>
+            <div class="card-title">Live Controls</div>
             <div class="quick-controls">
+              <p class="control-room-hint">Changes apply instantly — no save needed</p>
 
               <div class="field">
                 <label for="q-group">Focus group</label>
@@ -280,6 +292,15 @@
               </div>
             </div>
             <div id="slides-video-status" class="slides-inline-status"></div>
+            <div class="slides-type-filters" id="slides-type-filters">
+              <button class="slides-type-btn active" data-type="all">All</button>
+              <button class="slides-type-btn" data-type="image">Images</button>
+              <button class="slides-type-btn" data-type="video">Videos</button>
+              <button class="slides-type-btn" data-type="text-card">Text</button>
+              <button class="slides-type-btn" data-type="article">Articles</button>
+              <button class="slides-type-btn" data-type="qr">QR</button>
+              <button class="slides-type-btn" data-type="webpage">Web</button>
+            </div>
             <div id="slides-library-grid" class="content-lib-body">
               <div class="empty-state"><span class="empty-state-icon"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" class="icon" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M3.375 19.5h17.25m-17.25 0a1.125 1.125 0 0 1-1.125-1.125M3.375 19.5h1.5C5.496 19.5 6 18.996 6 18.375m-3.75.125v-1.875m0 0a1.125 1.125 0 0 1 1.125-1.125M3.375 15H18.75M3.375 15h.75M3.375 15a1.125 1.125 0 0 0-1.125 1.125M3 16.125V5.625m0 10.5V15m0-9.375A1.125 1.125 0 0 1 4.125 4.5h15.75A1.125 1.125 0 0 1 21 5.625v12.75c0 .621-.504 1.125-1.125 1.125M21 18.375V15m0 0a1.125 1.125 0 0 0-1.125-1.125M21 15h-1.5m1.5 0v-9.375M18.75 15h-.75m-12.75-9h15M6 6.75v1.5m12-1.5v1.5M6 12.75v1.5m12-1.5v1.5"/></svg></span><span>No slides yet. Create one above.</span></div>
             </div>
@@ -362,7 +383,7 @@
     <div class="page" data-page="signage">
       <div class="page-body" style="max-width:980px">
         <p style="font-size:13px;color:var(--muted);margin-bottom:16px">
-          Fire alerts, configure overlay defaults, and set per-screen overrides.
+          Fire one-off alerts and manage your scheduled alert library.
         </p>
 
         <!-- ── 1. Alerts (action-oriented, at the top) ─────────────────────── -->
@@ -491,13 +512,27 @@
           </div>
         </div>
 
-        <!-- ── 2. Alert Defaults (collapsible) ─────────────────────────────── -->
+      </div>
+    </div>
 
-        <details class="section" style="margin-top:28px">
-          <summary>Alert Defaults</summary>
+    <!-- ── Overlays page ─────────────────────────────────────────────────── -->
+    <div class="page" data-page="overlays">
+      <div class="page-body" style="max-width:980px">
+
+        <!-- Hierarchy hint card -->
+        <div class="card" style="display:flex;gap:12px;align-items:flex-start;padding:14px 18px;margin-bottom:4px">
+          <div style="flex:1">
+            <div style="font-weight:600;font-size:13px;margin-bottom:4px">Global defaults apply to all screens</div>
+            <div class="muted" style="font-size:12px">Per-screen overrides let you customise individual screens. A screen inherits from global defaults unless a section is explicitly overridden.</div>
+          </div>
+        </div>
+
+        <!-- Alert Defaults -->
+        <div class="section-label" style="margin-top:24px;margin-bottom:6px">Alert Defaults</div>
+
+        <details class="section">
+          <summary>Quick &amp; manual alerts <span class="adv-section-hint">Default style for one-off fired alerts</span></summary>
           <div class="section-body">
-
-            <div class="section-label" style="margin-bottom:8px">Quick / manual alerts</div>
             <div class="two-col">
               <div class="field">
                 <label for="ov-global-alert-style">Alert style</label>
@@ -527,8 +562,12 @@
               </div>
               <div class="field"></div>
             </div>
+          </div>
+        </details>
 
-            <div class="section-label" style="margin-top:16px;margin-bottom:8px">Schedule alerts</div>
+        <details class="section" style="margin-top:8px">
+          <summary>Schedule-triggered alerts <span class="adv-section-hint">Default style for alerts fired from the event schedule</span></summary>
+          <div class="section-body">
             <div class="two-col">
               <div class="field">
                 <label for="ov-global-sched-style">Alert style</label>
@@ -558,24 +597,20 @@
               </div>
               <div class="field"></div>
             </div>
-
           </div>
         </details>
 
-        <!-- ── 3. Overlay Defaults (collapsible) ───────────────────────────── -->
+        <!-- Global Overlay Defaults -->
+        <div class="section-label" style="margin-top:28px;margin-bottom:6px">Global Overlay Defaults</div>
 
-        <details class="section">
-          <summary>Overlay Defaults</summary>
+        <details class="section" open>
+          <summary>Info bar <span class="adv-section-hint">Bottom strip showing clock and event info</span></summary>
           <div class="section-body">
-
-            <div class="section-label" style="margin-bottom:8px">Clock</div>
             <div class="check-row">
               <input type="checkbox" id="ov-global-clock24h">
               <label for="ov-global-clock24h">24-hour clock (applies to all info bars)</label>
             </div>
-
-            <div class="section-label" style="margin-top:16px;margin-bottom:8px">Info bar</div>
-            <div class="field" style="max-width:160px">
+            <div class="field" style="max-width:160px;margin-top:10px">
               <label for="ov-global-infobar-font-size">Font size (px)</label>
               <input type="number" id="ov-global-infobar-font-size" min="8" max="60">
             </div>
@@ -595,8 +630,12 @@
               <input type="checkbox" id="ov-global-infobar-next-event">
               <label for="ov-global-infobar-next-event">Show next event</label>
             </div>
+          </div>
+        </details>
 
-            <div class="section-label" style="margin-top:16px;margin-bottom:8px">Ticker</div>
+        <details class="section" style="margin-top:8px">
+          <summary>Ticker <span class="adv-section-hint">Scrolling or fading text messages</span></summary>
+          <div class="section-body">
             <div class="check-row">
               <input type="checkbox" id="ov-global-ticker-enabled">
               <label for="ov-global-ticker-enabled">Enabled</label>
@@ -640,8 +679,12 @@
                 <input type="number" id="ov-global-ticker-speed" min="10" max="400" step="10" value="80">
               </div>
             </div>
+          </div>
+        </details>
 
-            <div class="section-label" style="margin-top:16px;margin-bottom:8px">Corner bug</div>
+        <details class="section" style="margin-top:8px">
+          <summary>Corner bug <span class="adv-section-hint">Logo or hashtag watermark</span></summary>
+          <div class="section-body">
             <div class="check-row">
               <input type="checkbox" id="ov-global-bug-enabled">
               <label for="ov-global-bug-enabled">Enabled</label>
@@ -663,8 +706,12 @@
                 <option value="bottom-right">Bottom Right</option>
               </select>
             </div>
+          </div>
+        </details>
 
-            <div class="section-label" style="margin-top:16px;margin-bottom:8px">QR widget</div>
+        <details class="section" style="margin-top:8px">
+          <summary>QR widget <span class="adv-section-hint">Scan-to-submit or scan-to-visit code</span></summary>
+          <div class="section-body">
             <div class="check-row">
               <input type="checkbox" id="ov-global-qrbug-enabled">
               <label for="ov-global-qrbug-enabled">Enabled</label>
@@ -686,13 +733,12 @@
                 <option value="bottom-right">Bottom Right</option>
               </select>
             </div>
-
           </div>
         </details>
 
-        <!-- ── 4. Per-screen overlay overrides ─────────────────────────────── -->
-
-        <div class="section-label" style="margin-top:28px;margin-bottom:6px">Per-Screen Overlay Overrides</div>
+        <!-- Per-screen overrides -->
+        <div class="section-label" style="margin-top:28px;margin-bottom:6px">Per-Screen Overrides</div>
+        <p class="muted" style="font-size:12px;margin-bottom:12px">Each screen inherits all global defaults. Toggle a section off to set a custom value for that screen only.</p>
         <div class="overlays-grid" id="overlays-grid"></div>
 
       </div>
@@ -931,14 +977,11 @@
       </div>
     </div>
 
-    <!-- ── Advanced page ─────────────────────────────────────────────────── -->
-    <div class="page" data-page="advanced">
+    <!-- ── Display page ──────────────────────────────────────────────────── -->
+    <div class="page" data-page="display">
       <div class="page-body">
 
-        <div class="adv-linked-bar">
-          <input type="checkbox" id="adv-linked-toggle" checked>
-          <label for="adv-linked-toggle">Linked screens — changes apply to both screens simultaneously</label>
-        </div>
+        <div class="adv-screen-tabs" id="adv-screen-tabs"></div>
 
         <div id="adv-form-container"></div>
 
@@ -949,7 +992,7 @@
     <div class="page" data-page="settings">
       <div class="page-body" style="max-width:900px">
         <details class="section" open>
-          <summary>Event</summary>
+          <summary>Event &amp; Branding</summary>
           <div class="section-body">
             <div class="field">
               <label for="settings-event-name">Event name</label>
@@ -958,7 +1001,7 @@
             <div class="field">
               <label for="settings-public-base-url">Public base URL</label>
               <input id="settings-public-base-url" type="url" placeholder="https://event.example.com">
-              <div class="quick-hint">Public-facing base URL used for submit QR codes, OIDC redirect URIs, and server console output.</div>
+              <div class="quick-hint">Used for submission QR codes, OIDC redirect URIs, and server console output.</div>
             </div>
             <div class="field">
               <label for="theme-select">Visual theme (applied to all screens)</label>
@@ -971,7 +1014,7 @@
         </details>
 
         <details class="section" open>
-          <summary>Display</summary>
+          <summary>Output</summary>
           <div class="section-body">
             <div class="field">
               <label for="settings-screen-count">Number of screens</label>
@@ -984,11 +1027,11 @@
             </div>
             <div class="two-col">
               <div class="field">
-                <label for="settings-display-width">Display width</label>
+                <label for="settings-display-width">Display width (px)</label>
                 <input id="settings-display-width" type="number" min="320" step="1">
               </div>
               <div class="field">
-                <label for="settings-display-height">Display height</label>
+                <label for="settings-display-height">Display height (px)</label>
                 <input id="settings-display-height" type="number" min="240" step="1">
               </div>
             </div>
@@ -997,16 +1040,115 @@
               <input id="settings-health-interval" type="number" min="1" max="30" step="1">
             </div>
             <div class="quick-hint">Display dimensions are used for photo processing. Changing this does not reprocess existing photos.</div>
-            <div class="check-row" style="margin-top:12px">
-              <input type="checkbox" id="settings-transcode-videos">
-              <label for="settings-transcode-videos">Auto-transcode .mov / .m4v to .mp4 on ingest (requires ffmpeg, CPU-intensive)</label>
-            </div>
-            <div class="quick-hint">When disabled, .mov and .m4v files are served as-is. Chromium on macOS plays them natively; on Linux playback depends on the installed codec.</div>
           </div>
         </details>
 
         <details class="section">
-          <summary>Authentication</summary>
+          <summary>Ingestion</summary>
+          <div class="section-body">
+            <div class="check-row">
+              <input type="checkbox" id="settings-transcode-videos">
+              <label for="settings-transcode-videos">Auto-transcode .mov / .m4v to .mp4 on ingest</label>
+            </div>
+            <div class="quick-hint">Requires ffmpeg and is CPU-intensive. When disabled, .mov/.m4v files are served as-is — Chromium on macOS plays them natively; on Linux playback depends on the installed codec.</div>
+          </div>
+        </details>
+
+        <details class="section">
+          <summary>Submissions</summary>
+          <div class="section-body">
+            <div class="two-col">
+              <div class="field">
+                <label for="submissions-enabled">Submissions</label>
+                <select id="submissions-enabled">
+                  <option value="true">Enabled</option>
+                  <option value="false">Disabled</option>
+                </select>
+              </div>
+              <div class="field">
+                <label for="submissions-field-label">Custom field label</label>
+                <input id="submissions-field-label" type="text" maxlength="40" placeholder="Subcamp">
+              </div>
+            </div>
+            <div class="two-col" style="margin-top:10px">
+              <div class="field">
+                <label for="submissions-require-photo">Require photo</label>
+                <select id="submissions-require-photo">
+                  <option value="false">No</option>
+                  <option value="true">Yes</option>
+                </select>
+              </div>
+              <div class="field">
+                <label for="submissions-wall-enabled">Submission wall</label>
+                <select id="submissions-wall-enabled">
+                  <option value="true">Visible when relevant</option>
+                  <option value="false">Hidden</option>
+                </select>
+              </div>
+            </div>
+            <div class="two-col" style="margin-top:10px">
+              <div class="field">
+                <label for="submissions-display-mode">Social wall mode</label>
+                <select id="submissions-display-mode">
+                  <option value="off">Off</option>
+                  <option value="single">Single</option>
+                  <option value="grid">Grid</option>
+                  <option value="both">Both</option>
+                </select>
+              </div>
+              <div class="field">
+                <label for="submissions-grid-count">Grid card count</label>
+                <input id="submissions-grid-count" type="number" min="3" max="12" step="1" value="6">
+              </div>
+            </div>
+            <div class="two-col" style="margin-top:10px">
+              <div class="field">
+                <label for="submissions-display-interval">Wall interval (sec)</label>
+                <input id="submissions-display-interval" type="number" min="10" max="300" step="1" value="45">
+              </div>
+              <div class="field">
+                <label for="submissions-display-duration">Wall duration (sec)</label>
+                <input id="submissions-display-duration" type="number" min="5" max="120" step="1" value="12">
+              </div>
+            </div>
+            <div class="two-col" style="margin-top:10px">
+              <div class="field">
+                <label for="submissions-wall-show-qr">Show QR on wall</label>
+                <select id="submissions-wall-show-qr">
+                  <option value="true">Yes</option>
+                  <option value="false">No</option>
+                </select>
+              </div>
+              <div class="field">
+                <label for="submissions-wall-hide-empty">Hide wall when empty</label>
+                <select id="submissions-wall-hide-empty">
+                  <option value="true">Yes</option>
+                  <option value="false">No (show prompt)</option>
+                </select>
+              </div>
+            </div>
+            <div class="two-col" style="margin-top:10px">
+              <div class="field">
+                <label for="submissions-wall-fresh-min">Fresh for (minutes)</label>
+                <input id="submissions-wall-fresh-min" type="number" min="5" max="1440" step="5" value="90">
+              </div>
+              <div class="field">
+                <label for="submissions-wall-repeat-cycles">Repeat after wall cycles</label>
+                <input id="submissions-wall-repeat-cycles" type="number" min="0" max="20" step="1" value="3">
+              </div>
+            </div>
+            <div class="two-col" style="margin-top:10px">
+              <div class="field">
+                <label for="submissions-wall-min-approved">Min approved before older items return</label>
+                <input id="submissions-wall-min-approved" type="number" min="1" max="20" step="1" value="2">
+              </div>
+              <div class="field"></div>
+            </div>
+          </div>
+        </details>
+
+        <details class="section">
+          <summary>Access &amp; Security</summary>
           <div class="section-body">
             <div class="section-label" style="margin-bottom:8px">Local users</div>
             <div id="settings-users-list" style="display:flex;flex-direction:column;gap:8px"></div>
@@ -1072,6 +1214,17 @@
     <div class="modal-footer">
       <button class="btn btn-secondary btn-sm" id="slides-modal-cancel">Cancel</button>
       <button class="btn btn-primary btn-sm"   id="slides-modal-save">Save</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal-backdrop" id="confirm-modal">
+  <div class="modal" style="max-width:380px">
+    <div class="modal-title" id="confirm-modal-title">Confirm</div>
+    <p id="confirm-modal-body" style="font-size:13px;color:var(--muted);margin:10px 0 4px"></p>
+    <div class="modal-footer">
+      <button class="btn btn-secondary btn-sm" id="confirm-modal-cancel">Cancel</button>
+      <button class="btn btn-danger btn-sm" id="confirm-modal-ok">Delete</button>
     </div>
   </div>
 </div>

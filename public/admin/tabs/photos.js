@@ -1,6 +1,7 @@
 // Photos tab: upload zone, thumbnail grid, delete/hero actions
 
 import { loadPhotos, patchPhoto, deletePhoto, uploadFiles } from '../api.js';
+import { showConfirm } from '../app.js';
 import { icon } from '/shared/icons.js';
 import { esc } from '/shared/utils.js';
 
@@ -178,7 +179,8 @@ function _renderGrid() {
       e.stopPropagation();
       const id   = btn.dataset.id;
       const name = btn.dataset.name;
-      if (!confirm(`Permanently delete "${name}"?\n\nThis removes the file from disk and cannot be undone.`)) return;
+      const ok = await showConfirm('Delete photo', `Delete "${name}"? This removes the file from disk and cannot be undone.`);
+      if (!ok) return;
 
       btn.disabled = true;
       try {

@@ -1,12 +1,12 @@
-// Advanced tab: full per-setting controls, linked by default
+// Advanced tab: full per-setting controls, screen-tab based
 
 import { deriveLinkedScreenConfig } from '../config-model.js';
 import { esc, activeScreenIds as _activeScreenIds } from '/shared/utils.js';
 
-let _getConfig  = null;
-let _onChanged  = null;
-let _groups     = ['ungrouped'];
-let _linked     = true; // linked by default
+let _getConfig       = null;
+let _onChanged       = null;
+let _groups          = ['ungrouped'];
+let _selectedScreen  = 'all'; // 'all' | '1' | '2' | etc.
 
 const TEMPLATE_OPTIONS = [
   { id: 'hero-left-9',    label: 'Hero left' },
@@ -27,8 +27,9 @@ const TEMPLATE_OPTIONS = [
 export function initAdvancedTab(getConfig, onChanged) {
   _getConfig = getConfig;
   _onChanged  = onChanged;
+  _renderTabs();
   _renderForm();
-  _bindLinkedToggle();
+  _bindTabClicks();
 }
 
 export function updateGroups(groups) {
@@ -38,18 +39,36 @@ export function updateGroups(groups) {
 }
 
 export function refreshFromConfig() {
+  _renderTabs();
   _renderForm();
 }
 
 // ---------------------------------------------------------------------------
-// Linked / unlocked toggle
+// Screen selector tabs
 // ---------------------------------------------------------------------------
 
-function _bindLinkedToggle() {
-  const toggle = document.getElementById('adv-linked-toggle');
-  if (!toggle) return;
-  toggle.addEventListener('change', () => {
-    _linked = toggle.checked;
+function _renderTabs() {
+  const tabsEl = document.getElementById('adv-screen-tabs');
+  if (!tabsEl || !_getConfig) return;
+  const cfg = _getConfig();
+  const ids = _activeScreenIds(cfg);
+  const tabs = [
+    { key: 'all', label: 'All Screens' },
+    ...ids.map(id => ({ key: id, label: `Screen ${id}` })),
+  ];
+  tabsEl.innerHTML = tabs.map(t =>
+    `<button class="adv-tab${_selectedScreen === t.key ? ' active' : ''}" data-adv-tab="${esc(t.key)}">${esc(t.label)}</button>`
+  ).join('');
+}
+
+function _bindTabClicks() {
+  const tabsEl = document.getElementById('adv-screen-tabs');
+  if (!tabsEl) return;
+  tabsEl.addEventListener('click', e => {
+    const btn = e.target.closest('[data-adv-tab]');
+    if (!btn) return;
+    _selectedScreen = btn.dataset.advTab;
+    tabsEl.querySelectorAll('.adv-tab').forEach(b => b.classList.toggle('active', b === btn));
     _renderForm();
   });
 }
@@ -65,13 +84,11 @@ function _renderForm() {
   const cfg = _getConfig();
   const ids = _activeScreenIds(cfg);
 
-  if (_linked) {
+  if (_selectedScreen === 'all') {
     container.innerHTML = _buildScreenForm('1', cfg.screens?.['1'] || {});
-    container.innerHTML += '<p class="adv-linked-note">Screen 2 mirrors Screen 1 with +900ms offset. Screen 3/4 continue with +1800ms/+2700ms offsets.</p>';
+    container.innerHTML += '<p class="adv-all-screens-note">Changes apply to all screens. Screen 2+ get timing offsets applied automatically.</p>';
   } else {
-    container.innerHTML = `<div class="adv-two-col">${ids.map(id =>
-      `<div><h3 class="adv-screen-title s${id}-title">Screen ${id}</h3>${_buildScreenForm(id, cfg.screens?.[id] || {})}</div>`
-    ).join('')}</div>`;
+    container.innerHTML = _buildScreenForm(_selectedScreen, cfg.screens?.[_selectedScreen] || {});
   }
 
   _bindFormEvents();
@@ -83,7 +100,7 @@ function _buildScreenForm(screenKey, cfg) {
 
   return `
     <details class="adv-section" open>
-      <summary>Core playback</summary>
+      <summary>Core playback<span class="adv-section-hint">Timing, transitions, and which layout types are active</span></summary>
       ${_range(screenKey, 'layoutDuration', 'Display duration', 3000, 30000, 500, s.layoutDuration ?? 8000, v => (v/1000).toFixed(1)+'s')}
       ${_range(screenKey, 'transitionTime', 'Transition speed', 200, 2000, 100, s.transitionTime ?? 800, v => v+'ms')}
       ${_toggleGroup(screenKey, 'enabledLayouts', 'Enabled layouts',
@@ -94,7 +111,7 @@ function _buildScreenForm(screenKey, cfg) {
     </details>
 
     <details class="adv-section">
-      <summary>Template style</summary>
+      <summary>Template style<span class="adv-section-hint">Template selection and cinematic/dynamic/neutral balance</span></summary>
       ${_toggleGroup(screenKey, 'templateEnabled', 'Template set',
           TEMPLATE_OPTIONS.map(t => [t.id, t.label]),
           s.templateEnabled || TEMPLATE_OPTIONS.map(t => t.id))}
@@ -107,7 +124,7 @@ function _buildScreenForm(screenKey, cfg) {
     </details>
 
     <details class="adv-section">
-      <summary>Grouping</summary>
+      <summary>Grouping<span class="adv-section-hint">Which photo groups appear and how they are mixed</span></summary>
       ${_select(screenKey, 'groupMode', 'Group playback mode',
           [['auto','Auto (all groups)'],['manual','Manual (pin to one group)']], s.groupMode || 'auto')}
       ${_groupSelect(screenKey, s.activeGroup || 'ungrouped')}
@@ -115,7 +132,7 @@ function _buildScreenForm(screenKey, cfg) {
     </details>
 
     <details class="adv-section">
-      <summary>Mosaic rhythm</summary>
+      <summary>Mosaic rhythm<span class="adv-section-hint">How often mosaic tiles swap within a cycle</span></summary>
       ${_range(screenKey, 'mosaicSwapRounds',    'Swaps per cycle',   0, 4,    1,    s.mosaicSwapRounds    ?? 1,   v => v+'×')}
       ${_range(screenKey, 'mosaicSwapCount',    'Photos per swap',   1, 12,   1,    s.mosaicSwapCount    ?? 2,   v => v)}
       ${_checkbox(screenKey, 'mosaicGroupSync', 'Swap all small tiles together', Boolean(s.mosaicGroupSync))}
@@ -125,7 +142,7 @@ function _buildScreenForm(screenKey, cfg) {
     </details>
 
     <details class="adv-section">
-      <summary>Screen pairing</summary>
+      <summary>Screen pairing<span class="adv-section-hint">Hero photo coordination across multiple screens</span></summary>
       ${_range(screenKey, 'heroCooldownSec',      'Hero cooldown',         10, 240, 5, s.heroCooldownSec      ?? 30, v => v+'s')}
       ${_range(screenKey, 'crossScreenHeroLockSec','Cross-screen hero lock',10, 180, 5, s.crossScreenHeroLockSec ?? 30, v => v+'s')}
       ${_select(screenKey, 'preferHeroSide', 'Preferred hero side',
@@ -134,13 +151,13 @@ function _buildScreenForm(screenKey, cfg) {
     </details>
 
     <details class="adv-section">
-      <summary>Photo selection</summary>
+      <summary>Photo selection<span class="adv-section-hint">Recency weighting and Ken Burns motion</span></summary>
       ${_range(screenKey, 'recencyBias', 'Recency bias', 0, 100, 1, s.recencyBias ?? 60, v => v+'%')}
       ${_checkbox(screenKey, 'kenBurnsEnabled', 'Ken Burns motion', s.kenBurnsEnabled !== false)}
     </details>
 
     <details class="adv-section">
-      <summary>Safety / readability</summary>
+      <summary>Safety / readability<span class="adv-section-hint">Minimum tile size to keep photos legible</span></summary>
       ${_range(screenKey, 'minTilePx', 'Minimum tile size', 120, 400, 10, s.minTilePx ?? 170, v => v+'px')}
     </details>
   `;
@@ -185,7 +202,7 @@ function _bindFormEvents() {
       const { screen, key, value } = el.dataset;
       el.classList.toggle('on');
       const cfg = _getConfig();
-      const screens = _linked ? _activeScreenIds(cfg) : [screen];
+      const screens = _selectedScreen === 'all' ? _activeScreenIds(cfg) : [screen];
       for (const sk of screens) {
         const current = Array.isArray(cfg.screens[sk]?.[key]) ? [...cfg.screens[sk][key]] : [];
         if (el.classList.contains('on')) {
@@ -196,7 +213,7 @@ function _bindFormEvents() {
         }
         cfg.screens[sk][key] = current;
       }
-      if (_linked) {
+      if (_selectedScreen === 'all') {
         const linkedIds = _activeScreenIds(cfg).filter(id => id !== '1');
         for (const id of linkedIds) {
           cfg.screens[id] = deriveLinkedScreenConfig(cfg.screens['1'], id);
@@ -209,11 +226,11 @@ function _bindFormEvents() {
 
 function _setConfigValue(screen, key, val) {
   const cfg     = _getConfig();
-  const screens = _linked ? _activeScreenIds(cfg) : [screen];
+  const screens = _selectedScreen === 'all' ? _activeScreenIds(cfg) : [screen];
   for (const sk of screens) {
     cfg.screens[sk][key] = val;
   }
-  if (_linked) {
+  if (_selectedScreen === 'all') {
     const linkedIds = _activeScreenIds(cfg).filter(id => id !== '1');
     for (const id of linkedIds) {
       cfg.screens[id] = deriveLinkedScreenConfig(cfg.screens['1'], id);

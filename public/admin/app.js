@@ -38,6 +38,46 @@ export function showToast(msg, isErr = false) {
 }
 
 // ---------------------------------------------------------------------------
+// Auto-save (for quick control sliders)
+// ---------------------------------------------------------------------------
+
+let _autoSaveTimer = null;
+export function scheduleAutoSave() {
+  clearTimeout(_autoSaveTimer);
+  _autoSaveTimer = setTimeout(() => {
+    doSaveConfig().catch(err => showToast(`Auto-save failed: ${err.message}`, true));
+  }, 800);
+}
+
+// ---------------------------------------------------------------------------
+// Confirm modal
+// ---------------------------------------------------------------------------
+
+export function showConfirm(title, body, okLabel = 'Delete') {
+  document.getElementById('confirm-modal-title').textContent = title;
+  document.getElementById('confirm-modal-body').textContent  = body;
+  document.getElementById('confirm-modal-ok').textContent    = okLabel;
+  document.getElementById('confirm-modal').classList.add('open');
+  return new Promise(resolve => {
+    const ok     = document.getElementById('confirm-modal-ok');
+    const cancel = document.getElementById('confirm-modal-cancel');
+    function cleanup(result) {
+      document.getElementById('confirm-modal').classList.remove('open');
+      ok.removeEventListener('click', onOk);
+      cancel.removeEventListener('click', onCancel);
+      document.removeEventListener('keydown', onKey);
+      resolve(result);
+    }
+    const onOk     = () => cleanup(true);
+    const onCancel = () => cleanup(false);
+    const onKey    = e => { if (e.key === 'Escape') cleanup(false); };
+    ok.addEventListener('click', onOk);
+    cancel.addEventListener('click', onCancel);
+    document.addEventListener('keydown', onKey);
+  });
+}
+
+// ---------------------------------------------------------------------------
 // Dirty indicator
 // ---------------------------------------------------------------------------
 
@@ -389,14 +429,15 @@ function _renderScreenHealth(prefix, data) {
 // ---------------------------------------------------------------------------
 
 const PAGE_TITLES = {
-  screens:   'Dashboard',
-  slides:    'Slides',
-  photos:    'Photos',
-  signage:   'Signage',
-  schedule:  'Schedule',
+  control:     'Control Room',
+  slides:      'Slides',
+  photos:      'Photos',
+  signage:     'Signage',
+  schedule:    'Schedule',
   submissions: 'Submissions',
-  advanced:  'Advanced',
-  settings:  'Settings',
+  overlays:    'Overlays',
+  display:     'Display',
+  settings:    'Settings',
 };
 
 function setPage(page) {
@@ -411,14 +452,24 @@ function setPage(page) {
   const titleEl = document.getElementById('page-title');
   if (titleEl) titleEl.textContent = PAGE_TITLES[page] || page;
 
-  // Show/hide Safe Fallback button (Advanced page only)
+  // Show/hide Safe Fallback button (Display page only)
   const fallbackBtn = document.getElementById('btn-fallback');
-  if (fallbackBtn) fallbackBtn.style.display = page === 'advanced' ? '' : 'none';
+  if (fallbackBtn) fallbackBtn.style.display = page === 'display' ? '' : 'none';
+
+  // Show/hide save bar buttons on runtime-only pages
+  const CONFIG_PAGES = new Set(['control', 'slides', 'overlays', 'signage', 'schedule', 'display', 'settings']);
+  const saveBarBtns = document.getElementById('save-bar-buttons');
+  if (saveBarBtns) saveBarBtns.style.display = CONFIG_PAGES.has(page) ? '' : 'none';
+  if (!CONFIG_PAGES.has(page)) {
+    const dirty = document.getElementById('save-dirty');
+    if (dirty) dirty.style.display = 'none';
+  }
 
   // Lazy-load page data
   if (page === 'photos') refreshPhotos();
   if (page === 'slides') doLoadSlides();
   if (page === 'signage' || page === 'schedule') window._loadAlertsAndSchedule?.().catch(() => {});
+  if (page === 'submissions') window._loadSubmissions?.().catch(() => {});
 }
 
 // ---------------------------------------------------------------------------
@@ -607,7 +658,7 @@ async function boot() {
   window._applyScreenCount = _applyScreenCount;
   window._refreshScreenPlaylistSelects = _refreshPlaylistSelects;
 
-  initQuickTab(getConfig, onChanged);
+  initQuickTab(getConfig, onChanged, scheduleAutoSave);
   initAdvancedTab(getConfig, onChanged);
   initPhotosTab(doLoadStats);
   initSlidesTab(getConfig, onChanged);
@@ -616,6 +667,7 @@ async function boot() {
 
   _bindThemeSelect();
   bindButtons();
+  setPage('control');
   connectWs();
 
   await doLoadConfig();

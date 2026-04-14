@@ -389,7 +389,6 @@ async function loadSubmissions() {
 
   const pendingCount = res.pendingCount || (screenPending.length + tipPending.length);
   _setPendingBadge(pendingCount);
-  _applySubmissionSettings(res.settings);
   _renderDashSubmissionsSummary(pendingCount);
 }
 
@@ -476,32 +475,6 @@ async function addScheduleEntry() {
   await loadAlertsAndSchedule();
 }
 
-async function saveSubmissionSettings() {
-  const payload = {
-    submissionEnabled: document.getElementById('submissions-enabled')?.value === 'true',
-    submissionFieldLabel: document.getElementById('submissions-field-label')?.value || 'Name',
-    submissionRequirePhoto: document.getElementById('submissions-require-photo')?.value === 'true',
-    submissionWallEnabled: document.getElementById('submissions-wall-enabled')?.value === 'true',
-    submissionDisplayMode: document.getElementById('submissions-display-mode')?.value || 'both',
-    submissionDisplayIntervalSec: Number(document.getElementById('submissions-display-interval')?.value || 45),
-    submissionDisplayDurationSec: Number(document.getElementById('submissions-display-duration')?.value || 12),
-    submissionGridCount: Number(document.getElementById('submissions-grid-count')?.value || 6),
-    submissionWallFreshForMin: Number(document.getElementById('submissions-wall-fresh-min')?.value || 90),
-    submissionWallRepeatAfterCycles: Number(document.getElementById('submissions-wall-repeat-cycles')?.value || 3),
-    submissionWallMinApproved: Number(document.getElementById('submissions-wall-min-approved')?.value || 2),
-    submissionWallShowQr: document.getElementById('submissions-wall-show-qr')?.value === 'true',
-    submissionWallHideWhenEmpty: document.getElementById('submissions-wall-hide-empty')?.value === 'true',
-  };
-
-  const res = await apiFetch('/api/submissions/settings', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(payload),
-  });
-
-  _applySubmissionSettings(res.settings);
-  showToast('Submission settings saved');
-}
 
 function _openEditForm(id) {
   const item = _cachedSchedule.find(e => e.id === id);
@@ -880,18 +853,12 @@ function bindActions() {
   document.getElementById('submissions-tip-pending')?.addEventListener('click', onSubmissionQueueClick);
   document.getElementById('submissions-tip-handled')?.addEventListener('click', onSubmissionQueueClick);
 
-  document.getElementById('submissions-save-settings')?.addEventListener('click', async () => {
-    try {
-      await saveSubmissionSettings();
-    } catch (err) {
-      showToast(err.message, true);
-    }
-  });
 }
 
 async function boot() {
   bindActions();
   window._loadAlertsAndSchedule = loadAlertsAndSchedule;
+  window._loadSubmissions = loadSubmissions;
   await Promise.allSettled([loadAlertsAndSchedule(), loadSubmissions()]);
 
   setInterval(() => {

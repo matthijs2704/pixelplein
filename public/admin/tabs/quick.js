@@ -3,19 +3,22 @@
 import { simpleModelFromConfig, applySimpleControl } from '../config-model.js';
 import { esc, activeScreenIds as _activeScreenIds } from '/shared/utils.js';
 
-let _getConfig  = null;
-let _onChanged  = null;
-let _groups     = ['ungrouped'];
+let _getConfig   = null;
+let _onChanged   = null;
+let _onAutoSave  = null;
+let _groups      = ['ungrouped'];
 
 /**
  * Initialise the Quick tab.
  *
- * @param {Function} getConfig  - returns the live config object
- * @param {Function} onChanged  - called when any control changes (triggers save prompt)
+ * @param {Function} getConfig   - returns the live config object
+ * @param {Function} onChanged   - called when any control changes (triggers save prompt)
+ * @param {Function} [onAutoSave] - optional callback to schedule an auto-save
  */
-export function initQuickTab(getConfig, onChanged) {
-  _getConfig = getConfig;
+export function initQuickTab(getConfig, onChanged, onAutoSave) {
+  _getConfig  = getConfig;
   _onChanged  = onChanged;
+  _onAutoSave = onAutoSave || null;
   _bindControls();
 }
 
@@ -44,6 +47,11 @@ export function refreshFromConfig() {
 // Build / bind
 // ---------------------------------------------------------------------------
 
+function _notify() {
+  if (_onChanged) _onChanged();
+  if (_onAutoSave) _onAutoSave();
+}
+
 function _bindControls() {
   bind('q-pace',        'pace');
   bind('q-story-focus', 'storyFocus');
@@ -60,7 +68,7 @@ function _bindControls() {
       for (const id of _activeScreenIds(cfg)) {
         cfg.screens[id].recencyBias = v;
       }
-      if (_onChanged) _onChanged();
+      _notify();
     });
   }
 
@@ -72,7 +80,7 @@ function _bindControls() {
       for (const id of _activeScreenIds(cfg)) {
         cfg.screens[id].kenBurnsEnabled = kbEl.checked;
       }
-      if (_onChanged) _onChanged();
+      _notify();
     });
   }
 
@@ -90,7 +98,7 @@ function _bindControls() {
           screenCfg.activeGroup = val;
         }
       }
-      if (_onChanged) _onChanged();
+      _notify();
     });
   }
 }
@@ -108,7 +116,7 @@ function bind(elId, key) {
     for (const id of _activeScreenIds(cfg)) {
       applySimpleControl(cfg.screens[id], key, v);
     }
-    if (_onChanged) _onChanged();
+    _notify();
   });
 }
 

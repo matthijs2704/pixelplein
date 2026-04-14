@@ -1439,3 +1439,110 @@ progress::-moz-progress-bar      { background: var(--accent); border-radius: 3px
   pointer-events: none;
   user-select: none;
 }
+
+/* ─── Nav section divider ────────────────────────────────────────────────── */
+.nav-section-divider {
+  height: 1px;
+  background: var(--border);
+  margin: 4px 10px 10px;
+}
+
+/* ─── Save bar buttons wrapper ───────────────────────────────────────────── */
+#save-bar-buttons {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+}
+
+/* ─── Control Room live indicator ────────────────────────────────────────── */
+.control-room-hint {
+  font-size: 11px;
+  color: var(--muted);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 0 0 10px;
+  margin: 0;
+}
+.control-room-hint::before {
+  content: '';
+  display: inline-block;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--green);
+  flex-shrink: 0;
+}
+
+/* ─── Advanced/Display section-level hints ───────────────────────────────── */
+.adv-section-hint {
+  font-size: 10px;
+  font-weight: 400;
+  text-transform: none;
+  letter-spacing: 0;
+  color: var(--muted);
+  opacity: 0.8;
+  margin-left: 8px;
+}
+
+/* ─── Display page screen selector tabs ─────────────────────────────────── */
+.adv-screen-tabs {
+  display: flex;
+  gap: 4px;
+  padding: 16px 0 0;
+  margin-bottom: 20px;
+  border-bottom: 1px solid var(--border);
+  padding-bottom: 12px;
+}
+.adv-tab {
+  padding: 6px 16px;
+  border-radius: 6px;
+  border: 1px solid var(--border);
+  background: var(--surface2);
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+}
+.adv-tab:hover {
+  color: var(--text);
+  border-color: var(--border2);
+}
+.adv-tab.active {
+  background: var(--accent-lo);
+  border-color: var(--accent);
+  color: var(--text);
+}
+.adv-all-screens-note {
+  font-size: 11px;
+  color: var(--muted);
+  margin-bottom: 16px;
+}
+
+/* ─── Slides content type filter pills ───────────────────────────────────── */
+.slides-type-filters {
+  display: flex;
+  gap: 4px;
+  padding: 6px 14px 8px;
+  border-bottom: 1px solid var(--border);
+  flex-wrap: wrap;
+}
+.slides-type-btn {
+  padding: 3px 10px;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  background: transparent;
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 600;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.slides-type-btn:hover {
+  color: var(--text);
+}
+.slides-type-btn.active {
+  background: var(--accent-lo);
+  border-color: var(--accent);
+  color: var(--text);
+}

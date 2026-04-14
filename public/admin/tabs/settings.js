@@ -32,6 +32,21 @@ export function refreshFromConfig() {
   _setVal('settings-display-height', cfg.displayHeight || 1080);
   _setVal('settings-health-interval', Math.round((cfg.healthBroadcastIntervalMs || 3000) / 1000));
   _setChecked('settings-transcode-videos', cfg.transcodeVideos ?? false);
+
+  // Submissions settings
+  _setVal('submissions-enabled',            String(cfg.submissionEnabled !== false));
+  _setVal('submissions-field-label',        cfg.submissionFieldLabel || '');
+  _setVal('submissions-require-photo',      String(Boolean(cfg.submissionRequirePhoto)));
+  _setVal('submissions-wall-enabled',       String(cfg.submissionWallEnabled !== false));
+  _setVal('submissions-display-mode',       cfg.submissionDisplayMode || 'both');
+  _setVal('submissions-display-interval',   cfg.submissionDisplayIntervalSec ?? 45);
+  _setVal('submissions-display-duration',   cfg.submissionDisplayDurationSec ?? 12);
+  _setVal('submissions-grid-count',         cfg.submissionGridCount ?? 6);
+  _setVal('submissions-wall-fresh-min',     cfg.submissionWallFreshForMin ?? 90);
+  _setVal('submissions-wall-repeat-cycles', cfg.submissionWallRepeatAfterCycles ?? 3);
+  _setVal('submissions-wall-min-approved',  cfg.submissionWallMinApproved ?? 2);
+  _setVal('submissions-wall-show-qr',       String(cfg.submissionWallShowQr !== false));
+  _setVal('submissions-wall-hide-empty',    String(cfg.submissionWallHideWhenEmpty !== false));
 }
 
 function _bind() {
@@ -87,6 +102,55 @@ function _bind() {
     }
     window._applyScreenCount?.(n);
     _onChanged?.();
+  });
+
+  // Submissions settings bindings
+  const subBoolSelects = [
+    'submissions-enabled', 'submissions-require-photo',
+    'submissions-wall-enabled', 'submissions-wall-show-qr', 'submissions-wall-hide-empty',
+  ];
+  const subBoolMap = {
+    'submissions-enabled':        'submissionEnabled',
+    'submissions-require-photo':  'submissionRequirePhoto',
+    'submissions-wall-enabled':   'submissionWallEnabled',
+    'submissions-wall-show-qr':   'submissionWallShowQr',
+    'submissions-wall-hide-empty':'submissionWallHideWhenEmpty',
+  };
+  subBoolSelects.forEach(id => {
+    document.getElementById(id)?.addEventListener('change', e => {
+      const cfg = _getConfig();
+      cfg[subBoolMap[id]] = e.target.value === 'true';
+      _onChanged?.();
+    });
+  });
+
+  document.getElementById('submissions-field-label')?.addEventListener('input', e => {
+    const cfg = _getConfig();
+    cfg.submissionFieldLabel = e.target.value;
+    _onChanged?.();
+  });
+
+  document.getElementById('submissions-display-mode')?.addEventListener('change', e => {
+    const cfg = _getConfig();
+    cfg.submissionDisplayMode = e.target.value;
+    _onChanged?.();
+  });
+
+  const subNumMap = {
+    'submissions-display-interval':   ['submissionDisplayIntervalSec',   10, 300],
+    'submissions-display-duration':   ['submissionDisplayDurationSec',    5, 120],
+    'submissions-grid-count':         ['submissionGridCount',             3,  12],
+    'submissions-wall-fresh-min':     ['submissionWallFreshForMin',       5, 1440],
+    'submissions-wall-repeat-cycles': ['submissionWallRepeatAfterCycles', 0,  20],
+    'submissions-wall-min-approved':  ['submissionWallMinApproved',       1,  20],
+  };
+  Object.entries(subNumMap).forEach(([id, [key, min, max]]) => {
+    document.getElementById(id)?.addEventListener('input', e => {
+      const cfg = _getConfig();
+      const v = parseInt(e.target.value, 10);
+      if (Number.isFinite(v)) cfg[key] = Math.max(min, Math.min(max, v));
+      _onChanged?.();
+    });
   });
 
   document.getElementById('btn-add-user')?.addEventListener('click', async () => {

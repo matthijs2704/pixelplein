@@ -2,7 +2,7 @@
 
 import { icon } from '/shared/icons.js';
 import { esc as _esc, activeScreenIds as _activeScreenIds } from '/shared/utils.js';
-import { showToast as _showToast } from '../app.js';
+import { showToast as _showToast, showConfirm as _showConfirm } from '../app.js';
 
 // ---------------------------------------------------------------------------
 // State
@@ -13,6 +13,7 @@ let _playlists  = [];
 let _getConfig  = null;
 let _onChanged  = null;
 let _activePlId = null; // currently selected playlist in editor
+let _typeFilter = 'all';
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -38,6 +39,17 @@ export function initSlidesTab(getConfig, onChanged) {
   _onChanged = onChanged;
   _bindUpload();
   _renderScreenAssignments();
+  _bindTypeFilters();
+}
+
+function _bindTypeFilters() {
+  document.getElementById('slides-type-filters')?.addEventListener('click', e => {
+    const btn = e.target.closest('[data-type]');
+    if (!btn) return;
+    _typeFilter = btn.dataset.type;
+    document.querySelectorAll('.slides-type-btn').forEach(b => b.classList.toggle('active', b === btn));
+    _renderLibrary();
+  });
 }
 
 export function refreshSlides(slides, playlists) {
@@ -61,13 +73,15 @@ function _renderLibrary() {
   const grid = document.getElementById('slides-library-grid');
   if (!grid) return;
 
-  if (!_slides.length) {
-    grid.innerHTML = '<div class="slides-empty">No slides yet. Create one above.</div>';
+  const visible = _typeFilter === 'all' ? _slides : _slides.filter(s => s.type === _typeFilter);
+
+  if (!visible.length) {
+    grid.innerHTML = `<div class="slides-empty">${_slides.length ? 'No slides match this filter.' : 'No slides yet. Create one above.'}</div>`;
     return;
   }
 
   grid.innerHTML = '';
-  for (const slide of _slides) {
+  for (const slide of visible) {
     grid.appendChild(_makeSlideCard(slide));
   }
 }
@@ -498,7 +512,10 @@ function _readSlideForm(type) {
 // ---------------------------------------------------------------------------
 
 window.slidesDeleteSlide = async function(id) {
-  if (!confirm('Delete this slide? It will also be removed from all playlists.')) return;
+  const slide = _slides.find(s => s.id === id);
+  const label = slide?.label || slide?.filename || id;
+  const ok = await _showConfirm('Delete slide', `Delete "${label}"? It will also be removed from all playlists.`);
+  if (!ok) return;
   try {
     const res = await fetch(`/api/slides/${id}`, { method: 'DELETE' });
     if (!res.ok) throw new Error((await res.json()).error);
@@ -655,7 +672,8 @@ function _renderPlaylistEditor(pl) {
 
   // Delete
   document.getElementById('pl-delete-btn')?.addEventListener('click', async () => {
-    if (!confirm(`Delete playlist "${pl.name}"? This cannot be undone.`)) return;
+    const ok = await _showConfirm('Delete playlist', `Delete "${pl.name}"? This cannot be undone.`);
+    if (!ok) return;
     await _deletePlaylist(pl.id);
   });
 
