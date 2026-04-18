@@ -5,9 +5,10 @@
 // IMPORTANT: bump SHELL_VERSION whenever screen JS or CSS files change so
 // that all NUC clients pick up the new app shell on their next load.
 
-const SHELL_VERSION = 6;
+const SHELL_VERSION = 7;
 const SHELL_CACHE   = `pixelplein-shell-v${SHELL_VERSION}`;
 const MEDIA_CACHE   = 'pixelplein-media';
+const VIDEO_CACHE   = 'pixelplein-videos';
 
 // ---------------------------------------------------------------------------
 // App shell manifest — every file the screen page needs to run offline
@@ -124,11 +125,15 @@ self.addEventListener('fetch', event => {
 
   // Slide images: Cache-first — images are immutable once uploaded, same
   // bucket as photos so they survive offline.
-  // Videos are intentionally excluded: the SW Cache API cannot correctly serve
-  // 206 Partial Content range requests, so we let the browser's native HTTP
-  // cache (warmed by slide-preload.js + 7-day max-age from the server) handle it.
   if (p.startsWith('/slide-assets/images/')) {
     event.respondWith(_cacheFirst(request, MEDIA_CACHE));
+    return;
+  }
+
+  // Slide videos: cache the full file locally, then serve byte ranges from the
+  // cached copy so <video> playback still works offline.
+  if (p.startsWith('/slide-assets/videos/')) {
+    event.respondWith(_videoCache(request));
     return;
   }
 
@@ -145,7 +150,7 @@ self.addEventListener('fetch', event => {
     return;
   }
 
-  // Everything else (API, admin, WS, videos, themes): Network-only
+  // Everything else (API, admin, WS, themes): Network-only
 });
 
 // ---------------------------------------------------------------------------
@@ -171,4 +176,69 @@ async function _cacheFirst(request, cacheName) {
   } catch {
     return new Response('Offline', { status: 503, statusText: 'Service Unavailable' });
   }
+}
+
+async function _videoCache(request) {
+  const cacheKey = request.url;
+  const cache    = await caches.open(VIDEO_CACHE);
+  const range    = request.headers.get('range');
+
+  try {
+    let cached = await cache.match(cacheKey);
+    if (!cached) {
+      const fullResponse = await fetch(new Request(cacheKey, { method: 'GET' }));
+      if (!fullResponse.ok) return fullResponse;
+      await cache.put(cacheKey, fullResponse.clone());
+      cached = fullResponse;
+    }
+
+    if (!range) return cached;
+    return _buildRangeResponse(cached, range);
+  } catch {
+    return new Response('Offline', { status: 503, statusText: 'Service Unavailable' });
+  }
+}
+
+async function _buildRangeResponse(response, rangeHeader) {
+  const match = /^bytes=(\d*)-(\d*)$/i.exec(rangeHeader || '');
+  if (!match) {
+    return new Response('Invalid Range', { status: 416, statusText: 'Range Not Satisfiable' });
+  }
+
+  const buffer = await response.arrayBuffer();
+  const size   = buffer.byteLength;
+
+  let start = match[1] === '' ? NaN : Number(match[1]);
+  let end   = match[2] === '' ? NaN : Number(match[2]);
+
+  if (Number.isNaN(start) && Number.isNaN(end)) {
+    return new Response('Invalid Range', { status: 416, statusText: 'Range Not Satisfiable' });
+  }
+
+  if (Number.isNaN(start)) {
+    const suffixLength = end;
+    start = Math.max(0, size - suffixLength);
+    end   = size - 1;
+  } else {
+    if (Number.isNaN(end) || end >= size) end = size - 1;
+  }
+
+  if (start < 0 || start >= size || end < start) {
+    return new Response('Invalid Range', {
+      status: 416,
+      statusText: 'Range Not Satisfiable',
+      headers: { 'Content-Range': `bytes */${size}` },
+    });
+  }
+
+  const headers = new Headers(response.headers);
+  headers.set('Accept-Ranges', 'bytes');
+  headers.set('Content-Range', `bytes ${start}-${end}/${size}`);
+  headers.set('Content-Length', String((end - start) + 1));
+
+  return new Response(buffer.slice(start, end + 1), {
+    status: 206,
+    statusText: 'Partial Content',
+    headers,
+  });
 }
