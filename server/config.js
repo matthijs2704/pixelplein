@@ -177,7 +177,8 @@ function defaultConfig() {
     submissionDisplayIntervalSec: 45,
     submissionDisplayDurationSec: 12,
     submissionGridCount: 6,
-    submissionWallFreshForMin: 90,
+    submissionWallMaxAgeEnabled: true,
+    submissionWallMaxAgeMin: 90,
     submissionWallRepeatAfterCycles: 3,
     submissionWallMinApproved: 2,
     submissionWallShowQr: true,
@@ -482,10 +483,20 @@ function _sanitizeSubmissionSettings(input, target) {
     }
   }
 
-  if (Object.prototype.hasOwnProperty.call(input, 'submissionWallFreshForMin')) {
-    const val = Number(input.submissionWallFreshForMin);
+  if (Object.prototype.hasOwnProperty.call(input, 'submissionWallMaxAgeEnabled')) {
+    target.submissionWallMaxAgeEnabled = Boolean(input.submissionWallMaxAgeEnabled);
+  }
+
+  if (
+    Object.prototype.hasOwnProperty.call(input, 'submissionWallMaxAgeMin')
+    || Object.prototype.hasOwnProperty.call(input, 'submissionWallFreshForMin')
+  ) {
+    const raw = Object.prototype.hasOwnProperty.call(input, 'submissionWallMaxAgeMin')
+      ? input.submissionWallMaxAgeMin
+      : input.submissionWallFreshForMin;
+    const val = Number(raw);
     if (Number.isFinite(val)) {
-      target.submissionWallFreshForMin = Math.max(5, Math.min(24 * 60, Math.floor(val)));
+      target.submissionWallMaxAgeMin = Math.max(5, Math.min(24 * 60, Math.floor(val)));
     }
   }
 

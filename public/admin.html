@@ -1096,20 +1096,26 @@
             </div>
             <div class="two-col" style="margin-top:10px">
               <div class="field">
-                <label for="submissions-wall-fresh-min">Fresh for (minutes)</label>
-                <input id="submissions-wall-fresh-min" type="number" min="5" max="1440" step="5" value="90">
+                <label for="submissions-wall-max-age-enabled">Submission timeout</label>
+                <select id="submissions-wall-max-age-enabled">
+                  <option value="true">Hide old submissions</option>
+                  <option value="false">Disabled</option>
+                </select>
               </div>
               <div class="field">
-                <label for="submissions-wall-repeat-cycles">Repeat after wall cycles</label>
-                <input id="submissions-wall-repeat-cycles" type="number" min="0" max="20" step="1" value="3">
+                <label for="submissions-wall-max-age-min">Hide submissions older than (minutes)</label>
+                <input id="submissions-wall-max-age-min" type="number" min="5" max="1440" step="5" value="90">
               </div>
             </div>
             <div class="two-col" style="margin-top:10px">
               <div class="field">
-                <label for="submissions-wall-min-approved">Min approved before older items return</label>
+                <label for="submissions-wall-repeat-cycles">Repeat after wall cycles</label>
+                <input id="submissions-wall-repeat-cycles" type="number" min="0" max="20" step="1" value="3">
+              </div>
+              <div class="field">
+                <label for="submissions-wall-min-approved">Min approved to show wall</label>
                 <input id="submissions-wall-min-approved" type="number" min="1" max="20" step="1" value="2">
               </div>
-              <div class="field"></div>
             </div>
           </div>
         </details>

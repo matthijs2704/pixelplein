@@ -42,7 +42,8 @@ export function refreshFromConfig() {
   _setVal('submissions-display-interval',   cfg.submissionDisplayIntervalSec ?? 45);
   _setVal('submissions-display-duration',   cfg.submissionDisplayDurationSec ?? 12);
   _setVal('submissions-grid-count',         cfg.submissionGridCount ?? 6);
-  _setVal('submissions-wall-fresh-min',     cfg.submissionWallFreshForMin ?? 90);
+  _setVal('submissions-wall-max-age-enabled', String(cfg.submissionWallMaxAgeEnabled !== false));
+  _setVal('submissions-wall-max-age-min',   cfg.submissionWallMaxAgeMin ?? 90);
   _setVal('submissions-wall-repeat-cycles', cfg.submissionWallRepeatAfterCycles ?? 3);
   _setVal('submissions-wall-min-approved',  cfg.submissionWallMinApproved ?? 2);
   _setVal('submissions-wall-show-qr',       String(cfg.submissionWallShowQr !== false));
@@ -107,12 +108,14 @@ function _bind() {
   // Submissions settings bindings
   const subBoolSelects = [
     'submissions-enabled', 'submissions-require-photo',
-    'submissions-wall-enabled', 'submissions-wall-show-qr', 'submissions-wall-hide-empty',
+    'submissions-wall-enabled', 'submissions-wall-max-age-enabled',
+    'submissions-wall-show-qr', 'submissions-wall-hide-empty',
   ];
   const subBoolMap = {
     'submissions-enabled':        'submissionEnabled',
     'submissions-require-photo':  'submissionRequirePhoto',
     'submissions-wall-enabled':   'submissionWallEnabled',
+    'submissions-wall-max-age-enabled': 'submissionWallMaxAgeEnabled',
     'submissions-wall-show-qr':   'submissionWallShowQr',
     'submissions-wall-hide-empty':'submissionWallHideWhenEmpty',
   };
@@ -140,7 +143,7 @@ function _bind() {
     'submissions-display-interval':   ['submissionDisplayIntervalSec',   10, 300],
     'submissions-display-duration':   ['submissionDisplayDurationSec',    5, 120],
     'submissions-grid-count':         ['submissionGridCount',             3,  12],
-    'submissions-wall-fresh-min':     ['submissionWallFreshForMin',       5, 1440],
+    'submissions-wall-max-age-min':   ['submissionWallMaxAgeMin',         5, 1440],
     'submissions-wall-repeat-cycles': ['submissionWallRepeatAfterCycles', 0,  20],
     'submissions-wall-min-approved':  ['submissionWallMinApproved',       1,  20],
   };

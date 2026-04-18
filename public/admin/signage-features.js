@@ -327,7 +327,8 @@ function _applySubmissionSettings(settings) {
   _setVal('submissions-display-interval', settings.submissionDisplayIntervalSec ?? 45);
   _setVal('submissions-display-duration', settings.submissionDisplayDurationSec ?? 12);
   _setVal('submissions-grid-count', settings.submissionGridCount ?? 6);
-  _setVal('submissions-wall-fresh-min', settings.submissionWallFreshForMin ?? 90);
+  _setVal('submissions-wall-max-age-enabled', String(settings.submissionWallMaxAgeEnabled !== false));
+  _setVal('submissions-wall-max-age-min', settings.submissionWallMaxAgeMin ?? 90);
   _setVal('submissions-wall-repeat-cycles', settings.submissionWallRepeatAfterCycles ?? 3);
   _setVal('submissions-wall-min-approved', settings.submissionWallMinApproved ?? 2);
   _setVal('submissions-wall-show-qr', String(settings.submissionWallShowQr !== false));
