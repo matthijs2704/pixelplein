@@ -111,10 +111,65 @@ function _rowSizes(n) {
 
 /* ── Card builder ─────────────────────────────────────────────────────── */
 
+function _fitText(sz, hasPhoto, isHero, msgText, metaText) {
+  let msgSize  = sz.msgSize;
+  let msgLines = msgText ? (hasPhoto ? 2 : 5) : 0;
+  let metaSize = sz.metaSize;
+  let metaLines = metaText ? 1 : 0;
+
+  const msgLen  = msgText.length;
+  const metaLen = metaText.length;
+
+  if (msgText) {
+    if (hasPhoto) {
+      if (msgLen > 110) {
+        msgSize *= 0.72;
+        msgLines = 3;
+      } else if (msgLen > 72) {
+        msgSize *= 0.8;
+        msgLines = 3;
+      } else if (msgLen > 42) {
+        msgSize *= 0.9;
+        msgLines = 3;
+      }
+    } else if (msgLen > 280) {
+      msgSize *= 0.76;
+      msgLines = 6;
+    } else if (msgLen > 190) {
+      msgSize *= 0.84;
+      msgLines = 6;
+    } else if (msgLen > 120) {
+      msgSize *= 0.92;
+      msgLines = 6;
+    }
+  }
+
+  if (metaText) {
+    if (metaLen > 48) {
+      metaSize *= 0.82;
+      metaLines = 2;
+    } else if (metaLen > 28) {
+      metaSize *= 0.9;
+      metaLines = 2;
+    }
+
+    if (hasPhoto && msgLines >= 3) metaSize *= 0.94;
+    if (isHero) metaSize *= 1.04;
+  }
+
+  return {
+    msgSize: Math.max(12, Math.round(msgSize)),
+    msgLines,
+    metaSize: Math.max(10, Math.round(metaSize)),
+    metaLines,
+  };
+}
+
 function _buildCard(item, sz, delayMs, isHero) {
   const hasPhoto   = !!(item.photoThumbUrl || item.photoUrl);
   const msgText    = String(item.message || '').trim();
   const metaText   = item.submitterValue ? `— ${item.submitterValue}` : '';
+  const textFit    = _fitText(sz, hasPhoto, isHero, msgText, metaText);
 
   const card = el('article', { cls: 'sw-card' });
   card.style.setProperty('--sw-rot',    `${(Math.random() * 3.2 - 1.6).toFixed(2)}deg`);
@@ -152,15 +207,15 @@ function _buildCard(item, sz, delayMs, isHero) {
 
   if (msgText) {
     const msg = el('div', { cls: 'sw-message', text: msgText });
-    msg.style.fontSize = `${sz.msgSize}px`;
-    // Text-only: allow more lines in the tall footer
-    msg.style.setProperty('--sw-lines', hasPhoto ? '2' : '5');
+    msg.style.fontSize = `${textFit.msgSize}px`;
+    msg.style.setProperty('--sw-lines', String(textFit.msgLines));
     footer.appendChild(msg);
   }
 
   if (metaText) {
     const meta = el('div', { cls: 'sw-meta', text: metaText });
-    meta.style.fontSize = `${sz.metaSize}px`;
+    meta.style.fontSize = `${textFit.metaSize}px`;
+    meta.style.setProperty('--sw-meta-lines', String(textFit.metaLines));
     footer.appendChild(meta);
   }
 

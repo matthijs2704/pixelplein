@@ -326,11 +326,16 @@
   color: var(--submission-wall-meta-color, #5e4d3a);
   font-family: var(--submission-wall-meta-font, 'Segoe UI', system-ui, sans-serif);
   font-weight: 600;
+  line-height: 1.18;
   letter-spacing: 0.02em;
   opacity: 0.82;
-  white-space: nowrap;
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: var(--sw-meta-lines, 1);
+  white-space: normal;
   overflow: hidden;
   text-overflow: ellipsis;
+  overflow-wrap: anywhere;
   margin-top: 3px;
 }
 
