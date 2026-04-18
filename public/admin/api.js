@@ -57,6 +57,10 @@ export async function deletePhoto(id) {
   return apiFetch(`/api/photos/${encodeURIComponent(id)}`, { method: 'DELETE' });
 }
 
+export async function deletePhotoGroup(group) {
+  return apiFetch(`/api/photos/group/${encodeURIComponent(group)}`, { method: 'DELETE' });
+}
+
 export async function loadSlides() {
   return apiFetch('/api/slides');
 }

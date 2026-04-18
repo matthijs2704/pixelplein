@@ -8,6 +8,7 @@ const fsp     = require('fs').promises;
 const fs      = require('fs');
 
 const state   = require('../../state');
+const { getConfig, getPublicConfig, saveConfig } = require('../../config');
 const { broadcast }  = require('../ws/broadcast');
 const { serializePhoto, getAllPhotos } = require('./serialize');
 const { upsertPhotoFromPath, PHOTOS_DIR } = require('../ingest/index');
@@ -72,6 +73,66 @@ function handleUploadMiddleware(req, res, next) {
     const status = err instanceof multer.MulterError ? 400 : 500;
     return res.status(status).json({ ok: false, error: err.message });
   });
+}
+
+async function _deletePhotoFiles(photo) {
+  const deleteFile = async filePath => {
+    try { await fsp.unlink(filePath); } catch {}
+  };
+
+  await deleteFile(photo.sourcePath);
+
+  const cachePath = photo.cachePath || toCacheFilePath(photo.id);
+  const thumbPath = photo.thumbPath || toThumbFilePath(photo.id);
+  await deleteFile(cachePath);
+  await deleteFile(thumbPath);
+}
+
+async function _deletePhotoRecord(photo) {
+  const id = photo.id;
+
+  state.photosById.delete(id);
+  state.queuedSet.delete(id);
+  const qi = state.queue.indexOf(id);
+  if (qi >= 0) state.queue.splice(qi, 1);
+  state.photoOverrides.delete(id);
+
+  broadcast({ type: 'remove_photo', id, name: photo.name });
+
+  await _deletePhotoFiles(photo);
+
+  deletePhotoMetadata(id).catch(err => {
+    console.warn(`[photos] failed to delete metadata for ${id}: ${err.message}`);
+  });
+}
+
+function _cleanupGroupConfig(group) {
+  const config = getConfig();
+  let changed  = false;
+
+  for (const screenCfg of Object.values(config.screens || {})) {
+    if (!screenCfg || typeof screenCfg !== 'object') continue;
+
+    const hiddenGroups = Array.isArray(screenCfg.hiddenGroups) ? screenCfg.hiddenGroups : [];
+    const nextHidden   = hiddenGroups.filter(name => name !== group);
+    if (nextHidden.length !== hiddenGroups.length) {
+      screenCfg.hiddenGroups = nextHidden;
+      changed = true;
+    }
+
+    if (screenCfg.activeGroup === group) {
+      screenCfg.activeGroup = 'ungrouped';
+      if (screenCfg.groupMode === 'manual') screenCfg.groupMode = 'auto';
+      changed = true;
+    }
+  }
+
+  if (changed) {
+    saveConfig();
+    broadcast({ type: 'config_update', config: getPublicConfig() });
+  }
+
+  return changed;
 }
 
 // ---------------------------------------------------------------------------
@@ -154,6 +215,34 @@ router.post('/upload', handleUploadMiddleware, async (req, res) => {
 });
 
 // ---------------------------------------------------------------------------
+// DELETE /api/photos/group/:group — permanently delete all photos in a group
+// ---------------------------------------------------------------------------
+router.delete('/group/:group', async (req, res) => {
+  const group = String(req.params.group || '').trim();
+  if (!group || !isValidGroupName(group)) {
+    return res.status(400).json({ ok: false, error: 'Invalid group name.' });
+  }
+
+  const photos = Array.from(state.photosById.values())
+    .filter(photo => (photo.eventGroup || 'ungrouped') === group);
+
+  if (!photos.length) {
+    return res.status(404).json({ ok: false, error: 'Group not found' });
+  }
+
+  for (const photo of photos) {
+    await _deletePhotoRecord(photo);
+  }
+
+  if (group !== 'ungrouped') {
+    try { await fsp.rm(path.join(PHOTOS_DIR, group), { recursive: true, force: true }); } catch {}
+  }
+
+  const configUpdated = _cleanupGroupConfig(group);
+  res.json({ ok: true, deleted: photos.length, group, configUpdated });
+});
+
+// ---------------------------------------------------------------------------
 // PATCH /api/photos/:id — set heroCandidate flag
 // id is URL-encoded, e.g. "ceremony%2Fimg001.jpg"
 // ---------------------------------------------------------------------------
@@ -194,31 +283,7 @@ router.delete('/:id(*)', async (req, res) => {
     return res.status(404).json({ ok: false, error: 'Photo not found' });
   }
 
-  // Remove from registry first so screens stop showing it immediately
-  state.photosById.delete(id);
-  state.queuedSet.delete(id);
-  const qi = state.queue.indexOf(id);
-  if (qi >= 0) state.queue.splice(qi, 1);
-  state.photoOverrides.delete(id);
-
-  // Broadcast removal so screens + admin update instantly
-  broadcast({ type: 'remove_photo', id, name: photo.name });
-
-  // Delete files (best-effort — don't fail the request if files are already gone)
-  const deleteFile = async filePath => {
-    try { await fsp.unlink(filePath); } catch {}
-  };
-
-  await deleteFile(photo.sourcePath);
-
-  const cachePath = photo.cachePath || toCacheFilePath(id);
-  const thumbPath = photo.thumbPath || toThumbFilePath(id);
-  await deleteFile(cachePath);
-  await deleteFile(thumbPath);
-
-  deletePhotoMetadata(id).catch(err => {
-    console.warn(`[photos] failed to delete metadata for ${id}: ${err.message}`);
-  });
+  await _deletePhotoRecord(photo);
 
   res.json({ ok: true });
 });

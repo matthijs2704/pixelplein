@@ -1,7 +1,7 @@
-// Photos tab: upload zone, thumbnail grid, delete/hero actions
+// Photos tab: upload zone, group filters, thumbnail grid, delete/hero actions
 
-import { loadPhotos, patchPhoto, deletePhoto, uploadFiles } from '../api.js';
-import { showConfirm, showImageModal } from '../app.js';
+import { loadPhotos, patchPhoto, deletePhoto, deletePhotoGroup, uploadFiles } from '../api.js';
+import { showConfirm, showImageModal, showToast } from '../app.js';
 import { icon } from '/shared/icons.js';
 import { esc } from '/shared/utils.js';
 
@@ -32,10 +32,13 @@ export function initPhotosTab(onReload) {
   _onReload = onReload;
   _bindUploadZone();
   _bindFilter();
+  _bindGroupDelete();
 }
 
 export function updateGroups(groups) {
   _groups = groups;
+  if (_filter !== 'all' && !_groups.includes(_filter)) _filter = 'all';
+  _renderGroupDatalist();
   _renderFilterBar();
 }
 
@@ -132,6 +135,7 @@ async function _handleUpload(files, group) {
 // ---------------------------------------------------------------------------
 
 function _bindFilter() {
+  _renderGroupDatalist();
   _renderFilterBar();
 }
 
@@ -148,9 +152,79 @@ function _renderFilterBar() {
     btn.addEventListener('click', () => {
       _filter = btn.dataset.group;
       bar.querySelectorAll('.filter-btn').forEach(b => b.classList.toggle('active', b.dataset.group === _filter));
+      _renderGroupDeleteButton();
       _renderGrid();
     });
   });
+
+  _renderGroupDeleteButton();
+}
+
+function _renderGroupDatalist() {
+  const datalist = document.getElementById('groups-datalist');
+  if (!datalist) return;
+
+  datalist.innerHTML = _groups
+    .filter(group => group !== 'ungrouped')
+    .map(group => `<option value="${esc(group)}"></option>`)
+    .join('');
+}
+
+function _bindGroupDelete() {
+  const btn = document.getElementById('photos-delete-group-btn');
+  if (!btn) return;
+
+  btn.addEventListener('click', async () => {
+    const group = btn.dataset.group || '';
+    if (!group || group === 'all') return;
+
+    const count = _photos.filter(photo => _photoGroup(photo) === group).length;
+    const label = count === 1 ? 'photo' : 'photos';
+    const ok = await showConfirm(
+      'Delete group',
+      `Delete group "${group}" and permanently remove ${count} ${label}? This cannot be undone.`,
+      'Delete group',
+    );
+    if (!ok) return;
+
+    btn.disabled = true;
+    try {
+      const result = await deletePhotoGroup(group);
+      _photos = _photos.filter(photo => _photoGroup(photo) !== group);
+      _sortPhotos();
+      _groups = _deriveGroupsFromPhotos();
+      if (_filter === group) _filter = 'all';
+      _renderFilterBar();
+      _renderGrid();
+      if (_onReload) _onReload();
+      showToast(`Deleted ${result?.deleted || count} photo(s) from "${group}"`);
+    } catch (err) {
+      showToast(`Delete failed: ${err.message}`, true);
+    } finally {
+      btn.disabled = false;
+      _renderGroupDeleteButton();
+    }
+  });
+}
+
+function _renderGroupDeleteButton() {
+  const btn = document.getElementById('photos-delete-group-btn');
+  if (!btn) return;
+
+  const canDelete = _filter !== 'all' && _groups.includes(_filter);
+  btn.style.display = canDelete ? '' : 'none';
+  btn.disabled = false;
+  btn.dataset.group = canDelete ? _filter : '';
+  btn.textContent = canDelete ? `Delete "${_filter}"` : 'Delete group';
+}
+
+function _photoGroup(photo) {
+  return photo?.eventGroup || 'ungrouped';
+}
+
+function _deriveGroupsFromPhotos() {
+  const groups = [...new Set(_photos.map(_photoGroup))].sort((a, b) => a.localeCompare(b));
+  return groups.length ? groups : ['ungrouped'];
 }
 
 // ---------------------------------------------------------------------------
@@ -163,7 +237,7 @@ function _renderGrid() {
 
   const filtered = _filter === 'all'
     ? _photos
-    : _photos.filter(p => p.eventGroup === _filter);
+    : _photos.filter(p => _photoGroup(p) === _filter);
 
   if (!filtered.length) {
     grid.innerHTML = `<div class="photos-empty">No photos${_filter !== 'all' ? ` in "${_filter}"` : ''}</div>`;
