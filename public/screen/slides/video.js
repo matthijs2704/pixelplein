@@ -9,10 +9,16 @@ import { getVideoObjectUrl } from '../video-cache.js';
  */
 export async function buildVideoSlide(slide) {
   const src = await getVideoObjectUrl(slide.filename);
+  const muted = slide.muted !== false;
 
   const video = el('video', { attrs: { preload: 'auto' } });
-  video.muted       = slide.muted !== false;
+  video.muted       = muted;
+  video.defaultMuted = muted;
+  if (muted) video.setAttribute('muted', '');
   video.playsInline = true;
+  video.setAttribute('playsinline', '');
+  video.setAttribute('webkit-playsinline', '');
+  video.autoplay    = true;
   video.src         = src;
 
   const wrap = el('div', { cls: 'slide-video' }, video);
@@ -20,6 +26,7 @@ export async function buildVideoSlide(slide) {
   const playCount       = typeof slide.playCount === 'number' ? slide.playCount : 1;
   const MAX_DURATION_MS = 5 * 60 * 1000;
   const ERROR_HOLD_MS   = 2_000; // if a frame decoded, show it briefly before advancing
+  const STARTUP_GRACE_MS = 4_000;
 
   function play(signal) {
     return new Promise(resolve => {
@@ -30,6 +37,8 @@ export async function buildVideoSlide(slide) {
 
       let playsLeft = playCount === 0 ? Infinity : playCount;
       let done      = false;
+      let started   = false;
+      let startupTimer = null;
 
       const safetyTimer = setTimeout(finish, MAX_DURATION_MS);
 
@@ -37,8 +46,12 @@ export async function buildVideoSlide(slide) {
         if (done) return;
         done = true;
         clearTimeout(safetyTimer);
+        if (startupTimer) clearTimeout(startupTimer);
         video.removeEventListener('ended',  onEnded);
         video.removeEventListener('error',  onError);
+        video.removeEventListener('playing', onPlaying);
+        video.removeEventListener('loadedmetadata', tryStart);
+        video.removeEventListener('canplay', tryStart);
         if (signal) signal.removeEventListener('abort', onAbort);
         resolve();
       }
@@ -54,7 +67,7 @@ export async function buildVideoSlide(slide) {
           finish();
         } else {
           video.currentTime = 0;
-          video.play().catch(finish);
+          tryStart();
         }
       }
 
@@ -68,17 +81,39 @@ export async function buildVideoSlide(slide) {
         }
       }
 
+      function onPlaying() {
+        started = true;
+        if (startupTimer) {
+          clearTimeout(startupTimer);
+          startupTimer = null;
+        }
+      }
+
+      function tryStart() {
+        if (done) return;
+        video.play().catch(onError);
+      }
+
       // Register listeners BEFORE calling play() so nothing is missed.
       video.addEventListener('ended', onEnded);
       video.addEventListener('error', onError, { once: true });
+      video.addEventListener('playing', onPlaying);
+      video.addEventListener('loadedmetadata', tryStart);
+      video.addEventListener('canplay', tryStart);
       if (signal) signal.addEventListener('abort', onAbort, { once: true });
 
-      // Call play() immediately — if the browser needs more data it queues
-      // the request internally; the promise only rejects on actual failures
-      // (unsupported codec, network error, autoplay policy).
-      // readyState >= 2 means canplay already fired; we can start immediately.
-      // readyState < 2 means the browser will begin buffering and start when ready.
-      video.play().catch(onError);
+      // Safari is stricter about autoplay/media startup than Chromium.
+      // Give the element a short grace window to transition into playback
+      // before treating startup as a failure.
+      startupTimer = setTimeout(() => {
+        if (!started) onError();
+      }, STARTUP_GRACE_MS);
+
+      if (video.readyState >= 1) {
+        tryStart();
+      } else {
+        try { video.load(); } catch {}
+      }
     });
   }
 

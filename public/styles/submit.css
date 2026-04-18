@@ -35,6 +35,9 @@ html, body {
   font-size: clamp(28px, 6vw, 46px);
   margin: 8px 0 2px;
   letter-spacing: 0.01em;
+  line-height: 1.08;
+  text-wrap: balance;
+  overflow-wrap: anywhere;
 }
 
 .sub {
@@ -114,6 +117,7 @@ html, body {
   font-weight: 700;
   font-size: 15px;
   line-height: 1.2;
+  text-wrap: balance;
 }
 
 .mode-sub {
@@ -218,6 +222,20 @@ textarea {
   min-height: 20px;
 }
 
+@media (max-width: 560px) {
+  .mode-switch {
+    grid-template-columns: 1fr;
+  }
+
+  .mode-btn {
+    padding: 13px 13px 14px;
+  }
+
+  .mode-title {
+    font-size: 14px;
+  }
+}
+
 .ok {
   color: #8fe0b4;
 }
@@ -225,4 +243,3 @@ textarea {
 .err {
   color: #ff9c9c;
 }
-
