@@ -8,7 +8,9 @@ import { getVideoObjectUrl } from '../video-cache.js';
  * @returns {{ el: HTMLElement, play: () => Promise<void> }}
  */
 export async function buildVideoSlide(slide) {
+  console.log('[video] building slide, filename:', slide.filename);
   const src = await getVideoObjectUrl(slide.filename);
+  console.log('[video] got blob URL:', src.slice(0, 40));
   const muted = slide.muted !== false;
 
   const video = el('video', { attrs: { preload: 'auto' } });
@@ -72,8 +74,7 @@ export async function buildVideoSlide(slide) {
       }
 
       function onError() {
-        // readyState >= 1 means at least metadata (and usually the first frame)
-        // was decoded — hold it on screen briefly rather than flashing past.
+        console.warn('[video] onError, readyState:', video.readyState, 'error:', video.error?.message);
         if (video.readyState >= 1) {
           setTimeout(finish, ERROR_HOLD_MS);
         } else {
@@ -91,7 +92,11 @@ export async function buildVideoSlide(slide) {
 
       function tryStart() {
         if (done) return;
-        video.play().catch(onError);
+        console.log('[video] tryStart, readyState:', video.readyState, 'src:', video.src.slice(0, 40));
+        video.play().catch(err => {
+          console.error('[video] play() rejected:', err.name, err.message);
+          onError();
+        });
       }
 
       // Register listeners BEFORE calling play() so nothing is missed.

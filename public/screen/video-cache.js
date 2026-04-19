@@ -25,9 +25,12 @@ export async function cacheVideoFile(filename) {
     const cache = await caches.open(VIDEO_CACHE);
     if (await cache.match(url)) return; // already cached
 
+    console.log('[video-cache] fetching:', url);
     const response = await fetch(url);
     if (!response.ok) throw new Error(`Video fetch failed: ${response.status}`);
+    console.log('[video-cache] storing in cache, content-type:', response.headers.get('content-type'), 'status:', response.status);
     await cache.put(url, response);
+    console.log('[video-cache] cached:', url);
   })();
 
   _pending.set(url, work);
@@ -53,8 +56,10 @@ export async function getVideoObjectUrl(filename) {
     await cacheVideoFile(filename);
     const cache = await caches.open(VIDEO_CACHE);
     const response = await cache.match(url);
+    console.log('[video-cache] cache.match result:', response ? `${response.status} ${response.headers.get('content-type')}` : 'null');
     if (response) {
       const blob = await response.blob();
+      console.log('[video-cache] blob size:', blob.size, 'type:', blob.type);
       return URL.createObjectURL(blob);
     }
   }

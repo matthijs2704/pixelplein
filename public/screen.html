@@ -29,7 +29,16 @@
 <div id="display"></div>
 <script>
   if ('serviceWorker' in navigator) {
-    navigator.serviceWorker.register('/sw.js').catch(() => {});
+    navigator.serviceWorker.register('/sw.js').then(reg => {
+      // When a new SW version activates, reload the page so all JS modules
+      // are served fresh from the new shell cache.
+      reg.addEventListener('updatefound', () => {
+        const sw = reg.installing;
+        sw.addEventListener('statechange', () => {
+          if (sw.state === 'activated') location.reload();
+        });
+      });
+    }).catch(() => {});
   }
 </script>
 <script type="module" src="/screen/app.js"></script>
