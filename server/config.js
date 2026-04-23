@@ -34,7 +34,7 @@ function defaultScreenConfig() {
   return {
     layoutDuration: 8000,
     transitionTime: 800,
-    enabledLayouts: ['fullscreen', 'sidebyside', 'featuredduo', 'polaroid', 'mosaic'],
+    enabledLayouts: ['fullscreen', 'sidebyside', 'featuredduo', 'polaroid', 'mosaic', 'dynamicsplit', 'triptych', 'cascade', 'filmstrip'],
     transition: 'fade',
     groupMode: 'auto',
     activeGroup: 'ungrouped',
@@ -44,6 +44,7 @@ function defaultScreenConfig() {
     mosaicSwapCount: 2,
     mosaicDurationFactor: 100,
     mosaicGroupSync: false,
+    splitDelayPct: 35,
     cinematicWeight: 65,
     dynamicWeight: 25,
     neutralWeight: 10,
@@ -227,7 +228,7 @@ const SCREEN_CONFIG_SCHEMA = {
   // Core playback
   layoutDuration:          { type: 'number',      min: 3000,  max: 45000 },
   transitionTime:          { type: 'number',      min: 200,   max: 3000  },
-  enabledLayouts:          { type: 'stringArray', allowed: ['fullscreen','sidebyside','featuredduo','polaroid','mosaic'], fallback: ['fullscreen'] },
+  enabledLayouts:          { type: 'stringArray', allowed: ['fullscreen','sidebyside','featuredduo','polaroid','mosaic','dynamicsplit','triptych','cascade','filmstrip'], fallback: ['fullscreen'] },
   transition:              { type: 'enum',        values: ['fade','slide','zoom'] },
   // Grouping
   groupMode:               { type: 'enum',        values: ['auto','manual'] },
@@ -240,6 +241,8 @@ const SCREEN_CONFIG_SCHEMA = {
   mosaicDurationFactor:    { type: 'number',      min: 30,    max: 100   },
   mosaicGroupSync:         { type: 'bool' },
   swapStaggerMs:           { type: 'number',      min: 60,    max: 500   },
+  // Dynamic split
+  splitDelayPct:           { type: 'number',      min: 0,     max: 80    },
   // Template style
   cinematicWeight:         { type: 'number',      min: 0,     max: 100   },
   dynamicWeight:           { type: 'number',      min: 0,     max: 100   },

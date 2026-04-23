@@ -40,11 +40,15 @@ const DEFAULT_HERO_LOCK_SEC = 30;     // cross-screen hero lock TTL
 
 // Layout module paths, keyed by layout name.
 const _LAYOUT_PATHS = {
-  fullscreen:  './fullscreen.js',
-  sidebyside:  './sidebyside.js',
-  featuredduo: './featuredduo.js',
-  polaroid:    './polaroid.js',
-  mosaic:      './mosaic.js',
+  fullscreen:   './fullscreen.js',
+  sidebyside:   './sidebyside.js',
+  featuredduo:  './featuredduo.js',
+  polaroid:     './polaroid.js',
+  mosaic:       './mosaic.js',
+  dynamicsplit: './dynamicsplit.js',
+  triptych:     './triptych.js',
+  cascade:      './cascade.js',
+  filmstrip:    './filmstrip.js',
 };
 
 // Display state shared with heartbeat
