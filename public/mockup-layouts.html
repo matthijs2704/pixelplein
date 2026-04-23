@@ -397,6 +397,9 @@ const LAYOUTS = {
 
       photos.forEach(p => { p.style.width = photoW + 'px'; });
 
+      const outerW = outer.offsetWidth;
+      const trackW = photos.length * photoW + (photos.length - 1) * gap;
+
       track.getAnimations().forEach(a => a.cancel());
       track.style.transform = 'translateX(0)';
 
@@ -408,7 +411,9 @@ const LAYOUTS = {
 
         setStatus(`<strong>Photo ${i + 1} of ${photos.length}</strong> — ${i + 1 < photos.length ? 'panning to next…' : 'cycle complete, picks fresh photos and restarts'}`);
 
-        const x = i * (photoW + gap);
+        // Center the photo on screen; clamp so strip never scrolls past its edges
+        const photoCenter = i * (photoW + gap) + photoW / 2;
+        const x = Math.max(0, Math.min(trackW - outerW, photoCenter - outerW / 2));
         if (i > 0) {
           try {
             await track.animate(
