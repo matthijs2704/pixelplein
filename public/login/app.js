@@ -35,7 +35,7 @@ async function _boot() {
 
   const me = await _apiFetch('/api/auth/me').catch(() => ({ loggedIn: false, setupRequired: false }));
   if (me.loggedIn) {
-    location.href = '/admin.html';
+    location.href = '/admin';
     return;
   }
 
@@ -64,7 +64,7 @@ document.getElementById('login-form')?.addEventListener('submit', async e => {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ username, password, rememberMe }),
     });
-    location.href = '/admin.html';
+    location.href = '/admin';
   } catch (err) {
     _setError(err.message || 'Login failed');
   }
@@ -89,7 +89,7 @@ document.getElementById('setup-form')?.addEventListener('submit', async e => {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ username, password }),
     });
-    location.href = '/admin.html';
+    location.href = '/admin';
   } catch (err) {
     _setError(err.message || 'Setup failed');
   }

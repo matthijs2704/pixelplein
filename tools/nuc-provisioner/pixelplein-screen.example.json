@@ -1,0 +1,26 @@
+{
+  "version": 1,
+  "serverUrl": "http://192.168.1.10:3000",
+  "screenId": "1",
+  "deviceLabel": "Zaal Links",
+  "wifi": {
+    "ssid": "Event WiFi",
+    "password": "optional-password",
+    "hidden": false
+  },
+  "network": {
+    "interface": "eth0",
+    "mode": "static",
+    "ip": "192.168.1.20",
+    "prefix": 24,
+    "gateway": "192.168.1.1",
+    "dns": ["8.8.8.8", "1.1.1.1"]
+  },
+  "kiosk": {
+    "autostart": true
+  },
+  "localServer": {
+    "enabled": false,
+    "publicBaseUrl": "http://192.168.1.10:3000"
+  }
+}

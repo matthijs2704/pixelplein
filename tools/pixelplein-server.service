@@ -1,0 +1,15 @@
+[Unit]
+Description=PixelPlein Server
+After=network.target
+
+[Service]
+User=pixelplein
+WorkingDirectory=/opt/pixelplein
+ExecStart=/usr/bin/node server/index.js
+Restart=on-failure
+RestartSec=5
+Environment=NODE_ENV=production
+EnvironmentFile=-/etc/pixelplein/server.env
+
+[Install]
+WantedBy=multi-user.target

@@ -1,0 +1,3 @@
+ACTION=="add", KERNEL=="sd[b-z][0-9]", SUBSYSTEM=="block", \
+  ENV{ID_FS_TYPE}=="vfat|ntfs|exfat", \
+  RUN+="/usr/local/bin/pixelplein-usb-scan.sh"

@@ -386,3 +386,107 @@
   max-width: 12vw;
   font-weight: 600;
 }
+
+/* ── Settings overlay (F12) ───────────────────────────────────────────────── */
+
+#settings-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0, 0, 0, 0.72);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+  font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+}
+#settings-overlay.settings-hidden { display: none; }
+
+.settings-card {
+  position: relative;
+  width: min(560px, 90vw);
+  background: rgba(10, 16, 24, 0.96);
+  border: 1px solid rgba(255,255,255,0.14);
+  border-radius: 20px;
+  padding: clamp(20px, 3vw, 36px);
+  box-shadow: 0 32px 80px rgba(0,0,0,0.6);
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  color: #f0f4f8;
+}
+.settings-loading {
+  color: rgba(255,255,255,0.45);
+  font-size: 14px;
+  text-align: center;
+  padding: 24px 0;
+}
+.settings-close {
+  position: absolute;
+  top: 16px; right: 16px;
+  background: rgba(255,255,255,0.08);
+  border: 1px solid rgba(255,255,255,0.12);
+  color: rgba(255,255,255,0.6);
+  border-radius: 8px;
+  width: 32px; height: 32px;
+  font-size: 14px;
+  cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+}
+.settings-close:hover { background: rgba(255,255,255,0.14); }
+
+.settings-section { display: flex; flex-direction: column; gap: 6px; }
+.settings-label {
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: rgba(255,255,255,0.38);
+}
+.settings-value { font-size: clamp(13px, 1.6vw, 15px); color: #e2eaf4; }
+.settings-mono  { font-family: 'SF Mono', 'Consolas', monospace; }
+
+.settings-screen-btns { display: flex; gap: 8px; }
+.settings-screen-btn {
+  width: 48px; height: 48px;
+  border-radius: 12px;
+  border: 1px solid rgba(255,255,255,0.16);
+  background: rgba(255,255,255,0.06);
+  color: rgba(255,255,255,0.7);
+  font-size: 18px; font-weight: 700;
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s;
+}
+.settings-screen-btn:hover    { background: rgba(255,255,255,0.12); }
+.settings-screen-btn.active   {
+  background: rgba(125,211,252,0.18);
+  border-color: rgba(125,211,252,0.55);
+  color: #7dd3fc;
+}
+
+.settings-qr-section { align-items: flex-start; }
+.settings-qr {
+  border-radius: 10px;
+  background: #fff;
+  padding: 6px;
+}
+
+.settings-footer {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding-top: 4px;
+  border-top: 1px solid rgba(255,255,255,0.08);
+}
+.settings-link {
+  font-size: 13px;
+  color: #7dd3fc;
+  text-decoration: none;
+}
+.settings-link:hover { text-decoration: underline; }
+.settings-muted {
+  font-size: 11px;
+  color: rgba(255,255,255,0.28);
+}
+

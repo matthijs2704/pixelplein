@@ -3,11 +3,8 @@
 const { WebSocketServer } = require('ws');
 const { setWss, broadcast } = require('./broadcast');
 const { handleMessage, handleClose, pruneHeroLocks, serializeHeroLocks } = require('./handlers');
-const { getReadyPhotos } = require('../photos/serialize');
-const { getConfig, getPublicConfig } = require('../../config');
+const { getConfig } = require('../../config');
 const { buildStats } = require('../screens/routes');
-const { getActiveAlerts, getEventSchedule } = require('../alerts/store');
-const { getApprovedSubmissions } = require('../submissions/store');
 const state = require('../../state');
 
 let _healthTimer = null;
@@ -20,30 +17,34 @@ function restartHealthBroadcast() {
   }, intervalMs);
 }
 
-function createWss(httpServer) {
+function _attachSession(sessionMiddleware, req) {
+  if (!sessionMiddleware) return Promise.resolve();
+  return new Promise(resolve => {
+    const res = {
+      getHeader: () => undefined,
+      setHeader: () => {},
+      writeHead: () => {},
+    };
+    sessionMiddleware(req, res, () => resolve());
+  });
+}
+
+function createWss(httpServer, sessionMiddleware = null) {
   const wss = new WebSocketServer({ server: httpServer });
   setWss(wss);
 
   // ---------------------------------------------------------------------------
   // Connection lifecycle
   // ---------------------------------------------------------------------------
-  wss.on('connection', ws => {
+  wss.on('connection', async (ws, req) => {
     ws.isAlive = true;
     ws.on('pong', function () { this.isAlive = true; });
 
-    // Send initial state on connect; photos are synced in batches after init
-    const cfg = getConfig();
-    ws.send(JSON.stringify({
-      type:       'init',
-      config:     getPublicConfig(),
-      heroLocks:  serializeHeroLocks(),
-      slides:     cfg.slides    || [],
-      playlists:  cfg.playlists || [],
-      alerts:     getActiveAlerts(),
-      eventSchedule: [...getEventSchedule()].sort((a, b) => Number(new Date(a.startTime)) - Number(new Date(b.startTime))),
-      approvedSubmissions: getApprovedSubmissions(80),
-      totalPhotos: getReadyPhotos().length,
-    }));
+    await _attachSession(sessionMiddleware, req);
+    if (req.session?.userId) {
+      ws.authenticated = true;
+      ws.clientType = 'admin';
+    }
 
     ws.on('message', raw => {
       let msg;

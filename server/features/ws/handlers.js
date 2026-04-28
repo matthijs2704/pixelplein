@@ -1,10 +1,13 @@
 'use strict';
 
 const state  = require('../../state');
-const { broadcast, broadcastToScreens } = require('./broadcast');
+const { broadcast } = require('./broadcast');
 const { updateSlide, getSlides }        = require('../slides/store');
 const { getReadyPhotos }                = require('../photos/serialize');
-const { getConfig }                     = require('../../config');
+const { getConfig, getPublicConfig }    = require('../../config');
+const { getActiveAlerts, getEventSchedule } = require('../alerts/store');
+const { getApprovedSubmissions }        = require('../submissions/store');
+const { verifyScreenToken }             = require('../screens/devices');
 
 // ---------------------------------------------------------------------------
 // Hero lock helpers
@@ -51,7 +54,7 @@ function _getConnectedScreenIds() {
   const wss = _getWss?.();
   if (!wss) return ids;
   for (const ws of wss.clients) {
-    if (ws.screenId) ids.add(ws.screenId);
+    if (ws.clientType === 'screen' && ws.screenId) ids.add(ws.screenId);
   }
   return ids;
 }
@@ -88,10 +91,116 @@ function _tryAdvance(playlistId) {
 // Handle an incoming WebSocket message from any client
 // ---------------------------------------------------------------------------
 
+async function _handleScreenAuth(ws, msg) {
+  const screenId = String(msg.screenId || '');
+  const device = await verifyScreenToken({
+    deviceId: msg.deviceId,
+    token:    msg.token,
+    screenId,
+  });
+
+  if (!device) {
+    ws.send(JSON.stringify({ type: 'screen_auth_failed' }));
+    ws.close(1008, 'screen auth failed');
+    return;
+  }
+
+  ws.authenticated = true;
+  ws.clientType = 'screen';
+  ws.deviceId = device.deviceId;
+  ws.screenId = device.screenId;
+
+  ws.send(JSON.stringify({
+    type:     'screen_auth_ok',
+    screenId: device.screenId,
+  }));
+  _sendScreenInit(ws);
+}
+
+async function _handleAgentAuth(ws, msg) {
+  const screenId = String(msg.screenId || '');
+  const device = await verifyScreenToken({
+    deviceId: msg.deviceId,
+    token:    msg.token,
+    screenId,
+  });
+
+  if (!device) {
+    ws.send(JSON.stringify({ type: 'agent_auth_failed' }));
+    ws.close(1008, 'agent auth failed');
+    return;
+  }
+
+  ws.authenticated = true;
+  ws.clientType = 'agent';
+  ws.deviceId = device.deviceId;
+  ws.screenId = device.screenId;
+  ws.agentCapabilities = Array.isArray(msg.capabilities) ? msg.capabilities.map(String) : [];
+  ws.agentLastSeenAt = Date.now();
+
+  ws.send(JSON.stringify({
+    type:     'agent_auth_ok',
+    screenId: device.screenId,
+  }));
+}
+
+function _sendScreenInit(ws) {
+  const cfg = getConfig();
+  ws.send(JSON.stringify({
+    type:       'init',
+    config:     getPublicConfig(),
+    heroLocks:  serializeHeroLocks(),
+    slides:     cfg.slides    || [],
+    playlists:  cfg.playlists || [],
+    alerts:     getActiveAlerts(),
+    eventSchedule: [...getEventSchedule()].sort((a, b) => Number(new Date(a.startTime)) - Number(new Date(b.startTime))),
+    approvedSubmissions: getApprovedSubmissions(80),
+    totalPhotos: getReadyPhotos().length,
+  }));
+}
+
 function handleMessage(ws, msg) {
+  if (msg.type === 'screen_auth') {
+    _handleScreenAuth(ws, msg).catch(() => {
+      try { ws.close(1011, 'screen auth error'); } catch {}
+    });
+    return;
+  }
+
+  if (msg.type === 'agent_auth') {
+    _handleAgentAuth(ws, msg).catch(() => {
+      try { ws.close(1011, 'agent auth error'); } catch {}
+    });
+    return;
+  }
+
+  if (!ws.authenticated) return;
+
+  if (msg.type === 'agent_heartbeat') {
+    if (ws.clientType !== 'agent') return;
+    ws.agentLastSeenAt = Date.now();
+    ws.agentStatus = msg.status && typeof msg.status === 'object' ? msg.status : null;
+    return;
+  }
+
+  if (msg.type === 'agent_command_result') {
+    if (ws.clientType !== 'agent') return;
+    ws.agentLastSeenAt = Date.now();
+    ws.lastCommandResult = {
+      commandId: String(msg.commandId || ''),
+      command:   String(msg.command || ''),
+      ok:        Boolean(msg.ok),
+      error:     String(msg.error || ''),
+      at:        Date.now(),
+    };
+    return;
+  }
+
   // --- Screen heartbeat ---
   if (msg.type === 'screen_heartbeat') {
+    if (ws.clientType !== 'screen') return;
     const screenId = String(msg.screenId || 'unknown');
+    if (screenId !== ws.screenId) return;
     const prev     = state.screenHealth.get(screenId) || { reconnects: 0 };
     const reconnects = prev.connected ? prev.reconnects : (prev.reconnects || 0) + 1;
     state.screenHealth.set(screenId, {
@@ -110,8 +219,10 @@ function handleMessage(ws, msg) {
 
   // --- Hero claim ---
   if (msg.type === 'hero_claim') {
+    if (ws.clientType !== 'screen') return;
     const photoId  = String(msg.photoId || '');
     const screenId = String(msg.screenId || ws.screenId || 'unknown');
+    if (screenId !== ws.screenId) return;
     if (!photoId) return;
 
     const ttlSec    = Math.max(10, Math.min(180, Math.floor(msg.ttlSec || 30)));
@@ -126,14 +237,9 @@ function handleMessage(ws, msg) {
     return;
   }
 
-  // --- Admin: reload all screen clients ---
-  if (msg.type === 'admin_reload_screens') {
-    broadcastToScreens({ type: 'reload', delayMs: 1500 });
-    return;
-  }
-
   // --- Screen: slide ended (non-coordinated — clears playSoon flag) ---
   if (msg.type === 'slide_ended') {
+    if (ws.clientType !== 'screen') return;
     const slideId = String(msg.slideId || '');
     if (!slideId) return;
     const slide = getConfig().slides.find(s => s.id === slideId);
@@ -146,6 +252,7 @@ function handleMessage(ws, msg) {
 
   // --- Screen: slide_ready (coordinated playlist — screen finished playing) ---
   if (msg.type === 'slide_ready') {
+    if (ws.clientType !== 'screen') return;
     const slideId    = String(msg.slideId    || '');
     const playlistId = String(msg.playlistId || '');
     const screenId   = String(msg.screenId   || ws.screenId || '');
@@ -181,6 +288,7 @@ function handleMessage(ws, msg) {
 
   // --- Screen: request photo delta sync ---
   if (msg.type === 'sync_photos') {
+    if (ws.clientType !== 'screen') return;
     const knownIds = new Set(Array.isArray(msg.knownIds) ? msg.knownIds.map(String) : []);
     const readyPhotos = getReadyPhotos();
     const serverIds = new Set(readyPhotos.map(p => p.id));
@@ -230,7 +338,7 @@ function handleMessage(ws, msg) {
 // ---------------------------------------------------------------------------
 
 function handleClose(ws) {
-  if (ws.screenId) {
+  if (ws.clientType === 'screen' && ws.screenId) {
     const prev = state.screenHealth.get(ws.screenId);
     if (prev) {
       state.screenHealth.set(ws.screenId, { ...prev, connected: false, lastSeenAt: Date.now() });

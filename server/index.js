@@ -4,6 +4,7 @@ const express     = require('express');
 const httpMod     = require('http');
 const path        = require('path');
 const fs          = require('fs');
+const os          = require('os');
 const crypto      = require('crypto');
 const session     = require('express-session');
 const compression = require('compression');
@@ -21,6 +22,7 @@ const { initSubmissionStore } = require('./features/submissions/store');
 
 const photosRouter  = require('./features/photos/routes');
 const screensRouter = require('./features/screens/routes');
+const { publicRouter: screenDevicesPublicRouter, adminRouter: screenDevicesAdminRouter } = require('./features/screens/device-routes');
 const { slidesRouter, playlistRouter, qrRouter } = require('./features/slides/routes');
 const themesRouter  = require('./features/themes/routes');
 const alertsRouter  = require('./features/alerts/routes');
@@ -32,6 +34,13 @@ const {
   SUBMISSION_ORIGINAL_DIR,
   SUBMISSION_THUMB_DIR,
 } = require('./features/submissions/paths');
+
+function getLocalIPs() {
+  return Object.values(os.networkInterfaces())
+    .flat()
+    .filter(a => a && a.family === 'IPv4' && !a.internal)
+    .map(a => a.address);
+}
 
 // Ensure required directories exist
 const SLIDE_ASSETS_DIR = path.join(__dirname, '..', 'slide-assets');
@@ -101,7 +110,7 @@ app.set('trust proxy', 1);
 
 app.use(compression());
 app.use(express.json());
-app.use(session({
+const sessionMiddleware = session({
   name: 'pixelplein.sid',
   secret: _getOrCreateSessionSecret(),
   resave: false,
@@ -112,7 +121,9 @@ app.use(session({
     sameSite: 'lax',
     secure: process.env.NODE_ENV === 'production',
   },
-}));
+});
+
+app.use(sessionMiddleware);
 
 // Static file serving — cache/display served at /photos, originals at /photos-original
 app.use('/photos', (req, _res, next) => {
@@ -143,19 +154,26 @@ app.use('/submission-assets', express.static(SUBMISSION_ASSETS_DIR, {
   maxAge: '30d',
 }));
 app.use(express.static(path.join(__dirname, '..', 'public')));
-app.get('/submit', (_req, res) => {
-  res.sendFile(path.join(__dirname, '..', 'public', 'submit.html'));
-});
+
+// Clean URLs — serve HTML files without the .html extension
+const _pub = f => path.join(__dirname, '..', 'public', f);
+app.get('/screen',  (_req, res) => res.sendFile(_pub('screen.html')));
+app.get('/admin',   (_req, res) => res.sendFile(_pub('admin.html')));
+app.get('/login',   (_req, res) => res.sendFile(_pub('login.html')));
+app.get('/preview', (_req, res) => res.sendFile(_pub('preview.html')));
+app.get('/submit',  (_req, res) => res.sendFile(_pub('submit.html')));
 
 // API routes — /api/auth is public; everything else requires a session
 app.use('/api/auth',       authRouter);
 app.use('/api/submissions', submissionsPublicRouter);
+app.use('/api/screens',    screenDevicesPublicRouter);
 app.use('/api/slides',     qrRouter);
 app.use('/api/photos',     requireAuth, photosRouter);
 app.use('/api/slides',     requireAuth, slidesRouter);
 app.use('/api/playlists',  requireAuth, playlistRouter);
 app.use('/api/themes',     themesRouter);  // read-only theme listing, no PIN needed
 app.use('/api/submissions', requireAuth, submissionsAdminRouter);
+app.use('/api/screens',    requireAuth, screenDevicesAdminRouter);
 app.use('/api',            requireAuth, alertsRouter);
 app.use('/api',            requireAuth, screensRouter);
 
@@ -163,7 +181,7 @@ app.use('/api',            requireAuth, screensRouter);
 // WebSocket server
 // ---------------------------------------------------------------------------
 
-createWss(server);
+createWss(server, sessionMiddleware);
 
 // ---------------------------------------------------------------------------
 // Initial scan
@@ -182,17 +200,27 @@ async function boot() {
 
   const PORT = process.env.PORT || 3000;
   server.listen(PORT, '0.0.0.0', () => {
-    const base = getConfig().publicBaseUrl || `http://<your-ip>:${PORT}`;
+    const ips      = getLocalIPs();
+    const localUrl = `http://${ips[0] || 'localhost'}:${PORT}`;
+    const base     = getConfig().publicBaseUrl || localUrl;
+    const adminUrl = `${base}/admin`;
+
     console.log(`\nPixelPlein running on http://0.0.0.0:${PORT}`);
-    console.log(`  Screen 1   : ${base}/screen.html?screen=1`);
-    console.log(`  Screen 2   : ${base}/screen.html?screen=2`);
-    console.log(`  Admin      : ${base}/admin.html`);
-    console.log(`  Login      : ${base}/login.html`);
-    console.log(`  Preview    : ${base}/preview.html`);
+    if (ips.length > 1) console.log(`  LAN IPs    : ${ips.join(', ')}`);
+    console.log(`  Screen 1   : ${base}/screen?screen=1`);
+    console.log(`  Screen 2   : ${base}/screen?screen=2`);
+    console.log(`  Admin      : ${adminUrl}`);
+    console.log(`  Login      : ${base}/login`);
+    console.log(`  Preview    : ${base}/preview`);
     console.log(`  Photos     : ${PHOTOS_DIR}`);
     console.log(`  Cache      : ${CACHE_DIR}`);
     console.log(`  Videos     : ${VIDEOS_DIR}`);
     console.log(`  Database   : ${DB_PATH}\n`);
+
+    const QRCode = require('qrcode');
+    QRCode.toString(adminUrl, { type: 'terminal', small: true }, (err, str) => {
+      if (!err) process.stdout.write(str + '\n');
+    });
   });
 }
 

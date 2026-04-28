@@ -1,6 +1,6 @@
 // Admin entry point: init, page routing, WebSocket, orchestration
 
-import { loadConfig, saveConfig, loadStats, loadSlides, loadPlaylists, loadMe, logout } from './api.js';
+import { loadConfig, saveConfig, loadStats, loadSlides, loadPlaylists, loadMe, logout, reloadScreens } from './api.js';
 import { extractGroups }                                                  from './health.js';
 import { esc as _esc, fmtAgo as _fmtAgo, activeScreenIds as _activeScreenIds } from '/shared/utils.js';
 import { initQuickTab, refreshFromConfig as quickRefresh, updateGroups as quickUpdateGroups } from './tabs/quick.js';
@@ -8,7 +8,7 @@ import { initAdvancedTab, refreshFromConfig as advRefresh, updateGroups as advUp
 import { initPhotosTab, refreshPhotos, onNewPhoto, onRemovePhoto, onPhotoUpdate, updateGroups as photosUpdateGroups } from './tabs/photos.js';
 import { initSlidesTab, refreshSlides, createNewPlaylist, onTranscodeProgress } from './tabs/slides.js';
 import { initOverlaysTab, refreshFromConfig as ovRefresh } from './tabs/overlays.js';
-import { initSettingsTab, refreshFromConfig as settingsRefresh } from './tabs/settings.js';
+import { initSettingsTab, refreshFromConfig as settingsRefresh, refreshScreenDevices } from './tabs/settings.js';
 
 // ---------------------------------------------------------------------------
 // State
@@ -269,7 +269,7 @@ function _renderScreenUi() {
     </div>
   `).join('');
   links.innerHTML = ['1', '2', '3', '4'].map(id =>
-    `<a class="sidebar-btn" id="sidebar-open-screen-${id}" href="/screen.html?screen=${id}" target="_blank">Open Screen ${id}</a>`
+    `<a class="sidebar-btn" id="sidebar-open-screen-${id}" href="/screen?screen=${id}" target="_blank">Open Screen ${id}</a>`
   ).join('');
 
   _bindPlaylistSelects();
@@ -511,6 +511,7 @@ function setPage(page) {
   if (page === 'slides') doLoadSlides();
   if (page === 'signage' || page === 'schedule') window._loadAlertsAndSchedule?.().catch(() => {});
   if (page === 'submissions') window._loadSubmissions?.().catch(() => {});
+  if (page === 'settings') refreshScreenDevices().catch(() => {});
 }
 
 // ---------------------------------------------------------------------------
@@ -599,6 +600,11 @@ function connectWs() {
       }
       return;
     }
+
+    if (msg.type === 'screen_pairing_update') {
+      refreshScreenDevices().catch(() => {});
+      return;
+    }
   };
 
   ws.onerror = () => {};  // 'close' always follows an error; handle there
@@ -631,12 +637,9 @@ function bindButtons() {
   });
 
   document.getElementById('btn-reload-screens')?.addEventListener('click', () => {
-    if (!_ws || _ws.readyState !== 1) {
-      showToast('Not connected', true);
-      return;
-    }
-    _ws.send(JSON.stringify({ type: 'admin_reload_screens' }));
-    showToast('Reloading screens…');
+    reloadScreens()
+      .then(() => showToast('Reloading screens…'))
+      .catch(err => showToast(err.message, true));
   });
 
   document.getElementById('btn-new-playlist')?.addEventListener('click', async () => {
@@ -648,7 +651,7 @@ function bindButtons() {
     try {
       await logout();
     } catch {}
-    location.href = '/login.html';
+    location.href = '/login';
   });
 
   // Nav items
@@ -688,11 +691,11 @@ async function boot() {
   try {
     const me = await loadMe();
     if (!me?.loggedIn) {
-      location.href = '/login.html';
+      location.href = '/login';
       return;
     }
   } catch {
-    location.href = '/login.html';
+    location.href = '/login';
     return;
   }
 

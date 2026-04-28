@@ -48,12 +48,33 @@ import {
   loadMeta    as idbLoadMeta,
   removePhotos as idbRemovePhotos,
 } from './idb.js';
+import { initSettings } from './settings.js';
+
+// ---------------------------------------------------------------------------
+// Server display URL — prefer LAN IP over localhost
+// ---------------------------------------------------------------------------
+
+let _serverDisplayUrl = location.origin;
+
+fetch('/api/screens/info').then(r => r.ok ? r.json() : null).then(info => {
+  if (info?.lanIps?.length) {
+    const port = info.port || location.port || '';
+    _serverDisplayUrl = `http://${info.lanIps[0]}${port ? `:${port}` : ''}`;
+  }
+}).catch(() => {});
 
 // ---------------------------------------------------------------------------
 // Waiting screen
 // ---------------------------------------------------------------------------
 
 const waitingEl = document.getElementById('waiting');
+
+function setWaiting(title, body) {
+  const titleEl = waitingEl?.querySelector('.waiting-title');
+  const subEl   = waitingEl?.querySelector('.waiting-sub');
+  if (titleEl) titleEl.textContent = title;
+  if (subEl) subEl.innerHTML = body;
+}
 
 function hideWaiting() {
   if (!waitingEl || waitingEl.classList.contains('hidden')) return;
@@ -65,6 +86,11 @@ function hideWaiting() {
 function showWaiting() {
   if (!waitingEl) return;
   waitingEl.classList.remove('hidden');
+}
+
+function setWaitingMode(mode) {
+  if (!waitingEl) return;
+  waitingEl.classList.toggle('waiting-pairing', mode === 'pairing');
 }
 
 // ---------------------------------------------------------------------------
@@ -84,6 +110,7 @@ const container = document.getElementById('display');
 if (!container) throw new Error('Missing #display element');
 initCycle(container, SCREEN_ID);
 initOverlays(SCREEN_ID);
+initSettings(SCREEN_ID);
 
 // ---------------------------------------------------------------------------
 // WebSocket connection
@@ -115,6 +142,59 @@ const RECONNECT_JITTER    = 1500;
 const PRELOAD_WAIT_MAX_MS = 1200;  // max wait for preloads before starting cycle
 const PRELOAD_POLL_MS     = 120;   // interval for checking preload readiness
 const PRELOAD_INITIAL_DELAY = 80;  // delay before first preload check
+const DEVICE_ID_KEY       = 'pixelplein.screen.deviceId';
+const DEVICE_TOKEN_KEY    = 'pixelplein.screen.token';
+const PAIRING_SECRET_KEY  = 'pixelplein.screen.pairingSecret';
+const PAIRING_POLL_MS     = 2500;
+
+function _randomId() {
+  if (globalThis.crypto?.randomUUID) return globalThis.crypto.randomUUID();
+  return `${Date.now().toString(36)}-${Math.random().toString(36).slice(2)}`;
+}
+
+function getDeviceId() {
+  let id = localStorage.getItem(DEVICE_ID_KEY);
+  if (!id) {
+    id = _randomId();
+    localStorage.setItem(DEVICE_ID_KEY, id);
+  }
+  return id;
+}
+
+function getDeviceToken() {
+  return localStorage.getItem(DEVICE_TOKEN_KEY) || '';
+}
+
+function setDeviceToken(token) {
+  if (token) localStorage.setItem(DEVICE_TOKEN_KEY, token);
+  localStorage.removeItem(PAIRING_SECRET_KEY);
+}
+
+function applyManagedIdentityFromHash() {
+  const hash = new URLSearchParams(String(location.hash || '').replace(/^#/, ''));
+  const deviceId = hash.get('deviceId');
+  const token = hash.get('token');
+  if (!deviceId || !token) return;
+
+  localStorage.setItem(DEVICE_ID_KEY, deviceId);
+  setDeviceToken(token);
+  history.replaceState(null, '', `${location.pathname}${location.search}`);
+}
+
+function clearDeviceTrust() {
+  localStorage.removeItem(DEVICE_TOKEN_KEY);
+  localStorage.removeItem(PAIRING_SECRET_KEY);
+}
+
+async function _apiJson(url, payload) {
+  const res = await fetch(url, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload || {}),
+  });
+  if (!res.ok) throw new Error(`HTTP ${res.status}`);
+  return res.json();
+}
 
 function scheduleCycleStart() {
   if (cycleStartTimer) return;
@@ -178,6 +258,12 @@ async function bootFromCache() {
 }
 
 function connect() {
+  const token = getDeviceToken();
+  if (!token) {
+    startPairing();
+    return;
+  }
+
   const proto = location.protocol === 'https:' ? 'wss' : 'ws';
   ws = new WebSocket(`${proto}://${location.host}`);
 
@@ -185,7 +271,12 @@ function connect() {
     clearTimeout(retryTimer);
     hideOfflineBadge();
     setWs(ws, SCREEN_ID);
-    startHeartbeat(SCREEN_ID, () => displayState);
+    ws.send(JSON.stringify({
+      type: 'screen_auth',
+      screenId: SCREEN_ID,
+      deviceId: getDeviceId(),
+      token,
+    }));
   };
 
   ws.onmessage = e => {
@@ -217,8 +308,86 @@ function connect() {
       }
     }
 
-    retryTimer = setTimeout(connect, RECONNECT_BASE + Math.random() * RECONNECT_JITTER);
+    if (getDeviceToken()) {
+      retryTimer = setTimeout(connect, RECONNECT_BASE + Math.random() * RECONNECT_JITTER);
+    }
   };
+}
+
+async function startPairing() {
+  clearTimeout(retryTimer);
+  clearDeviceTrust();
+  showWaiting();
+  setWaitingMode('pairing');
+  setWaiting('Scherm koppelen', 'Vraag een koppelcode aan…');
+
+  let request;
+  try {
+    request = await _apiJson('/api/screens/pair/request', {
+      deviceId: getDeviceId(),
+      screenId: SCREEN_ID,
+      label: `Screen ${SCREEN_ID}`,
+    });
+  } catch {
+    renderPairingMessage('Server niet bereikbaar', 'Controleer netwerk, Wi-Fi en server URL op deze NUC.');
+    retryTimer = setTimeout(startPairing, RECONNECT_BASE + Math.random() * RECONNECT_JITTER);
+    return;
+  }
+
+  if (request.status === 'already_paired') {
+    renderPairingMessage('Opnieuw koppelen nodig', 'Dit apparaat is al bekend, maar de lokale sleutel ontbreekt. Verwijder het apparaat in de admin en koppel opnieuw.');
+    return;
+  }
+
+  localStorage.setItem(PAIRING_SECRET_KEY, request.pairingSecret || '');
+  renderPairingCode(request.code, request.expiresAt);
+  pollPairingStatus();
+}
+
+function renderPairingCode(code, expiresAt) {
+  const exp = expiresAt ? new Date(expiresAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '';
+  setWaiting('Scherm koppelen', `
+    <div class="pair-code" aria-label="Pairing code">${code || '------'}</div>
+    <div class="pair-steps">
+      <span>Open de admin</span>
+      <span>Settings → Screen devices</span>
+      <span>Keur dit scherm goed</span>
+    </div>
+    <div class="pair-meta">Screen ${SCREEN_ID}${exp ? ` · geldig tot ${exp}` : ''} · ${_serverDisplayUrl}</div>
+  `);
+}
+
+function renderPairingMessage(title, body) {
+  setWaiting(title, `
+    <div class="pair-message">${body}</div>
+    <div class="pair-meta">Screen ${SCREEN_ID} · ${_serverDisplayUrl}</div>
+  `);
+}
+
+async function pollPairingStatus() {
+  const pairingSecret = localStorage.getItem(PAIRING_SECRET_KEY);
+  if (!pairingSecret) return;
+
+  try {
+    const status = await _apiJson('/api/screens/pair/status', {
+      deviceId: getDeviceId(),
+      pairingSecret,
+    });
+
+    if (status.status === 'approved' && status.token) {
+      setDeviceToken(status.token);
+      setWaiting('Scherm gekoppeld', 'Verbinden met PixelPlein…');
+      connect();
+      return;
+    }
+
+    if (status.status === 'expired') {
+      startPairing();
+      return;
+    }
+  } catch {}
+
+  retryTimer = setTimeout(pollPairingStatus, PAIRING_POLL_MS);
 }
 
 // ---------------------------------------------------------------------------
@@ -227,6 +396,21 @@ function connect() {
 
 async function handleMessage(msg) {
   switch (msg.type) {
+    case 'screen_auth_ok':
+      startHeartbeat(SCREEN_ID, () => displayState);
+      break;
+
+    case 'screen_auth_failed':
+    case 'screen_revoked':
+      if (msg.type === 'screen_revoked' && msg.deviceId && msg.deviceId !== getDeviceId()) break;
+      clearDeviceTrust();
+      try {
+        const keys = await caches.keys();
+        await Promise.all(keys.map(k => caches.delete(k)));
+      } catch {}
+      location.reload();
+      break;
+
     case 'init':
       if (msg.config) {
         updateConfig(msg.config);
@@ -397,4 +581,15 @@ async function handleMessage(msg) {
 // Start — boot from cache first, then open WS in parallel
 // ---------------------------------------------------------------------------
 
-bootFromCache().catch(() => {}).finally(() => connect());
+applyManagedIdentityFromHash();
+
+async function boot() {
+  if (getDeviceToken()) {
+    await bootFromCache().catch(() => {});
+    connect();
+  } else {
+    startPairing();
+  }
+}
+
+boot();

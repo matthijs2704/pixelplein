@@ -1,0 +1,1 @@
+pixelplein ALL=(ALL) NOPASSWD: /bin/systemctl start pixelplein-server, /bin/systemctl stop pixelplein-server, /bin/systemctl restart pixelplein-server, /bin/systemctl restart pixelplein-kiosk, /bin/systemctl reboot, /bin/systemctl poweroff

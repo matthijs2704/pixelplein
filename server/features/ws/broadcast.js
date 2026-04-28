@@ -12,7 +12,7 @@ function broadcast(payload) {
   if (!_wss) return;
   const msg = JSON.stringify(payload);
   _wss.clients.forEach(ws => {
-    if (ws.readyState === 1) ws.send(msg);
+    if (ws.readyState === 1 && ws.authenticated) ws.send(msg);
   });
 }
 
@@ -21,10 +21,24 @@ function broadcastToScreens(payload) {
   if (!_wss) return;
   const msg = JSON.stringify(payload);
   _wss.clients.forEach(ws => {
-    if (ws.readyState === 1 && ws.screenId) ws.send(msg);
+    if (ws.readyState === 1 && ws.clientType === 'screen' && ws.screenId) ws.send(msg);
   });
+}
+
+/** Send a payload to a specific paired screen device */
+function broadcastToScreenAgent(deviceId, payload) {
+  if (!_wss) return false;
+  const msg = JSON.stringify(payload);
+  let sent = false;
+  _wss.clients.forEach(ws => {
+    if (ws.readyState === 1 && ws.clientType === 'agent' && ws.deviceId === deviceId) {
+      ws.send(msg);
+      sent = true;
+    }
+  });
+  return sent;
 }
 
 function _getWss() { return _wss; }
 
-module.exports = { setWss, broadcast, broadcastToScreens, _getWss };
+module.exports = { setWss, broadcast, broadcastToScreens, broadcastToScreenAgent, _getWss };

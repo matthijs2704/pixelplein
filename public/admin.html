@@ -62,7 +62,7 @@
 
     <div class="sidebar-links">
       <div id="sidebar-screen-links" style="display:flex;flex-direction:column;gap:6px"></div>
-      <a class="sidebar-btn" href="/preview.html" target="_blank">Live Preview</a>
+      <a class="sidebar-btn" href="/preview" target="_blank">Live Preview</a>
       <button class="sidebar-btn danger" id="btn-reload-screens">Reload Screens</button>
       <button class="sidebar-btn" id="btn-logout">Log out</button>
     </div>
@@ -1021,6 +1021,18 @@
               <label for="settings-transcode-videos">Auto-transcode .mov / .m4v to .mp4 on ingest</label>
             </div>
             <div class="quick-hint">Requires ffmpeg and is CPU-intensive. When disabled, .mov/.m4v files are served as-is — Chromium on macOS plays them natively; on Linux playback depends on the installed codec.</div>
+          </div>
+        </details>
+
+        <details class="section">
+          <summary>Displays &amp; Devices</summary>
+          <div class="section-body">
+            <div class="quick-hint" style="margin-bottom:8px">Pair displays with a screen slot. Managed devices also run an agent for kiosk restart, reboot, and shutdown.</div>
+            <div class="action-row" style="margin-bottom:8px">
+              <button class="btn btn-secondary btn-sm" id="btn-refresh-screen-devices">Refresh devices</button>
+            </div>
+            <div id="settings-screen-devices-list" style="display:flex;flex-direction:column;gap:12px"></div>
+            <div id="settings-screen-pending-list" style="display:none"></div>
           </div>
         </details>
 

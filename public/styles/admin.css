@@ -225,6 +225,46 @@ button:hover { opacity: 0.88; }
 
 .action-row { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
 
+.screen-device-group {
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--surface2);
+  padding: 12px;
+}
+.screen-device-head,
+.screen-device-row,
+.screen-device-actions,
+.screen-device-chips {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+.screen-device-head,
+.screen-device-row {
+  justify-content: space-between;
+}
+.screen-device-title {
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--text);
+}
+.screen-device-list,
+.screen-device-pending {
+  margin-top: 10px;
+}
+.screen-device-row {
+  border-top: 1px solid var(--border);
+  padding: 9px 0;
+}
+.screen-device-list .screen-device-row:first-child,
+.screen-device-pending .screen-device-row:first-of-type {
+  border-top: 0;
+}
+.screen-device-actions {
+  justify-content: flex-end;
+}
+
 /* ─── Form fields ────────────────────────────────────────────────────────── */
 .field {
   display: flex;

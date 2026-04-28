@@ -6,6 +6,10 @@ import {
   saveOidcConfig,
   disableOidc,
   loadMe,
+  loadScreenDevices,
+  approveScreenDevice,
+  revokeScreenDevice,
+  sendScreenDeviceCommand,
 } from '../api.js';
 import { showToast as _toast } from '../app.js';
 import { esc as _esc } from '/shared/utils.js';
@@ -48,6 +52,10 @@ export function refreshFromConfig() {
   _setVal('submissions-wall-min-approved',  cfg.submissionWallMinApproved ?? 2);
   _setVal('submissions-wall-show-qr',       String(cfg.submissionWallShowQr !== false));
   _setVal('submissions-wall-hide-empty',    String(cfg.submissionWallHideWhenEmpty !== false));
+}
+
+export function refreshScreenDevices() {
+  return _loadScreenDevicesSection();
 }
 
 function _bind() {
@@ -202,6 +210,10 @@ function _bind() {
       _toast(err.message, true);
     }
   });
+
+  document.getElementById('btn-refresh-screen-devices')?.addEventListener('click', () => {
+    _loadScreenDevicesSection().catch(err => _toast(err.message, true));
+  });
 }
 
 async function _loadAuthSections() {
@@ -214,6 +226,7 @@ async function _loadAuthSections() {
 
   await _loadUsersSection();
   await _loadOidcSection();
+  await _loadScreenDevicesSection();
 }
 
 async function _loadUsersSection() {
@@ -272,6 +285,160 @@ async function _loadOidcSection() {
   } catch (err) {
     _toast(`Failed to load OIDC config: ${err.message}`, true);
   }
+}
+
+async function _loadScreenDevicesSection() {
+  const pendingEl = document.getElementById('settings-screen-pending-list');
+  const pairedEl = document.getElementById('settings-screen-devices-list');
+  if (!pendingEl || !pairedEl) return;
+
+  try {
+    const res = await loadScreenDevices();
+    const pending = Array.isArray(res?.pending) ? res.pending : [];
+    const devices = Array.isArray(res?.devices) ? res.devices : [];
+    const cfg = _getConfig?.() || {};
+    const screenIds = Array.from({ length: Math.max(1, Math.min(4, Number(cfg.screenCount || 2))) }, (_, i) => String(i + 1));
+
+    pendingEl.innerHTML = '';
+    pairedEl.innerHTML = screenIds.map(screenId => _renderScreenDeviceGroup({
+      screenId,
+      screenIds,
+      devices: devices.filter(d => String(d.screenId || '1') === screenId),
+      pending: pending.filter(p => String(p.screenId || '1') === screenId),
+    })).join('');
+
+    const extraDevices = devices.filter(d => !screenIds.includes(String(d.screenId || '1')));
+    const extraPending = pending.filter(p => !screenIds.includes(String(p.screenId || '1')));
+    if (extraDevices.length || extraPending.length) {
+      pairedEl.innerHTML += _renderScreenDeviceGroup({
+        screenId: 'other',
+        screenIds,
+        devices: extraDevices,
+        pending: extraPending,
+      });
+    }
+
+    pairedEl.querySelectorAll('[data-approve-screen-device]').forEach(btn => {
+      btn.addEventListener('click', async () => {
+        const deviceId = btn.getAttribute('data-approve-screen-device');
+        const screenId = pairedEl.querySelector(`[data-pair-screen="${CSS.escape(deviceId)}"]`)?.value || '1';
+        try {
+          await approveScreenDevice(deviceId, { screenId });
+          _toast('Screen device approved');
+          await _loadScreenDevicesSection();
+        } catch (err) {
+          _toast(err.message, true);
+        }
+      });
+    });
+
+    pairedEl.querySelectorAll('[data-revoke-screen-device]').forEach(btn => {
+      btn.addEventListener('click', async () => {
+        const deviceId = btn.getAttribute('data-revoke-screen-device');
+        try {
+          await revokeScreenDevice(deviceId);
+          _toast('Screen device revoked');
+          await _loadScreenDevicesSection();
+        } catch (err) {
+          _toast(err.message, true);
+        }
+      });
+    });
+
+    pairedEl.querySelectorAll('[data-screen-device-command]').forEach(btn => {
+      btn.addEventListener('click', async () => {
+        const deviceId = btn.getAttribute('data-device-id');
+        const command = btn.getAttribute('data-screen-device-command');
+        const label = command === 'restart_kiosk' ? 'restart the kiosk browser' : `${command} this screen computer`;
+        if (!window.confirm(`Are you sure you want to ${label}?`)) return;
+
+        try {
+          await sendScreenDeviceCommand(deviceId, command);
+          _toast(command === 'restart_kiosk' ? 'Restarting kiosk…' : `Sent ${command} command`);
+        } catch (err) {
+          _toast(err.message, true);
+        }
+      });
+    });
+  } catch (err) {
+    pendingEl.innerHTML = '';
+    pairedEl.innerHTML = `<div class="quick-hint" style="color:var(--red)">${_esc(err.message || 'Failed to load screen devices')}</div>`;
+  }
+}
+
+function _renderScreenDeviceGroup({ screenId, screenIds, devices, pending }) {
+  const displayCount = devices.filter(d => d.displayConnected && !d.revokedAt).length;
+  const agentCount = devices.filter(d => d.agentConnected && !d.revokedAt).length;
+  const title = screenId === 'other' ? 'Other screens' : `Screen ${_esc(screenId)}`;
+  const warning = displayCount > 1
+    ? '<span class="status-pill pending">multiple displays</span>'
+    : '';
+
+  return `
+    <div class="screen-device-group" data-device-screen="${_esc(screenId)}">
+      <div class="screen-device-head">
+        <div>
+          <div class="screen-device-title">${title}</div>
+          <div class="quick-hint">${displayCount} display${displayCount === 1 ? '' : 's'} online · ${agentCount} agent${agentCount === 1 ? '' : 's'} online</div>
+        </div>
+        <div class="screen-device-chips">
+          <span class="status-pill ${displayCount ? 'live' : 'idle'}">${displayCount} display${displayCount === 1 ? '' : 's'}</span>
+          <span class="status-pill ${agentCount ? 'approved' : 'idle'}">${agentCount} agent${agentCount === 1 ? '' : 's'}</span>
+          ${warning}
+        </div>
+      </div>
+      <div class="screen-device-list">
+        ${devices.length ? devices.map(_renderDeviceRow).join('') : '<div class="quick-hint">No paired devices for this screen.</div>'}
+      </div>
+      <div class="screen-device-pending">
+        <div class="section-label" style="margin:10px 0 8px">Pending pairings</div>
+        ${pending.length ? pending.map(p => _renderPendingRow(p, screenIds)).join('') : '<div class="quick-hint">No pending requests for this screen.</div>'}
+      </div>
+    </div>
+  `;
+}
+
+function _renderDeviceRow(d) {
+  const displayLabel = d.displayConnected ? 'Display online' : 'Display offline';
+  const agentLabel = d.agentConnected ? 'Agent online' : 'No agent online';
+  const disabled = d.revokedAt || !d.agentConnected ? 'disabled' : '';
+  return `
+    <div class="screen-device-row">
+      <div>
+        <div style="font-size:13px;font-weight:600">${_esc(d.label || d.deviceId)}</div>
+        <div class="quick-hint">${displayLabel} · ${agentLabel} · Last seen ${_fmtTime(d.lastSeenAt)}${d.revokedAt ? ` · revoked ${_fmtTime(d.revokedAt)}` : ''}</div>
+      </div>
+      <div class="screen-device-actions">
+        <button class="btn btn-sm" data-screen-device-command="restart_kiosk" data-device-id="${_esc(d.deviceId)}" ${disabled}>Restart kiosk</button>
+        <button class="btn btn-danger btn-sm" data-screen-device-command="reboot" data-device-id="${_esc(d.deviceId)}" ${disabled}>Reboot</button>
+        <button class="btn btn-danger btn-sm" data-screen-device-command="shutdown" data-device-id="${_esc(d.deviceId)}" ${disabled}>Shutdown</button>
+        <button class="btn btn-danger btn-sm" data-revoke-screen-device="${_esc(d.deviceId)}" ${d.revokedAt ? 'disabled' : ''}>Revoke</button>
+      </div>
+    </div>
+  `;
+}
+
+function _renderPendingRow(p, screenIds) {
+  return `
+    <div class="screen-device-row">
+      <div>
+        <div style="font-size:13px;font-weight:600">Pairing code ${_esc(p.code)}</div>
+        <div class="quick-hint">${_esc(p.label || 'Screen device')} · Requested ${_fmtTime(p.createdAt)}</div>
+      </div>
+      <div class="screen-device-actions">
+        <label style="font-size:12px;color:var(--muted)">Screen
+          <select data-pair-screen="${_esc(p.deviceId)}">${screenIds.map(id => `<option value="${id}" ${id === String(p.screenId) ? 'selected' : ''}>${id}</option>`).join('')}</select>
+        </label>
+        <button class="btn btn-primary btn-sm" data-approve-screen-device="${_esc(p.deviceId)}">Approve</button>
+      </div>
+    </div>
+  `;
+}
+
+function _fmtTime(ts) {
+  const n = Number(ts || 0);
+  if (!n) return 'never';
+  return new Date(n).toLocaleString();
 }
 
 function _setVal(id, val) {

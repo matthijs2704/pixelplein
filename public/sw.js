@@ -5,7 +5,7 @@
 // IMPORTANT: bump SHELL_VERSION whenever screen JS or CSS files change so
 // that all NUC clients pick up the new app shell on their next load.
 
-const SHELL_VERSION = 11;
+const SHELL_VERSION = 14;
 const SHELL_CACHE   = `pixelplein-shell-v${SHELL_VERSION}`;
 const MEDIA_CACHE   = 'pixelplein-media';
 
@@ -15,6 +15,7 @@ const MEDIA_CACHE   = 'pixelplein-media';
 
 const SHELL_URLS = [
   '/screen.html',
+  '/screen',
   '/favicon.svg',
 
   // Screen JS modules
@@ -144,14 +145,16 @@ self.addEventListener('fetch', event => {
   // App shell files: Cache-first
   if (
     p === '/screen.html' ||
+    p === '/screen' ||
     p.startsWith('/screen/') ||
     p.startsWith('/styles/screen') ||
     p === '/styles/base.css' ||
     p.startsWith('/shared/') ||
     p === '/favicon.svg'
   ) {
-    const cacheRequest = p === '/screen.html' ? new Request('/screen.html') : request;
-    event.respondWith(_cacheFirst(cacheRequest, SHELL_CACHE));
+    // Normalize both /screen and /screen.html to the same cache key
+    const cacheKey = (p === '/screen.html' || p === '/screen') ? '/screen' : p;
+    event.respondWith(_cacheFirst(new Request(cacheKey), SHELL_CACHE));
     return;
   }
 

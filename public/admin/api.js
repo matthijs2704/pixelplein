@@ -4,7 +4,7 @@ async function apiFetch(url, opts = {}) {
   const res = await fetch(url, opts);
 
   if (res.status === 401) {
-    location.href = '/login.html';
+    location.href = '/login';
     throw new Error('Not authenticated');
   }
 
@@ -111,6 +111,36 @@ export async function disableOidc() {
   return apiFetch('/api/auth/oidc', { method: 'DELETE' });
 }
 
+export async function loadScreenDevices() {
+  return apiFetch('/api/screens/devices');
+}
+
+export async function approveScreenDevice(deviceId, payload) {
+  return apiFetch(`/api/screens/devices/${encodeURIComponent(deviceId)}/approve`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload || {}),
+  });
+}
+
+export async function revokeScreenDevice(deviceId) {
+  return apiFetch(`/api/screens/devices/${encodeURIComponent(deviceId)}`, {
+    method: 'DELETE',
+  });
+}
+
+export async function sendScreenDeviceCommand(deviceId, command) {
+  return apiFetch(`/api/screens/devices/${encodeURIComponent(deviceId)}/command`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ command }),
+  });
+}
+
+export async function reloadScreens() {
+  return apiFetch('/api/screens/reload', { method: 'POST' });
+}
+
 const MAX_UPLOAD_BATCH_FILES = 10;
 const MAX_UPLOAD_BATCH_BYTES = 100 * 1024 * 1024;
 
@@ -157,7 +187,7 @@ function uploadBatch(files, group, onProgress) {
 
     xhr.onload = () => {
       if (xhr.status === 401) {
-        location.href = '/login.html';
+        location.href = '/login';
         return reject(new Error('Not authenticated'));
       }
 
