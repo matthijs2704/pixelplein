@@ -17,11 +17,11 @@ import {
 const RECENTLY_SHOWN_PUSHBACK_MS = 90_000;  // within 90 s → heavy weight penalty
 const RECENTLY_SHOWN_PENALTY     = 0.05;    // multiplier when inside pushback window
 const MIN_RECENT_HARD_AVOID_MS   = 15_000;  // keep photos out for at least ~2 cycles
-const MAX_RECENT_HARD_AVOID_MS   = 60_000;  // but don't freeze them out for too long
+const MAX_RECENT_HARD_AVOID_MS   = 120_000; // but don't freeze them out for too long
 const MAX_RECENT_ROTATION_CYCLES = 6;       // cap long-pool cooldown growth
 const RECENCY_FLOOR              = 0.05;    // weight floor for oldest photo at bias=100
-const FAIRNESS_DECAY             = 0.5;     // penalty = 1 / (1 + count × decay)
-const UNPRELOADED_PENALTY        = 0.15;    // multiplier for photos not yet in browser cache
+const FAIRNESS_DECAY             = 1.5;     // penalty = 1 / (1 + count × decay)
+const UNPRELOADED_PENALTY        = 0.6;     // mild tie-breaker, not a fairness override
 const HERO_CANDIDATE_BOOST       = 2.0;     // weight boost for heroCandidate in normal picks
 const HERO_CANDIDATE_HERO_BOOST  = 3.0;     // weight boost for heroCandidate in hero picks
 const DEFAULT_ORIENTATION_BOOST  = 1.35;    // soft preference multiplier for matching orientation
@@ -33,6 +33,37 @@ const PORTRAIT_MATCH_BONUS       = 0.25;    // extra fit score when photo is act
 const NORMAL_SLOT_TARGET_RATIO   = 1.3;     // ideal w/h for standard slots (≈4:3)
 const HERO_LANDSCAPE_PENALTY     = 0.5;     // penalty multiplier for portrait photos in hero slots
 const PORTRAIT_IN_LANDSCAPE_PENALTY = 0.6;  // fit penalty for portrait photos in landscape slots
+
+// ---------------------------------------------------------------------------
+// Selection context
+// ---------------------------------------------------------------------------
+
+export function createSelectionContext(cfg, previousVisibleIds = []) {
+  const reservedIds = new Set();
+  const previousIds = new Set(previousVisibleIds || []);
+  const heroIds     = new Set();
+
+  return {
+    cfg: cfg || {},
+    reservedIds,
+    previousIds,
+    heroIds,
+    reserve(photo, options = {}) {
+      if (!photo?.id) return;
+      reservedIds.add(photo.id);
+      if (options.hero) heroIds.add(photo.id);
+    },
+    commitShown(ids, shownAt = Date.now()) {
+      const uniqueIds = new Set(ids || []);
+      for (const id of uniqueIds) {
+        if (!id) continue;
+        _recentlyShown.set(id, shownAt);
+        _showCounts.set(id, (_showCounts.get(id) || 0) + 1);
+        if (heroIds.has(id)) _heroShownAt.set(id, shownAt);
+      }
+    },
+  };
+}
 
 // ---------------------------------------------------------------------------
 // Group filtering
@@ -231,6 +262,7 @@ function _failsOrientationFilter(photo, orientation, enforce) {
  * @returns {Object[]}
  */
 export function pickPhotos(count, cfg, excludeIds = [], hardExcludeOtherScreen = false, options = {}) {
+  const ctx = options.selectionContext || null;
   const pool = getReadyPhotoPool(cfg);
   if (!pool.length) return [];
 
@@ -243,6 +275,7 @@ export function pickPhotos(count, cfg, excludeIds = [], hardExcludeOtherScreen =
   const recencyBias = cfg.recencyBias ?? 60;
   const now         = Date.now();
   const excludeSet  = new Set(excludeIds);
+  for (const id of (ctx?.reservedIds || [])) excludeSet.add(id);
   const recencyMap  = _buildRelativeRecencyMap(pool, recencyBias);
 
   const picked   = [];
@@ -252,8 +285,12 @@ export function pickPhotos(count, cfg, excludeIds = [], hardExcludeOtherScreen =
     // Build scored candidate list excluding already-picked and hard-excluded IDs
     const candidates = [];
     const fallbacks  = [];
+    const previousCandidates = [];
+    const previousFallbacks = [];
     const recentCandidates = [];
     const recentFallbacks = [];
+    const recentPreviousCandidates = [];
+    const recentPreviousFallbacks = [];
 
     for (const photo of pool) {
       if (pickedSet.has(photo.id))  continue;
@@ -268,16 +305,21 @@ export function pickPhotos(count, cfg, excludeIds = [], hardExcludeOtherScreen =
       }
       const shownAt = _recentlyShown.get(photo.id) || 0;
       const isHardRecent = avoidRecentMs > 0 && (now - shownAt) < avoidRecentMs;
+      const isPrevious = ctx?.previousIds?.has(photo.id);
 
       if (isHardRecent && !allowRecentFallback) continue;
 
       if (otherScreenVisibleIds.has(photo.id)) {
         if (!hardExcludeOtherScreen) {
-          if (isHardRecent) recentFallbacks.push({ photo, w });
+          if (isHardRecent && isPrevious) recentPreviousFallbacks.push({ photo, w });
+          else if (isHardRecent) recentFallbacks.push({ photo, w });
+          else if (isPrevious) previousFallbacks.push({ photo, w });
           else fallbacks.push({ photo, w });
         }
       } else {
-        if (isHardRecent) recentCandidates.push({ photo, w });
+        if (isHardRecent && isPrevious) recentPreviousCandidates.push({ photo, w });
+        else if (isHardRecent) recentCandidates.push({ photo, w });
+        else if (isPrevious) previousCandidates.push({ photo, w });
         else candidates.push({ photo, w });
       }
     }
@@ -286,7 +328,15 @@ export function pickPhotos(count, cfg, excludeIds = [], hardExcludeOtherScreen =
       ? candidates
       : (fallbacks.length > 0
           ? fallbacks
-          : (recentCandidates.length > 0 ? recentCandidates : recentFallbacks));
+          : (previousCandidates.length > 0
+              ? previousCandidates
+              : (previousFallbacks.length > 0
+                  ? previousFallbacks
+                  : (recentCandidates.length > 0
+                      ? recentCandidates
+                      : (recentFallbacks.length > 0
+                          ? recentFallbacks
+                          : (recentPreviousCandidates.length > 0 ? recentPreviousCandidates : recentPreviousFallbacks))))));
     if (!bestPool.length) break;
 
     const chosen = _weightedRandom(bestPool);
@@ -294,12 +344,14 @@ export function pickPhotos(count, cfg, excludeIds = [], hardExcludeOtherScreen =
 
     picked.push(chosen);
     pickedSet.add(chosen.id);
+    ctx?.reserve(chosen);
   }
 
-  // Mark as recently shown and increment fairness counters
-  for (const photo of picked) {
-    _recentlyShown.set(photo.id, now);
-    _showCounts.set(photo.id, (_showCounts.get(photo.id) || 0) + 1);
+  if (!ctx) {
+    for (const photo of picked) {
+      _recentlyShown.set(photo.id, now);
+      _showCounts.set(photo.id, (_showCounts.get(photo.id) || 0) + 1);
+    }
   }
 
   return picked;
@@ -327,8 +379,9 @@ function _weightedRandom(candidates) {
 // ---------------------------------------------------------------------------
 
 export function markAsHeroShown(photoId) {
-  _heroShownAt.set(photoId, Date.now());
-  // Also count as a regular show
+  const now = Date.now();
+  _heroShownAt.set(photoId, now);
+  _recentlyShown.set(photoId, now);
   _showCounts.set(photoId, (_showCounts.get(photoId) || 0) + 1);
 }
 
@@ -352,6 +405,7 @@ export function markAsHeroShown(photoId) {
  * @returns {Object|null}
  */
 export function pickHeroPhoto(cfg, heroLocks, myScreenId, options = {}) {
+  const ctx = options.selectionContext || null;
   const pool = getReadyPhotoPool(cfg);
   if (!pool.length) return null;
 
@@ -373,9 +427,12 @@ export function pickHeroPhoto(cfg, heroLocks, myScreenId, options = {}) {
   const cooldownMs = scaledCooldownSec * 1000;
 
   const candidates = [];
+  const previousCandidates = [];
   const recentCandidates = [];
+  const recentPreviousCandidates = [];
 
   for (const photo of pool) {
+    if (ctx?.reservedIds?.has(photo.id)) continue;
     if (_failsOrientationFilter(photo, orientation, enforceOrientation)) continue;
 
     // Cross-screen lock check
@@ -387,6 +444,7 @@ export function pickHeroPhoto(cfg, heroLocks, myScreenId, options = {}) {
 
     const recentlyShownAt = _recentlyShown.get(photo.id) || 0;
     const isHardRecent = avoidRecentMs > 0 && (now - recentlyShownAt) < avoidRecentMs;
+    const isPrevious = ctx?.previousIds?.has(photo.id);
     if (isHardRecent && !allowRecentFallback) continue;
 
     // Hero cooldown check
@@ -402,13 +460,21 @@ export function pickHeroPhoto(cfg, heroLocks, myScreenId, options = {}) {
       w *= orientationBoost;
     }
 
-    if (isHardRecent) recentCandidates.push({ photo, w });
+    if (isHardRecent && isPrevious) recentPreviousCandidates.push({ photo, w });
+    else if (isHardRecent) recentCandidates.push({ photo, w });
+    else if (isPrevious) previousCandidates.push({ photo, w });
     else candidates.push({ photo, w });
   }
 
-  const bestPool = candidates.length ? candidates : recentCandidates;
+  const bestPool = candidates.length
+    ? candidates
+    : (previousCandidates.length
+        ? previousCandidates
+        : (recentCandidates.length ? recentCandidates : recentPreviousCandidates));
   if (!bestPool.length) return null;
-  return _weightedRandom(bestPool);
+  const chosen = _weightedRandom(bestPool);
+  if (chosen) ctx?.reserve(chosen, { hero: true });
+  return chosen;
 }
 
 // ---------------------------------------------------------------------------
@@ -425,8 +491,10 @@ export function pickHeroPhoto(cfg, heroLocks, myScreenId, options = {}) {
  * @returns {Object[]}
  */
 export function pickNewestPhotos(count, cfg, excludeIds = [], options = {}) {
+  const ctx                = options.selectionContext || null;
   const pool               = getReadyPhotoPool(cfg);
   const excludeSet         = new Set(excludeIds);
+  for (const id of (ctx?.reservedIds || [])) excludeSet.add(id);
   const orientation        = options.orientation || 'any';
   const enforceOrientation = options.enforceOrientation !== false;
   const orientationBonusMs = Number(options.orientationBonusMs || 45_000);
@@ -439,11 +507,17 @@ export function pickNewestPhotos(count, cfg, excludeIds = [], options = {}) {
     .filter(p => !_failsOrientationFilter(p, orientation, enforceOrientation));
 
   const fresh = [];
+  const previous = [];
   const recent = [];
+  const recentPrevious = [];
 
   for (const photo of candidates) {
     const shownAt = _recentlyShown.get(photo.id) || 0;
-    if (avoidRecentMs > 0 && (now - shownAt) < avoidRecentMs) recent.push(photo);
+    const isRecent = avoidRecentMs > 0 && (now - shownAt) < avoidRecentMs;
+    const isPrevious = ctx?.previousIds?.has(photo.id);
+    if (isRecent && isPrevious) recentPrevious.push(photo);
+    else if (isRecent) recent.push(photo);
+    else if (isPrevious) previous.push(photo);
     else fresh.push(photo);
   }
 
@@ -457,14 +531,23 @@ export function pickNewestPhotos(count, cfg, excludeIds = [], options = {}) {
   });
 
   const picked = _sortNewest(fresh).slice(0, count);
+  if (picked.length < count) {
+    picked.push(..._sortNewest(previous).slice(0, count - picked.length));
+  }
   if (allowRecentFallback && picked.length < count) {
     picked.push(..._sortNewest(recent).slice(0, count - picked.length));
   }
+  if (allowRecentFallback && picked.length < count) {
+    picked.push(..._sortNewest(recentPrevious).slice(0, count - picked.length));
+  }
 
-  // Mark as recently shown so they don't spam other slots as well
-  for (const photo of picked) {
-    _recentlyShown.set(photo.id, now);
-    _showCounts.set(photo.id, (_showCounts.get(photo.id) || 0) + 1);
+  for (const photo of picked) ctx?.reserve(photo);
+
+  if (!ctx) {
+    for (const photo of picked) {
+      _recentlyShown.set(photo.id, now);
+      _showCounts.set(photo.id, (_showCounts.get(photo.id) || 0) + 1);
+    }
   }
 
   return picked;

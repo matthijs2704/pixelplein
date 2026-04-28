@@ -7,7 +7,7 @@ import {
   pickPhotos,
   pickHeroPhoto,
   pickNewestPhotos,
-  markAsHeroShown,
+  createSelectionContext,
   getRecentAvoidWindowMs,
   getReadyPhotoPoolSize,
 } from '../photos.js';
@@ -28,6 +28,7 @@ import {
 } from '../slides/index.js';
 import { getBottomInset } from '../overlays/index.js';
 import { getScreenCfg } from '../../shared/utils.js';
+import { TEMPLATE_DEFS } from '../templates.js';
 
 // ---------------------------------------------------------------------------
 // Constants
@@ -102,7 +103,7 @@ const _layoutsReady = _loadLayouts();
 // Helpers object passed to layout.pick()
 // ---------------------------------------------------------------------------
 
-function _buildHelpers(cfg) {
+function _buildHelpers(cfg, selectionContext) {
   const poolSize = _readyPoolSize(cfg);
   const _resolveCfg = (candidate) => candidate || cfg;
   const _resolveAvoidRecentMs = (activeCfg, count, options = {}) =>
@@ -112,14 +113,15 @@ function _buildHelpers(cfg) {
     pickPhotos: (count, c, excludeIds, hardExclude, options = {}) => {
       const activeCfg = _resolveCfg(c);
       const avoidRecentMs = _resolveAvoidRecentMs(activeCfg, count, options);
-      return pickPhotos(count, activeCfg, excludeIds, hardExclude, { ...options, avoidRecentMs });
+      return pickPhotos(count, activeCfg, excludeIds, hardExclude, { ...options, avoidRecentMs, selectionContext });
     },
     pickNewestPhotos: (count, c, excludeIds, options = {}) => {
       const activeCfg = _resolveCfg(c);
       const avoidRecentMs = _resolveAvoidRecentMs(activeCfg, count, options);
-      return pickNewestPhotos(count, activeCfg, excludeIds, { ...options, avoidRecentMs });
+      return pickNewestPhotos(count, activeCfg, excludeIds, { ...options, avoidRecentMs, selectionContext });
     },
-    pickAndClaimHero: _pickAndClaimHero,
+    pickAndClaimHero: (activeCfg, options = {}, useFallback = true) =>
+      _pickAndClaimHero(activeCfg, options, useFallback, selectionContext),
   };
 }
 
@@ -180,6 +182,19 @@ function _readyPoolSize(cfg) {
   return getReadyPhotoPoolSize(cfg);
 }
 
+function _layoutSlotNeed(name, cfg, poolSize) {
+  if (name === 'mosaic') {
+    if (poolSize < 6) return Infinity;
+    const enabled = (cfg.templateEnabled || Object.keys(TEMPLATE_DEFS))
+      .filter(id => TEMPLATE_DEFS[id])
+      .filter(id => TEMPLATE_DEFS[id].slots.length <= poolSize);
+    return enabled.length ? 1 : Infinity;
+  }
+  if (name === 'polaroid')  return 8;
+  if (name === 'filmstrip') return 6;
+  return _layouts.get(name)?.minPhotos || 1;
+}
+
 // ---------------------------------------------------------------------------
 // Submission wall (separate code path — not a photo layout)
 // ---------------------------------------------------------------------------
@@ -209,12 +224,17 @@ function _selectCandidates(cfg, poolSize) {
 
   let eligible = allNames.filter(name => {
     const desc = _layouts.get(name);
-    return poolSize >= (desc?.minPhotos || 1);
+    return poolSize >= (desc?.minPhotos || 1) && poolSize >= _layoutSlotNeed(name, cfg, poolSize);
   });
 
-  if (poolSize <= 5 && eligible.includes('mosaic')) {
-    cfg = { ...cfg, templateEnabled: (cfg.templateEnabled || []).filter(t => t.startsWith('uniform')) };
-    if (!cfg.templateEnabled.length) cfg = { ...cfg, templateEnabled: ['uniform-4', 'uniform-6'] };
+  if (eligible.includes('mosaic')) {
+    const enabled = (cfg.templateEnabled || Object.keys(TEMPLATE_DEFS))
+      .filter(id => TEMPLATE_DEFS[id])
+      .filter(id => TEMPLATE_DEFS[id].slots.length <= poolSize);
+    cfg = { ...cfg, templateEnabled: enabled };
+    if (!cfg.templateEnabled.length) {
+      eligible = eligible.filter(name => name !== 'mosaic');
+    }
   }
 
   const adminEnabled = cfg.enabledLayouts || allNames;
@@ -283,7 +303,7 @@ async function runCycle() {
     layoutType = 'submissionwall';
   }
 
-  let built, resolvedType, slotEls, layoutDesc;
+  let built, resolvedType, slotEls, layoutDesc, selectionContext;
 
   if (layoutType === 'submissionwall') {
     const result = _buildSubmissionWallLayout(cycleStart, submissionMode, hasSubmissions, hideWhenEmpty, wallOptions);
@@ -298,7 +318,8 @@ async function runCycle() {
 
   if (!built) {
     layoutDesc = _layouts.get(layoutType) || _layouts.get('fullscreen');
-    const helpers = _buildHelpers(cfg);
+    selectionContext = createSelectionContext(cfg, displayState.visibleIds);
+    const helpers = _buildHelpers(cfg, selectionContext);
     const picked  = layoutDesc.pick(cfg, helpers);
     built         = layoutDesc.build(picked, cfg);
     resolvedType  = built.templateName || layoutDesc.name;
@@ -332,6 +353,8 @@ async function runCycle() {
         built.startMotion(duration);
       }
 
+      selectionContext?.commitShown(visibleIds);
+
       if (!layoutDesc?.postMount || !slotEls || signal.aborted) return;
 
       // Fire postMount as a background task so onDidShow returns immediately.
@@ -357,11 +380,13 @@ async function runCycle() {
               enforceOrientation: options.enforceOrientation,
               orientationBoost: options.orientationBoost,
               avoidRecentMs,
+              selectionContext,
             },
           );
         },
       }).then(newIds => {
         if (!signal.aborted && newIds?.length) {
+          selectionContext?.commitShown(newIds);
           displayState.visibleIds = [...new Set([...displayState.visibleIds, ...newIds])];
         }
       }).catch(() => {});
@@ -389,16 +414,16 @@ function _claimHero(photoId, ttlSec) {
   sendHeroClaim(photoId, ttlSec);
 }
 
-function _pickAndClaimHero(cfg, options = {}, useFallback = true) {
-  const hero = pickHeroPhoto(cfg, _heroLocks, _screenId, options);
+function _pickAndClaimHero(cfg, options = {}, useFallback = true, selectionContext = null) {
+  const hero = pickHeroPhoto(cfg, _heroLocks, _screenId, { ...options, selectionContext });
   const avoidRecentMs = Number(options.avoidRecentMs ?? getRecentAvoidWindowMs(cfg, 1));
   const photo = hero || (useFallback
-    ? pickPhotos(1, cfg, [], true, { ...options, avoidRecentMs })[0] || null
+    ? pickPhotos(1, cfg, [], true, { ...options, avoidRecentMs, selectionContext })[0] || null
     : null);
 
   if (photo) {
+    selectionContext?.heroIds?.add(photo.id);
     _claimHero(photo.id, cfg.crossScreenHeroLockSec || DEFAULT_HERO_LOCK_SEC);
-    markAsHeroShown(photo.id);
   }
 
   return photo;
