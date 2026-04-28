@@ -433,29 +433,34 @@
 .layout-dynamicsplit .ds-slot-a,
 .layout-dynamicsplit .ds-slot-b {
   position: absolute;
-  inset: 0;
+  top: 0;
+  bottom: 0;
   overflow: hidden;
 }
 
 .layout-dynamicsplit .ds-slot-a {
+  left: 0;
+  width: 100%;
   z-index: 2;
-  clip-path: inset(0 0% 0 0);
-  transition: clip-path 0.85s cubic-bezier(0.22, 1, 0.36, 1);
+  transition: width 0.85s cubic-bezier(0.22, 1, 0.36, 1);
 }
 
 .layout-dynamicsplit .ds-slot-a.ds-split {
-  clip-path: inset(0 calc(50% + var(--tile-gap, 2px) / 2) 0 0);
+  width: calc(50% - var(--tile-gap, 2px) / 2);
 }
 
 .layout-dynamicsplit .ds-slot-b {
+  right: 0;
+  width: calc(50% - var(--tile-gap, 2px) / 2);
   z-index: 1;
-  clip-path: inset(0 0 0 calc(50% + var(--tile-gap, 2px) / 2));
 }
 
 .layout-dynamicsplit .ds-slot-a img,
 .layout-dynamicsplit .ds-slot-b img {
   width: 100%;
   height: 100%;
+  object-fit: cover;
+  object-position: 50% 50%;
   display: block;
 }
 
@@ -557,6 +562,8 @@
 .layout-filmstrip .fs-photo {
   flex: none;
   height: 100%;
+  /* width derived from height via the same 16:9 × 0.82 factor used in JS */
+  aspect-ratio: calc(16 * 0.82 / 9);
   overflow: hidden;
   position: relative;
   border-radius: var(--tile-radius, 0px);

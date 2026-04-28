@@ -27,6 +27,8 @@ Vijf lay-outtypen, automatisch gekozen op basis van de beschikbare foto's en ing
 
 Beide schermen draaien onafhankelijk met een instelbare fase-offset (standaard 900 ms) zodat ze nooit precies tegelijk overgaan. Ze delen een hero-vergrendeling zodat dezelfde foto niet op beide schermen tegelijk als hoofdfoto verschijnt, en wisselen zichtbare foto-ID's uit om duplicaten te vermijden.
 
+Zie [SCREEN_DEVICES.md](SCREEN_DEVICES.md) voor het verschil tussen screen slots, browser-displays, managed provisioner agents en apparaatkoppeling.
+
 ---
 
 ## Afspeellijsten
@@ -75,10 +77,10 @@ npm start
 
 | URL | Wat |
 |---|---|
-| `http://localhost:3000/screen.html?screen=1` | Scherm 1 |
-| `http://<HOST-IP>:3000/screen.html?screen=2` | Scherm 2 |
-| `http://<HOST-IP>:3000/admin.html` | Beheeromgeving |
-| `http://<HOST-IP>:3000/preview.html` | Live voorvertoning (beide schermen verkleind) |
+| `http://localhost:3000/screen?screen=1` | Scherm 1 |
+| `http://<HOST-IP>:3000/screen?screen=2` | Scherm 2 |
+| `http://<HOST-IP>:3000/admin` | Beheeromgeving |
+| `http://<HOST-IP>:3000/preview` | Live voorvertoning (beide schermen verkleind) |
 
 ---
 
@@ -131,14 +133,20 @@ Groepen kunnen worden gefocust, gemengd of op een timer geroteerd — per scherm
 **Scherm 1 (lokaal):**
 ```bash
 chromium-browser --kiosk --noerrdialogs --disable-infobars \
-  "http://localhost:3000/screen.html?screen=1"
+  "http://localhost:3000/screen?screen=1"
 ```
 
 **Scherm 2 (tweede apparaat):**
 ```bash
 chromium-browser --kiosk --noerrdialogs --disable-infobars \
-  "http://<HOST-IP>:3000/screen.html?screen=2"
+  "http://<HOST-IP>:3000/screen?screen=2"
 ```
+
+Voor beheerde Linux-schermen gebruik je de provisioner en kiosk-service in
+`tools/`. De provisioner koppelt als agent met de backend en deelt zijn
+apparaatidentiteit met Chromium, zodat de beheeromgeving één rij toont met
+`Display online · Agent online`. Zie [SCREEN_DEVICES.md](SCREEN_DEVICES.md) en
+[tools/nuc-provisioner/README.md](tools/nuc-provisioner/README.md).
 
 ---
 

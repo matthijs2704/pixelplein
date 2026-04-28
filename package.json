@@ -8,7 +8,8 @@
     "add-user": "node server/cli.js add-user",
     "remove-user": "node server/cli.js remove-user",
     "list-users": "node server/cli.js list-users",
-    "reprocess-cache": "node server/reprocess-cache.js"
+    "reprocess-cache": "node server/reprocess-cache.js",
+    "clear-photos": "node server/cli.js clear-photos"
   },
   "dependencies": {
     "bcryptjs": "^3.0.3",

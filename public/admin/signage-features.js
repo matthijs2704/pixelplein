@@ -4,7 +4,7 @@ import { esc, fmtAgo } from '/shared/utils.js';
 async function apiFetch(url, opts = {}) {
   const res = await fetch(url, opts);
   if (res.status === 401) {
-    location.href = '/login.html';
+    location.href = '/login';
     throw new Error('Not authenticated');
   }
 

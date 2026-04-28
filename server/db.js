@@ -202,6 +202,10 @@ async function loadPhotoOverrides() {
  * on startup without re-running Sharp on every file.
  * @returns {Promise<object[]>}
  */
+async function clearAllPhotoMetadata() {
+  await run('DELETE FROM photo_metadata');
+}
+
 async function loadAllPhotoMetadata() {
   const rows = await all('SELECT * FROM photo_metadata');
   return rows.map(r => ({
@@ -239,4 +243,5 @@ module.exports = {
   deletePhotoMetadata,
   loadPhotoOverrides,
   loadAllPhotoMetadata,
+  clearAllPhotoMetadata,
 };

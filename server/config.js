@@ -898,6 +898,11 @@ function loadConfig() {
     console.warn('Config parse error, using defaults');
     config = defaultConfig();
   }
+
+  // Env override — applied after load, never saved to disk
+  if (process.env.PUBLIC_BASE_URL) {
+    config.publicBaseUrl = String(process.env.PUBLIC_BASE_URL).trim().replace(/\/+$/, '');
+  }
 }
 
 let _savePending = false;
@@ -1038,7 +1043,10 @@ function getPublicConfig() {
     submissions,
     ...rest
   } = config;
-  return rest;
+  return {
+    ...rest,
+    availableLayouts: SCREEN_CONFIG_SCHEMA.enabledLayouts.allowed,
+  };
 }
 
 function getConfig() { return config; }

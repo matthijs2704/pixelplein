@@ -8,6 +8,18 @@ let _onChanged       = null;
 let _groups          = ['ungrouped'];
 let _selectedScreen  = 'all'; // 'all' | '1' | '2' | etc.
 
+const LAYOUT_LABELS = {
+  fullscreen:   'Full screen',
+  sidebyside:   'Side by side',
+  featuredduo:  'Featured duo',
+  polaroid:     'Polaroid',
+  mosaic:       'Mosaic',
+  dynamicsplit: 'Dynamic split',
+  triptych:     'Triptych',
+  cascade:      'Cascade',
+  filmstrip:    'Filmstrip',
+};
+
 const TEMPLATE_OPTIONS = [
   { id: 'hero-left-9',    label: 'Hero left' },
   { id: 'hero-right-9',   label: 'Hero right' },
@@ -86,17 +98,17 @@ function _renderForm() {
   const ids = _activeScreenIds(cfg);
 
   if (_selectedScreen === 'all') {
-    container.innerHTML = _buildScreenForm('1', cfg.screens?.['1'] || {});
+    container.innerHTML = _buildScreenForm('1', cfg.screens?.['1'] || {}, cfg);
     container.innerHTML += '<p class="adv-all-screens-note">Changes apply to all screens. Screen 2+ get timing offsets applied automatically.</p>';
   } else {
-    container.innerHTML = _buildScreenForm(_selectedScreen, cfg.screens?.[_selectedScreen] || {});
+    container.innerHTML = _buildScreenForm(_selectedScreen, cfg.screens?.[_selectedScreen] || {}, cfg);
   }
 
   _bindFormEvents();
   _refreshGroupSelects();
 }
 
-function _buildScreenForm(screenKey, cfg) {
+function _buildScreenForm(screenKey, cfg, globalCfg) {
   const s = cfg || {};
 
   return `
@@ -105,8 +117,8 @@ function _buildScreenForm(screenKey, cfg) {
       ${_range(screenKey, 'layoutDuration', 'Display duration', 3000, 30000, 500, s.layoutDuration ?? 8000, v => (v/1000).toFixed(1)+'s')}
       ${_range(screenKey, 'transitionTime', 'Transition speed', 200, 2000, 100, s.transitionTime ?? 800, v => v+'ms')}
       ${_toggleGroup(screenKey, 'enabledLayouts', 'Enabled layouts',
-          [['fullscreen','Full screen'],['sidebyside','Side by side'],['featuredduo','Featured duo'],['polaroid','Polaroid'],['mosaic','Mosaic']],
-          s.enabledLayouts || ['fullscreen','sidebyside','featuredduo','polaroid','mosaic'])}
+          (globalCfg?.availableLayouts || Object.keys(LAYOUT_LABELS)).map(id => [id, LAYOUT_LABELS[id] || id]),
+          s.enabledLayouts || globalCfg?.availableLayouts || Object.keys(LAYOUT_LABELS))}
       ${_select(screenKey, 'transition', 'Transition animation',
           [['fade','Fade'],['slide','Slide'],['zoom','Zoom']], s.transition || 'fade')}
     </details>
@@ -402,7 +414,7 @@ function _groupVisibility(screen, hiddenGroups) {
  */
 export function applySafeFallback(getConfig, onChanged) {
   const base = {
-    enabledLayouts: ['fullscreen', 'sidebyside', 'featuredduo', 'polaroid', 'mosaic'],
+    enabledLayouts: Object.keys(LAYOUT_LABELS),
     transition: 'fade',
     groupMode: 'auto',
     cinematicWeight: 60,

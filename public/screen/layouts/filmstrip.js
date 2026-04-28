@@ -55,19 +55,15 @@ export const layout = {
     const outer = track.parentElement;
     if (!outer || !photoSlots.length) return null;
 
-    const outerH  = outer.offsetHeight;
     const outerW  = outer.offsetWidth;
-    // Each photo: 90% of strip height, 16:9, slightly narrower than full-landscape
-    // so adjacent photos are partially visible (filmstrip feel).
-    const photoW  = Math.round(outerH * 0.9 * (16 / 9) * 0.82);
+    // Width is already set by CSS aspect-ratio — just read it back.
+    const photoW  = photoSlots[0].offsetWidth;
     const gap     = 4;
-
-    photoSlots.forEach(s => { s.style.width = photoW + 'px'; });
 
     const trackW   = photoSlots.length * photoW + (photoSlots.length - 1) * gap;
     const n        = photoSlots.length;
     const panMs    = 680;
-    const dwellMs  = Math.max(500, Math.floor((cfg.layoutDuration || 8000 - panMs * (n - 1)) / n));
+    const dwellMs  = Math.max(500, Math.floor(((cfg.layoutDuration || 8000) - panMs * (n - 1)) / n));
 
     for (let i = 0; i < n; i++) {
       if (signal.aborted) break;
