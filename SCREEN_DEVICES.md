@@ -41,8 +41,13 @@ Plain browsers do not need the provisioner.
    pairing from the backend.
 3. The screen shows a pairing code.
 4. An admin approves the pending request under Settings -> Displays & Devices.
-5. The browser receives a one-time token, stores it in `localStorage`, and
-   authenticates over WebSocket as a display.
+   The admin can change the screen assignment (e.g., requested screen 1 but
+   approved as screen 2) using the dropdown before approval.
+5. The browser receives a one-time token and the assigned `screenId`. If the
+   `screenId` differs from the URL parameter, the browser automatically updates
+   the URL and reloads (e.g., `/screen?screen=1` becomes `/screen?screen=2`).
+6. After reload, the browser authenticates over WebSocket as a display with the
+   correct screen identity.
 
 Storage keys:
 
@@ -63,17 +68,20 @@ Managed kiosks run the provisioner service plus Chromium.
 2. If `agent.deviceId` is missing, the provisioner generates one.
 3. If `agent.token` is missing, the provisioner requests pairing from the
    backend and exposes the pairing code on its local setup page.
-4. After admin approval, the provisioner polls the backend, receives a one-time
-   token, and stores it locally.
-5. The provisioner opens an outbound WebSocket to the backend as an agent.
-6. `pixelplein-kiosk.sh` launches Chromium with the agent identity in the URL
+4. After admin approval (potentially with a different screen assignment), the
+   provisioner polls the backend and receives a one-time token and assigned
+   `screenId`.
+5. If the `screenId` differs from the config file, the provisioner updates
+   `config.json` and restarts the kiosk to load the correct screen URL.
+6. The provisioner opens an outbound WebSocket to the backend as an agent.
+7. `pixelplein-kiosk.sh` launches Chromium with the agent identity in the URL
    fragment:
 
 ```text
 http://server:3000/screen?screen=1#deviceId=<id>&token=<token>
 ```
 
-7. The screen page imports that identity into `localStorage`, removes the
+8. The screen page imports that identity into `localStorage`, removes the
    fragment from the visible URL, and authenticates as the same device.
 
 The backend then sees one device row:
@@ -94,6 +102,28 @@ The browser display never executes these commands. This avoids browser
 localhost, CORS, private-network, and mixed-content issues.
 
 Buttons in the admin UI are disabled when `agentConnected` is false.
+
+## Editing Device Assignments
+
+After a device is paired, its screen assignment and label can be changed without
+revoking and re-pairing:
+
+1. In Settings -> Displays & Devices, click **Edit** next to a paired device.
+2. Change the screen number (1-N based on screen count) and/or label.
+3. Save the changes.
+4. The device will reconnect with the new assignment (usually within 30 seconds).
+
+This is useful for reusing devices across different events or venues. For
+example:
+
+- **Event A**: Device "NUC-123" is assigned to Screen 2
+- **Event B**: Edit Device "NUC-123" → assign to Screen 4
+
+The device identity and token remain the same; only the screen slot changes.
+
+**Note for managed kiosks**: When a screen assignment changes, the provisioner
+detects the change on its next WebSocket reconnect and automatically restarts
+the kiosk browser to load the correct URL (`?screen=N`).
 
 ## Multiple Displays
 

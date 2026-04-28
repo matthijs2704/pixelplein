@@ -376,6 +376,15 @@ async function pollPairingStatus() {
 
     if (status.status === 'approved' && status.token) {
       setDeviceToken(status.token);
+      // Check if backend assigned a different screenId than the URL param
+      if (status.screenId && status.screenId !== SCREEN_ID) {
+        // Update URL to match assigned screen and reload
+        setWaiting('Scherm gekoppeld', `Herladen als scherm ${status.screenId}…`);
+        setTimeout(() => {
+          window.location.search = `?screen=${status.screenId}`;
+        }, 500);
+        return;
+      }
       setWaiting('Scherm gekoppeld', 'Verbinden met PixelPlein…');
       connect();
       return;

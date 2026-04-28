@@ -9,6 +9,7 @@ import {
   loadScreenDevices,
   approveScreenDevice,
   revokeScreenDevice,
+  updateScreenDevice,
   sendScreenDeviceCommand,
 } from '../api.js';
 import { showToast as _toast } from '../app.js';
@@ -345,6 +346,34 @@ async function _loadScreenDevicesSection() {
       });
     });
 
+    pairedEl.querySelectorAll('[data-edit-screen-device]').forEach(btn => {
+      btn.addEventListener('click', async () => {
+        const deviceId = btn.getAttribute('data-edit-screen-device');
+        const device = devices.find(d => d.deviceId === deviceId);
+        if (!device) return;
+
+        const newScreenId = window.prompt(`Assign to screen (1-${screenIds.length}):`, device.screenId);
+        if (!newScreenId || newScreenId === device.screenId) {
+          if (newScreenId === device.screenId) return;
+          if (!newScreenId) return;
+        }
+
+        const newLabel = window.prompt('Device label:', device.label || device.deviceId);
+        if (newLabel === null) return;
+
+        try {
+          await updateScreenDevice(deviceId, {
+            screenId: newScreenId,
+            label: newLabel,
+          });
+          _toast('Device updated');
+          await _loadScreenDevicesSection();
+        } catch (err) {
+          _toast(err.message, true);
+        }
+      });
+    });
+
     pairedEl.querySelectorAll('[data-screen-device-command]').forEach(btn => {
       btn.addEventListener('click', async () => {
         const deviceId = btn.getAttribute('data-device-id');
@@ -409,6 +438,7 @@ function _renderDeviceRow(d) {
         <div class="quick-hint">${displayLabel} · ${agentLabel} · Last seen ${_fmtTime(d.lastSeenAt)}${d.revokedAt ? ` · revoked ${_fmtTime(d.revokedAt)}` : ''}</div>
       </div>
       <div class="screen-device-actions">
+        <button class="btn btn-sm" data-edit-screen-device="${_esc(d.deviceId)}" ${d.revokedAt ? 'disabled' : ''}>Edit</button>
         <button class="btn btn-sm" data-screen-device-command="restart_kiosk" data-device-id="${_esc(d.deviceId)}" ${disabled}>Restart kiosk</button>
         <button class="btn btn-danger btn-sm" data-screen-device-command="reboot" data-device-id="${_esc(d.deviceId)}" ${disabled}>Reboot</button>
         <button class="btn btn-danger btn-sm" data-screen-device-command="shutdown" data-device-id="${_esc(d.deviceId)}" ${disabled}>Shutdown</button>

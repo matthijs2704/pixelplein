@@ -213,6 +213,24 @@ async function revokeScreenDevice(deviceId) {
   return _publicDevice(device);
 }
 
+async function updateScreenDevice(deviceId, patch = {}) {
+  const cleanDeviceId = _cleanDeviceId(deviceId);
+  const store = await _loadStore();
+  const device = store.devices.find(d => d.deviceId === cleanDeviceId && !d.revokedAt);
+  if (!device) throw new Error('Screen device not found');
+
+  if (patch.screenId !== undefined) {
+    device.screenId = _cleanScreenId(patch.screenId);
+  }
+  if (patch.label !== undefined) {
+    device.label = _cleanLabel(patch.label);
+  }
+
+  device.lastSeenAt = _now();
+  await _saveStore(store);
+  return _publicDevice(device);
+}
+
 async function verifyScreenToken({ deviceId, token, screenId }) {
   const cleanDeviceId = _cleanDeviceId(deviceId);
   if (!cleanDeviceId || !token) return null;
@@ -238,5 +256,6 @@ module.exports = {
   listScreenDevices,
   approveScreenDevice,
   revokeScreenDevice,
+  updateScreenDevice,
   verifyScreenToken,
 };

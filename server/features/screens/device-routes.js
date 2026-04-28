@@ -10,6 +10,7 @@ const {
   listScreenDevices,
   approveScreenDevice,
   revokeScreenDevice,
+  updateScreenDevice,
 } = require('./devices');
 
 const publicRouter = express.Router();
@@ -126,6 +127,16 @@ adminRouter.delete('/devices/:deviceId', async (req, res) => {
     return res.json({ ok: true, device });
   } catch (err) {
     return res.status(404).json({ ok: false, error: err.message });
+  }
+});
+
+adminRouter.patch('/devices/:deviceId', async (req, res) => {
+  try {
+    const device = await updateScreenDevice(req.params.deviceId, req.body || {});
+    broadcast({ type: 'screen_pairing_update' });
+    return res.json({ ok: true, device });
+  } catch (err) {
+    return res.status(400).json({ ok: false, error: err.message });
   }
 });
 

@@ -353,6 +353,11 @@ function _wsUrl(serverUrl) {
 async function _saveAgentPatch(patch) {
   const config = await _readConfig();
   if (!config?.serverUrl) return null;
+  // Handle screenId separately (top-level field)
+  if ('screenId' in patch) {
+    config.screenId = patch.screenId;
+    delete patch.screenId;
+  }
   config.agent = { ...(config.agent || {}), ...patch };
   await _writeConfig(config);
   return config;
@@ -413,12 +418,21 @@ async function _pollAgentPairing(config) {
 
   if (result.status === 'approved' && result.token) {
     _agentStatus = { ..._agentStatus, pairingCode: '', lastError: '' };
-    return await _saveAgentPatch({
+    const patch = {
       token:            result.token,
       pairingSecret:    '',
       pairingCode:      '',
       pairingExpiresAt: 0,
-    });
+    };
+    // If backend assigned a different screenId, update config and restart kiosk
+    if (result.screenId && result.screenId !== config.screenId) {
+      console.log(`[agent] screenId changed from ${config.screenId} to ${result.screenId}, restarting kiosk`);
+      patch.screenId = result.screenId;
+      const updated = await _saveAgentPatch(patch);
+      await _restartKiosk();
+      return updated;
+    }
+    return await _saveAgentPatch(patch);
   }
 
   if (result.status === 'expired') {
