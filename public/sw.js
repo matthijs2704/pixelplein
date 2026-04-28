@@ -5,7 +5,7 @@
 // IMPORTANT: bump SHELL_VERSION whenever screen JS or CSS files change so
 // that all NUC clients pick up the new app shell on their next load.
 
-const SHELL_VERSION = 10;
+const SHELL_VERSION = 11;
 const SHELL_CACHE   = `pixelplein-shell-v${SHELL_VERSION}`;
 const MEDIA_CACHE   = 'pixelplein-media';
 
@@ -38,10 +38,14 @@ const SHELL_URLS = [
   '/screen/layouts/index.js',
   '/screen/layouts/featuredduo.js',
   '/screen/layouts/fullscreen.js',
+  '/screen/layouts/cascade.js',
+  '/screen/layouts/dynamicsplit.js',
+  '/screen/layouts/filmstrip.js',
   '/screen/layouts/mosaic.js',
   '/screen/layouts/polaroid.js',
   '/screen/layouts/sidebyside.js',
   '/screen/layouts/submissionwall.js',
+  '/screen/layouts/triptych.js',
 
   // Overlays
   '/screen/overlays/index.js',
@@ -130,6 +134,13 @@ self.addEventListener('fetch', event => {
     return;
   }
 
+  // Theme files are dynamically loaded after config arrives. Cache-first lets
+  // a previously-used theme survive an offline cold start.
+  if (p.startsWith('/themes/')) {
+    event.respondWith(_cacheFirst(request, SHELL_CACHE));
+    return;
+  }
+
   // App shell files: Cache-first
   if (
     p === '/screen.html' ||
@@ -139,11 +150,12 @@ self.addEventListener('fetch', event => {
     p.startsWith('/shared/') ||
     p === '/favicon.svg'
   ) {
-    event.respondWith(_cacheFirst(request, SHELL_CACHE));
+    const cacheRequest = p === '/screen.html' ? new Request('/screen.html') : request;
+    event.respondWith(_cacheFirst(cacheRequest, SHELL_CACHE));
     return;
   }
 
-  // Everything else (API, admin, WS, videos, themes): Network-only
+  // Everything else (API, admin, WS, videos): Network-only
 });
 
 // ---------------------------------------------------------------------------

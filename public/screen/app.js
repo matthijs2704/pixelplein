@@ -93,6 +93,7 @@ let ws             = null;
 let retryTimer     = null;
 let cycleStartTimer = null;
 let _cycleRunning  = false;  // true once startCycle() has been called
+let _bootedFromCache = false;
 
 // Local mirrors of slide library + playlists so slide_update handlers can
 // cross-reference without importing from slides/index.js (which owns them).
@@ -157,7 +158,8 @@ async function bootFromCache() {
     return; // IDB unavailable — proceed to normal WS connect
   }
 
-  if (!photos?.length) return; // nothing cached yet
+  const readyPhotos = (photos || []).filter(photo => photo?.status === 'ready');
+  if (!readyPhotos.length) return; // nothing usable cached yet
 
   if (config) {
     updateConfig(config);
@@ -167,11 +169,10 @@ async function bootFromCache() {
   if (slides)    updateSlides(slides);
   if (playlists) updatePlaylists(playlists);
 
-  for (const photo of photos) {
-    if (photo?.status === 'ready') addPhoto(photo);
-  }
+  for (const photo of readyPhotos) addPhoto(photo);
 
-  preloadBatch(photos);
+  _bootedFromCache = true;
+  preloadBatch(readyPhotos);
   if (slides && playlists) preloadSlideAssets(slides, playlists);
   scheduleCycleStart();
 }
@@ -200,8 +201,9 @@ function connect() {
     stopHeartbeat();
     resetSyncStatus(); // immediate — offline badge takes over if cycle is running
 
-    if (_cycleRunning && photoRegistry.size > 0) {
-      // Keep the cycle alive from cached photos; reconnect quietly in background
+    if (photoRegistry.size > 0 && (_cycleRunning || _bootedFromCache)) {
+      // Keep the cached cycle alive, even if the initial socket failed before
+      // startCycle() had a chance to run after preload.
       showOfflineBadge();
     } else {
       // Nothing cached yet — fall back to the waiting screen
