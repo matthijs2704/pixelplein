@@ -79,17 +79,7 @@ async function requestPairing({ deviceId, screenId, label, userAgent, ip }) {
   const now = _now();
   const store = await _loadStore();
 
-  const active = store.devices.find(d => d.deviceId === cleanDeviceId && !d.revokedAt);
-  if (active) {
-    active.lastSeenAt = now;
-    await _saveStore(store);
-    return {
-      status: 'already_paired',
-      deviceId: cleanDeviceId,
-      screenId: active.screenId,
-    };
-  }
-
+  // Remove any existing pending requests for this device to allow re-pairing
   store.pending = store.pending.filter(p => p.deviceId !== cleanDeviceId);
 
   const pairingSecret = _id();

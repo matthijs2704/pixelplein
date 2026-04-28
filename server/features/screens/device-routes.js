@@ -132,7 +132,18 @@ adminRouter.delete('/devices/:deviceId', async (req, res) => {
 
 adminRouter.patch('/devices/:deviceId', async (req, res) => {
   try {
+    const oldDevice = (await listScreenDevices()).devices.find(d => d.deviceId === req.params.deviceId);
     const device = await updateScreenDevice(req.params.deviceId, req.body || {});
+    
+    // If screenId changed, notify the device to reload with new screenId
+    if (oldDevice && oldDevice.screenId !== device.screenId) {
+      broadcastToScreens({
+        type: 'device_reassigned',
+        deviceId: device.deviceId,
+        screenId: device.screenId,
+      });
+    }
+    
     broadcast({ type: 'screen_pairing_update' });
     return res.json({ ok: true, device });
   } catch (err) {

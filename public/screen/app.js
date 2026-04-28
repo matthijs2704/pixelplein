@@ -316,11 +316,11 @@ function connect() {
 
 async function startPairing() {
   clearTimeout(retryTimer);
-  clearDeviceTrust();
   showWaiting();
   setWaitingMode('pairing');
   setWaiting('Scherm koppelen', 'Vraag een koppelcode aan…');
 
+  console.log('[pairing] Requesting pairing for deviceId:', getDeviceId(), 'screenId:', SCREEN_ID);
   let request;
   try {
     request = await _apiJson('/api/screens/pair/request', {
@@ -334,11 +334,10 @@ async function startPairing() {
     return;
   }
 
-  if (request.status === 'already_paired') {
-    renderPairingMessage('Opnieuw koppelen nodig', 'Dit apparaat is al bekend, maar de lokale sleutel ontbreekt. Verwijder het apparaat in de admin en koppel opnieuw.');
-    return;
-  }
+  console.log('[pairing] Pairing request response:', request);
 
+  // Clear any old trust data and start fresh pairing
+  clearDeviceTrust();
   localStorage.setItem(PAIRING_SECRET_KEY, request.pairingSecret || '');
   renderPairingCode(request.code, request.expiresAt);
   pollPairingStatus();
@@ -375,12 +374,16 @@ async function pollPairingStatus() {
     });
 
     if (status.status === 'approved' && status.token) {
+      console.log('[pairing] Approved! Received screenId:', status.screenId, 'Current SCREEN_ID:', SCREEN_ID);
       setDeviceToken(status.token);
+      console.log('[pairing] Token saved to localStorage');
       // Check if backend assigned a different screenId than the URL param
       if (status.screenId && status.screenId !== SCREEN_ID) {
         // Update URL to match assigned screen and reload
+        console.log('[pairing] ScreenId mismatch detected, reloading with screen=' + status.screenId);
         setWaiting('Scherm gekoppeld', `Herladen als scherm ${status.screenId}…`);
         setTimeout(() => {
+          console.log('[pairing] Triggering reload now');
           window.location.search = `?screen=${status.screenId}`;
         }, 500);
         return;
@@ -418,6 +421,14 @@ async function handleMessage(msg) {
         await Promise.all(keys.map(k => caches.delete(k)));
       } catch {}
       location.reload();
+      break;
+
+    case 'device_reassigned':
+      // Admin changed this device's screen assignment
+      if (msg.deviceId === getDeviceId() && msg.screenId && msg.screenId !== SCREEN_ID) {
+        console.log('[reassign] Device reassigned to screen', msg.screenId, 'reloading...');
+        window.location.search = `?screen=${msg.screenId}`;
+      }
       break;
 
     case 'init':
@@ -593,10 +604,14 @@ async function handleMessage(msg) {
 applyManagedIdentityFromHash();
 
 async function boot() {
-  if (getDeviceToken()) {
+  const token = getDeviceToken();
+  const deviceId = getDeviceId();
+  console.log('[boot] Starting boot. DeviceId:', deviceId, 'Has token:', !!token, 'SCREEN_ID:', SCREEN_ID);
+  if (token) {
     await bootFromCache().catch(() => {});
     connect();
   } else {
+    console.log('[boot] No token found, starting pairing...');
     startPairing();
   }
 }
