@@ -10,6 +10,7 @@ const path         = require('path');
 const WebSocket    = require('ws');
 
 const PORT = Number(process.env.PORT || 3987);
+const HOST = process.env.HOST || process.env.PIXELPLEIN_PROVISIONER_HOST || '0.0.0.0';
 const CONFIG_DIR  = process.env.PIXELPLEIN_NUC_CONFIG_DIR || path.join(os.homedir(), '.config', 'pixelplein-screen');
 const CONFIG_FILE = path.join(CONFIG_DIR, 'config.json');
 const USB_FILE    = 'pixelplein-screen.json';
@@ -35,6 +36,7 @@ let _agentStatus = {
 function _json(res, status, body) {
   const data = JSON.stringify(body);
   res.writeHead(status, {
+    ..._corsHeaders(),
     'Content-Type': 'application/json',
     'Content-Length': Buffer.byteLength(data),
   });
@@ -42,8 +44,18 @@ function _json(res, status, body) {
 }
 
 function _html(res, body) {
-  res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
+  res.writeHead(200, { ..._corsHeaders(), 'Content-Type': 'text/html; charset=utf-8' });
   res.end(body);
+}
+
+function _corsHeaders() {
+  return {
+    'Access-Control-Allow-Origin': '*',
+    'Access-Control-Allow-Methods': 'GET,POST,OPTIONS',
+    'Access-Control-Allow-Headers': 'Content-Type',
+    'Access-Control-Allow-Private-Network': 'true',
+    'Vary': 'Origin, Access-Control-Request-Private-Network',
+  };
 }
 
 function _run(cmd, args) {
@@ -762,6 +774,10 @@ async function _readBody(req) {
 
 const server = http.createServer(async (req, res) => {
   try {
+    if (req.method === 'OPTIONS') {
+      res.writeHead(204, _corsHeaders());
+      return res.end();
+    }
     if (req.method === 'GET' && req.url === '/') {
       const st = await _status();
       return _html(res, _page(st));
@@ -802,8 +818,8 @@ scanUsb()
     _scheduleAgentConnect(500);
   });
 
-server.listen(PORT, '127.0.0.1', () => {
-  console.log(`PixelPlein provisioner running on http://127.0.0.1:${PORT}`);
+server.listen(PORT, HOST, () => {
+  console.log(`PixelPlein provisioner running on http://${HOST}:${PORT}`);
   const ips = _getLocalIPs();
   if (ips.length) console.log(`LAN IPs: ${ips.join(', ')}`);
 });

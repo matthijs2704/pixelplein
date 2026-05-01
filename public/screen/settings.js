@@ -2,7 +2,7 @@
 
 // ---------------------------------------------------------------------------
 // In-screen settings overlay
-// Press F12 to open. Shows server connection info, screen ID selector, admin QR.
+// Press F12 to open. Shows device/setup info, screen ID selector, admin QR.
 // Communicates with the local provisioner (127.0.0.1:3987) if running.
 // ---------------------------------------------------------------------------
 
@@ -69,9 +69,13 @@ async function _open() {
 // ---------------------------------------------------------------------------
 
 function _render(info, provisioner, qrSrc) {
-  const ips = info?.lanIps?.length
-    ? info.lanIps.join('  ·  ')
-    : location.hostname;
+  const deviceIps = provisioner?.lanIps?.length
+    ? provisioner.lanIps
+    : [];
+  const deviceSetupUrl = deviceIps.length
+    ? `http://${deviceIps[0]}:3987`
+    : PROVISIONER_URL;
+  const backendUrl = provisioner?.config?.serverUrl || location.origin;
 
   const screenButtons = [1, 2, 3, 4].map(n => {
     const active = String(n) === _screenId;
@@ -79,7 +83,7 @@ function _render(info, provisioner, qrSrc) {
   }).join('');
 
   const provisionerSection = provisioner
-    ? `<a class="settings-link" href="${PROVISIONER_URL}" target="_blank">Setup opnieuw (provisioner)</a>`
+    ? `<a class="settings-link" href="${_esc(deviceSetupUrl)}" target="_blank">Setup opnieuw (provisioner)</a>`
     : '';
 
   _overlayEl.innerHTML = `
@@ -87,14 +91,19 @@ function _render(info, provisioner, qrSrc) {
       <button class="settings-close" id="settings-close-btn" aria-label="Sluiten">✕</button>
 
       <div class="settings-section">
-        <div class="settings-label">Server</div>
-        <div class="settings-value settings-mono">${_esc(location.origin)}</div>
+        <div class="settings-label">Device</div>
+        <div class="settings-value settings-mono">${_esc(provisioner ? deviceSetupUrl : 'Geen lokale provisioner')}</div>
       </div>
 
-      ${ips ? `<div class="settings-section">
-        <div class="settings-label">LAN IP's</div>
-        <div class="settings-value settings-mono">${_esc(ips)}</div>
+      ${deviceIps.length ? `<div class="settings-section">
+        <div class="settings-label">Device IP's</div>
+        <div class="settings-value settings-mono">${_esc(deviceIps.join('  ·  '))}</div>
       </div>` : ''}
+
+      <div class="settings-section">
+        <div class="settings-label">Backend</div>
+        <div class="settings-value settings-mono">${_esc(backendUrl)}</div>
+      </div>
 
       <div class="settings-section">
         <div class="settings-label">Scherm ID</div>

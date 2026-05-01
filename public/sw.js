@@ -5,7 +5,7 @@
 // IMPORTANT: bump SHELL_VERSION whenever screen JS or CSS files change so
 // that all NUC clients pick up the new app shell on their next load.
 
-const SHELL_VERSION = 16;
+const SHELL_VERSION = 17;
 const SHELL_CACHE   = `pixelplein-shell-v${SHELL_VERSION}`;
 const MEDIA_CACHE   = 'pixelplein-media';
 
@@ -26,6 +26,7 @@ const SHELL_URLS = [
   '/screen/photo-selection.js',
   '/screen/photos.js',
   '/screen/preload.js',
+  '/screen/settings.js',
   '/screen/slide-preload.js',
   '/screen/submissions.js',
   '/screen/sync-status.js',
