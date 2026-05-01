@@ -76,17 +76,12 @@ configure_apt_sources() {
 }
 
 install_chromium() {
-	if apt-cache policy chromium 2>/dev/null | grep -q 'Candidate: (none)'; then
-		:
-	elif apt-cache policy chromium 2>/dev/null | grep -q 'Candidate:'; then
-		apt-get install -y --no-install-recommends chromium
+	echo "Installing Chromium..."
+	if apt-get install -y --no-install-recommends chromium; then
 		return
 	fi
 
-	if apt-cache policy chromium-browser 2>/dev/null | grep -q 'Candidate: (none)'; then
-		:
-	elif apt-cache policy chromium-browser 2>/dev/null | grep -q 'Candidate:'; then
-		apt-get install -y --no-install-recommends chromium-browser
+	if apt-get install -y --no-install-recommends chromium-browser; then
 		return
 	fi
 
