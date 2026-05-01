@@ -30,6 +30,26 @@ echo "PixelPlein Installation"
 echo "Platform detected: $PLATFORM"
 echo ""
 
+install_chromium() {
+	if apt-cache policy chromium 2>/dev/null | grep -q 'Candidate: (none)'; then
+		:
+	elif apt-cache policy chromium 2>/dev/null | grep -q 'Candidate:'; then
+		apt-get install -y --no-install-recommends chromium
+		return
+	fi
+
+	if apt-cache policy chromium-browser 2>/dev/null | grep -q 'Candidate: (none)'; then
+		:
+	elif apt-cache policy chromium-browser 2>/dev/null | grep -q 'Candidate:'; then
+		apt-get install -y --no-install-recommends chromium-browser
+		return
+	fi
+
+	echo "ERROR: Neither chromium nor chromium-browser is available from apt." >&2
+	echo "Enable the Debian/Raspberry Pi OS main repository or install Chromium manually." >&2
+	exit 1
+}
+
 # ── 1. System packages ──────────────────────────────────────────────────────
 echo "Installing system packages..."
 apt-get update -qq
@@ -49,12 +69,13 @@ apt-get install -y --no-install-recommends \
 # X11 and kiosk display
 # - xorg: X11 server
 # - openbox: lightweight window manager
-# - chromium-browser: kiosk browser
+# - chromium/chromium-browser: kiosk browser package name differs per distro
 # - unclutter: hide mouse cursor
 # - xinput: X input device management
 apt-get install -y --no-install-recommends \
-	xorg openbox chromium-browser \
+	xorg openbox \
 	unclutter xinput
+install_chromium
 
 # Media processing (for server mode)
 # - ffmpeg: video transcoding for uploaded videos
@@ -63,8 +84,14 @@ apt-get install -y --no-install-recommends \
 	ffmpeg
 
 # Ensure NetworkManager is enabled and running (critical for provisioner)
+mkdir -p /etc/NetworkManager/conf.d
+cat >/etc/NetworkManager/conf.d/pixelplein-ifupdown-managed.conf <<'EOF'
+[ifupdown]
+managed=true
+EOF
 systemctl enable NetworkManager 2>/dev/null || true
 systemctl start NetworkManager 2>/dev/null || true
+systemctl reload NetworkManager 2>/dev/null || systemctl restart NetworkManager 2>/dev/null || true
 
 # Raspberry Pi specific: GPU memory
 if [[ $PLATFORM == "rpi" ]]; then
