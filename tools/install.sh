@@ -288,7 +288,9 @@ chmod +x "$APP_DIR/tools/pixelplein-kiosk.sh"
 echo "Setting up USB auto-configuration..."
 cp "$APP_DIR/tools/99-pixelplein-usb.rules" /etc/udev/rules.d/
 cp "$APP_DIR/tools/pixelplein-usb-scan.sh" /usr/local/bin/
+cp "$APP_DIR/tools/pixelplein-start.sh" /usr/local/bin/pixelplein-start
 chmod +x /usr/local/bin/pixelplein-usb-scan.sh
+chmod +x /usr/local/bin/pixelplein-start
 udevadm control --reload-rules
 
 # ── 11. sudoers ─────────────────────────────────────────────────────────────
@@ -326,8 +328,8 @@ echo "━━━━━━━━━━━━━━━━━━━━━━━━�
 echo ""
 echo "Next steps:"
 echo ""
-echo "  1. Start provisioner service:"
-echo "     systemctl start pixelplein-provisioner"
+echo "  1. Start services now:"
+echo "     pixelplein-start"
 echo ""
 echo "  2. Configure via web UI:"
 echo "     http://127.0.0.1:3987"
@@ -339,6 +341,7 @@ echo "  4. Reboot to auto-start kiosk:"
 echo "     reboot"
 echo ""
 echo "Manual controls:"
+echo "  Start helper:         pixelplein-start"
 echo "  Start local server:   systemctl start pixelplein-server"
 echo "  Restart kiosk:        systemctl restart pixelplein-kiosk"
 echo "  View logs:            journalctl -u pixelplein-kiosk -f"
