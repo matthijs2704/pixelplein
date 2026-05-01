@@ -30,6 +30,51 @@ echo "PixelPlein Installation"
 echo "Platform detected: $PLATFORM"
 echo ""
 
+configure_apt_sources() {
+	if [[ ! -f /etc/os-release ]]; then
+		return
+	fi
+
+	local os_id=""
+	# shellcheck disable=SC1091
+	. /etc/os-release
+	os_id="${ID:-}"
+
+	# Fresh Debian installs sometimes keep only the installer CD-ROM source
+	# enabled, or use deb822 sources with only "main". Chromium and firmware
+	# packages should come from normal network repositories.
+	find /etc/apt -type f \( -name '*.list' -o -name '*.sources' \) -print0 2>/dev/null |
+		while IFS= read -r -d '' file; do
+			if grep -qE '^[[:space:]]*deb[[:space:]]+cdrom:' "$file"; then
+				sed -i -E 's/^([[:space:]]*deb[[:space:]]+cdrom:)/# \1/' "$file"
+			fi
+		done
+
+	if [[ "$os_id" != "debian" && "$os_id" != "raspbian" ]]; then
+		return
+	fi
+
+	find /etc/apt -type f -name '*.list' -print0 2>/dev/null |
+		while IFS= read -r -d '' file; do
+			sed -i -E '/^[[:space:]]*deb[[:space:]]/ {
+				/ contrib/! s/[[:space:]]+main([[:space:]]|$)/ main contrib\1/
+				/ non-free-firmware/! s/[[:space:]]+contrib([[:space:]]|$)/ contrib non-free-firmware\1/
+				/ non-free([[:space:]]|$)/! s/[[:space:]]+non-free-firmware([[:space:]]|$)/ non-free non-free-firmware\1/
+			}' "$file"
+		done
+
+	find /etc/apt -type f -name '*.sources' -print0 2>/dev/null |
+		while IFS= read -r -d '' file; do
+			if grep -q '^Components:' "$file"; then
+				sed -i -E '/^Components:/ {
+					/ contrib/! s/$/ contrib/
+					/ non-free-firmware/! s/$/ non-free-firmware/
+					/ non-free([[:space:]]|$)/! s/$/ non-free/
+				}' "$file"
+			fi
+		done
+}
+
 install_chromium() {
 	if apt-cache policy chromium 2>/dev/null | grep -q 'Candidate: (none)'; then
 		:
@@ -52,6 +97,7 @@ install_chromium() {
 
 # ── 1. System packages ──────────────────────────────────────────────────────
 echo "Installing system packages..."
+configure_apt_sources
 apt-get update -qq
 
 # Core system utilities and dependencies
