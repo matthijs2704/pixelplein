@@ -7,6 +7,7 @@ set -euo pipefail
 readonly CONFIG_FILE="$HOME/.config/pixelplein-screen/config.json"
 readonly DEFAULT_URL="http://127.0.0.1:3987"
 readonly LOG_TAG="pixelplein-kiosk"
+readonly DEFAULT_CHROMIUM_EXTRA_FLAGS="--disable-gpu-compositing --disable-gpu-rasterization --disable-zero-copy"
 
 # Logging helpers (uses systemd journal when available)
 log_info() {
@@ -116,6 +117,12 @@ main() {
 
 	local restart_count=0
 	local url
+	local extra_flags
+	# Older Intel iGPUs, including Haswell NUCs, can show black frames during
+	# opacity transitions when Chromium uses GPU compositing/zero-copy. Keep
+	# conservative defaults, but allow installs to override via systemd env.
+	extra_flags="${CHROMIUM_EXTRA_FLAGS:-$DEFAULT_CHROMIUM_EXTRA_FLAGS}"
+	read -r -a extra_flag_args <<<"$extra_flags"
 
 	while true; do
 		# Rebuild URL each iteration (config may change)
@@ -123,10 +130,6 @@ main() {
 		log_info "Launching Chromium with URL: ${url%%#*}" # Log without credentials
 
 		# Launch Chromium in kiosk mode
-		# Hardware acceleration flags:
-		# - ignore-gpu-blocklist: Allow GPU on blocklisted hardware
-		# - enable-gpu-rasterization: Use GPU for rasterization
-		# - enable-zero-copy: Reduce memory copies for better performance
 		"$chromium_bin" \
 			--kiosk \
 			--noerrdialogs \
@@ -139,9 +142,7 @@ main() {
 			--autoplay-policy=no-user-gesture-required \
 			--disable-features=TranslateUI \
 			--disable-breakpad \
-			--ignore-gpu-blocklist \
-			--enable-gpu-rasterization \
-			--enable-zero-copy \
+			"${extra_flag_args[@]}" \
 			"$url" 2>&1 | while IFS= read -r line; do
 			# Only log errors and important messages
 			if [[ "$line" =~ (ERROR|FATAL|Failed) ]]; then

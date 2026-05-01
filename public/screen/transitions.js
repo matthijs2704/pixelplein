@@ -5,6 +5,44 @@ const EASE = 'cubic-bezier(0.22, 1, 0.36, 1)';
 import { applySmartFit } from './fit.js';
 import { photoUrl, photoThumbUrl } from '../shared/utils.js';
 
+const IMAGE_READY_TIMEOUT_MS = 900;
+
+function _delay(ms) {
+  return new Promise(resolve => setTimeout(resolve, ms));
+}
+
+function _imageReady(img) {
+  if (!img || img.complete && img.naturalWidth > 0) {
+    if (typeof img?.decode === 'function') {
+      return img.decode().catch(() => {});
+    }
+    return Promise.resolve();
+  }
+
+  return new Promise(resolve => {
+    const done = () => {
+      img.removeEventListener('load', done);
+      img.removeEventListener('error', done);
+      if (typeof img.decode === 'function' && img.naturalWidth > 0) {
+        img.decode().catch(() => {}).finally(resolve);
+      } else {
+        resolve();
+      }
+    };
+    img.addEventListener('load', done, { once: true });
+    img.addEventListener('error', done, { once: true });
+  });
+}
+
+async function _waitForImages(el, timeoutMs) {
+  const imgs = Array.from(el?.querySelectorAll?.('img') || []);
+  if (!imgs.length) return;
+  await Promise.race([
+    Promise.all(imgs.map(_imageReady)),
+    _delay(timeoutMs || IMAGE_READY_TIMEOUT_MS),
+  ]);
+}
+
 /**
  * Transition between outgoing and incoming layout containers.
  *
@@ -15,8 +53,10 @@ import { photoUrl, photoThumbUrl } from '../shared/utils.js';
  * @returns {Promise<void>} Resolves when the transition completes
  */
 export function runTransition(outEl, inEl, type, durationMs) {
-  return new Promise(resolve => {
+  return new Promise(async resolve => {
     const ms = durationMs || 800;
+
+    await _waitForImages(inEl, Math.min(IMAGE_READY_TIMEOUT_MS, Math.max(250, ms)));
 
     if (!outEl) {
       // Nothing to transition out — just show inEl immediately
