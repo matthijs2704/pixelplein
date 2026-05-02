@@ -2,7 +2,7 @@
 # Start PixelPlein screen services after install.
 set -euo pipefail
 
-PROVISIONER_URL=http://127.0.0.1:3987
+AGENT_URL=http://127.0.0.1:3987
 
 if [[ $EUID -ne 0 ]]; then
 	echo "ERROR: Run as root: sudo pixelplein-start" >&2
@@ -11,12 +11,12 @@ fi
 
 echo "Starting PixelPlein services..."
 systemctl daemon-reload
-systemctl start pixelplein-provisioner
+systemctl start pixelplein-agent
 systemctl start pixelplein-kiosk
 
 echo ""
 echo "Service status:"
-systemctl --no-pager --lines=0 status pixelplein-provisioner pixelplein-kiosk || true
+systemctl --no-pager --lines=0 status pixelplein-agent pixelplein-kiosk || true
 
 echo ""
 if systemctl is-active --quiet pixelplein-kiosk; then
@@ -28,9 +28,9 @@ else
 fi
 
 echo ""
-echo "Provisioner:"
-echo "  ${PROVISIONER_URL}"
+echo "Agent setup page:"
+echo "  ${AGENT_URL}"
 echo ""
 echo "Logs:"
-echo "  journalctl -u pixelplein-provisioner -f"
+echo "  journalctl -u pixelplein-agent -f"
 echo "  journalctl -u pixelplein-kiosk -f"

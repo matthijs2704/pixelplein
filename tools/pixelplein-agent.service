@@ -1,0 +1,14 @@
+[Unit]
+Description=PixelPlein Screen Agent
+After=network.target
+
+[Service]
+User=pixelplein
+WorkingDirectory=/opt/pixelplein
+ExecStart=/usr/bin/node tools/nuc-provisioner/server.js
+Restart=on-failure
+RestartSec=3
+Environment=NODE_ENV=production
+
+[Install]
+WantedBy=multi-user.target

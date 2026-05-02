@@ -1,8 +1,8 @@
 [Unit]
 Description=PixelPlein Kiosk Browser
 Conflicts=getty@tty1.service
-After=systemd-user-sessions.service network.target pixelplein-provisioner.service
-Wants=pixelplein-provisioner.service
+After=systemd-user-sessions.service network.target pixelplein-agent.service
+Wants=pixelplein-agent.service
 
 [Service]
 User=pixelplein

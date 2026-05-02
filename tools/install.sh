@@ -261,13 +261,19 @@ fi
 # ── 8. Systemd services ─────────────────────────────────────────────────────
 echo "Installing systemd services..."
 cp "$APP_DIR/tools/pixelplein-server.service" /etc/systemd/system/
-cp "$APP_DIR/tools/pixelplein-provisioner.service" /etc/systemd/system/
+cp "$APP_DIR/tools/pixelplein-agent.service" /etc/systemd/system/
 cp "$APP_DIR/tools/pixelplein-kiosk.service" /etc/systemd/system/
 
+# Migrate: disable and remove the old provisioner service name if present
+if systemctl is-enabled pixelplein-provisioner &>/dev/null; then
+	systemctl disable pixelplein-provisioner 2>/dev/null || true
+fi
+rm -f /etc/systemd/system/pixelplein-provisioner.service
+
 systemctl daemon-reload
-systemctl enable pixelplein-provisioner
+systemctl enable pixelplein-agent
 systemctl enable pixelplein-kiosk
-# Note: pixelplein-server is managed by provisioner based on config
+# Note: pixelplein-server is managed by agent based on config
 
 # ── 9. Kiosk launch script ──────────────────────────────────────────────────
 chmod +x "$APP_DIR/tools/pixelplein-kiosk.sh"

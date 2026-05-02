@@ -22,11 +22,14 @@ let _lastAppliedAt = 0;
 let _agentWs = null;
 let _agentTimer = null;
 let _agentHeartbeatTimer = null;
+let _reconnectDelay = 2000;   // current backoff delay (ms); doubles on each failure
+let _reconnectAttempts = 0;   // total failed connection attempts since last success
 let _agentStatus = {
   connected: false,
   pairingCode: '',
   lastSeenAt: 0,
   lastError: '',
+  reconnectAttempts: 0,
 };
 
 // ---------------------------------------------------------------------------
@@ -502,7 +505,10 @@ function _connectAgentWs(config) {
     try { msg = JSON.parse(raw.toString()); } catch { return; }
 
     if (msg.type === 'agent_auth_ok') {
-      _agentStatus = { ..._agentStatus, connected: true, lastSeenAt: Date.now(), lastError: '' };
+      // Reset backoff on successful authentication
+      _reconnectDelay    = 2000;
+      _reconnectAttempts = 0;
+      _agentStatus = { ..._agentStatus, connected: true, lastSeenAt: Date.now(), lastError: '', reconnectAttempts: 0 };
       if (_agentHeartbeatTimer) clearInterval(_agentHeartbeatTimer);
       _agentHeartbeatTimer = setInterval(() => {
         Promise.all([_kioskRunning(), _serverRunning()])
@@ -517,7 +523,9 @@ function _connectAgentWs(config) {
     }
 
     if (msg.type === 'agent_auth_failed') {
+      // Bad/revoked token — clear it and immediately restart the pairing cycle.
       _saveAgentPatch({ token: '' }).catch(() => {});
+      _scheduleAgentConnect(0);
       return;
     }
 
@@ -551,10 +559,13 @@ function _connectAgentWs(config) {
   });
 
   _agentWs.on('close', () => {
-    _agentStatus = { ..._agentStatus, connected: false };
+    _reconnectAttempts += 1;
+    _agentStatus = { ..._agentStatus, connected: false, reconnectAttempts: _reconnectAttempts };
     if (_agentHeartbeatTimer) clearInterval(_agentHeartbeatTimer);
     _agentHeartbeatTimer = null;
-    _scheduleAgentConnect();
+    _scheduleAgentConnect(_reconnectDelay);
+    // Double the delay for next time, capped at 60 s
+    _reconnectDelay = Math.min(_reconnectDelay * 2, 60_000);
   });
 
   _agentWs.on('error', err => {
@@ -578,15 +589,18 @@ async function _agentStep() {
   if (config?.agent?.token) _connectAgentWs(config);
 }
 
-function _scheduleAgentConnect(delayMs = 5000) {
+function _scheduleAgentConnect(delayMs = 2000) {
   if (_agentTimer) clearTimeout(_agentTimer);
   _agentTimer = setTimeout(() => {
     _agentStep()
       .catch(err => {
-        _agentStatus = { ..._agentStatus, connected: false, lastError: err.message };
+        _reconnectAttempts += 1;
+        _agentStatus = { ..._agentStatus, connected: false, lastError: err.message, reconnectAttempts: _reconnectAttempts };
+        // Grow backoff on step-level errors too (e.g. server unreachable for HTTP pairing)
+        _reconnectDelay = Math.min(_reconnectDelay * 2, 60_000);
       })
       .finally(() => {
-        if (!_agentWs || _agentWs.readyState === WebSocket.CLOSED) _scheduleAgentConnect();
+        if (!_agentWs || _agentWs.readyState === WebSocket.CLOSED) _scheduleAgentConnect(_reconnectDelay);
       });
   }, delayMs);
 }
@@ -642,13 +656,14 @@ function _launchChromium(config) {
 
 async function _status() {
   const config = await _readConfig();
+  const [serverRunning, kioskRunning] = await Promise.all([_serverRunning(), _kioskRunning()]);
   return {
     ok:            true,
     config,
     screenUrl:     _screenUrl(config),
     lanIps:        _getLocalIPs(),
-    serverRunning: await _serverRunning(),
-    kioskRunning:  await _kioskRunning(),
+    serverRunning,
+    kioskRunning,
     agent:         {
       ..._agentStatus,
       pairingCode: _agentStatus.pairingCode || config?.agent?.pairingCode || '',
@@ -667,19 +682,41 @@ function _esc(str) {
   return String(str || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 }
 
+function _ago(ts) {
+  if (!ts) return '—';
+  const s = Math.floor((Date.now() - ts) / 1000);
+  if (s < 5)  return 'zojuist';
+  if (s < 60) return `${s}s geleden`;
+  if (s < 3600) return `${Math.floor(s / 60)}m geleden`;
+  return `${Math.floor(s / 3600)}u geleden`;
+}
+
 function _page(status) {
   const cfg        = status?.config;
   const ips        = (status?.lanIps || []).join(', ') || '—';
-  const running    = status?.serverRunning;
+  const serverRunning = status?.serverRunning;
+  const kioskRunning  = status?.kioskRunning;
   const modeLabel  = cfg?.localServer?.enabled === false ? 'Extern' : 'Lokaal';
   const screenUrl  = _esc(status?.screenUrl || '');
   const agent       = status?.agent || {};
-  const agentSig    = `${agent.connected ? '1' : '0'}|${agent.pairingCode || ''}|${agent.lastError || ''}`;
+  const agentSig    = `${agent.connected ? '1' : '0'}|${agent.pairingCode || ''}|${agent.lastError || ''}|${agent.reconnectAttempts || 0}`;
   const configJson = cfg ? _esc(JSON.stringify({ serverUrl: cfg.serverUrl, screenId: cfg.screenId, deviceLabel: cfg.deviceLabel }, null, 2)) : '';
+  const adminUrl   = cfg?.serverUrl ? _esc(`${cfg.serverUrl}/admin`) : '';
+
+  // Pairing section — shown when waiting for approval
+  const pairingSection = (!agent.connected && agent.pairingCode) ? `
+<div class="card" style="border-color:#2d4a6e">
+  <h2>Koppelen</h2>
+  <p style="font-size:13px;color:#8899aa;margin-bottom:12px">Ga in de admin naar <strong>Instellingen → Schermen &amp; apparaten</strong> en keur dit apparaat goed.</p>
+  <div class="row"><span class="label">Koppelcode</span><span class="val" style="font-size:22px;letter-spacing:.15em;color:#7dd3fc">${_esc(agent.pairingCode)}</span></div>
+  <div class="row"><span class="label">Apparaat-ID</span><span class="val" style="font-size:11px">${_esc(cfg?.agent?.deviceId || '—')}</span></div>
+  ${adminUrl ? `<div class="row" style="margin-top:8px"><a href="${adminUrl}" target="_blank" style="color:#4ea1ff;font-size:13px;font-weight:600">→ Open admin (${_esc(cfg.serverUrl)})</a></div>` : ''}
+  <div id="pair-msg"></div>
+</div>` : '';
 
   return `<!doctype html>
 <html lang="nl"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>PixelPlein Scherm Setup</title>
+<title>PixelPlein Agent Setup</title>
 <style>
 *{box-sizing:border-box;margin:0;padding:0}
 body{font-family:system-ui,sans-serif;background:#0a0e14;color:#e2eaf4;padding:24px;line-height:1.5}
@@ -693,6 +730,7 @@ h1{font-size:22px;font-weight:700;margin-bottom:4px}
 .pill{padding:3px 10px;border-radius:999px;font-size:12px;font-weight:600}
 .pill.on{background:rgba(74,222,128,.15);color:#4ade80;border:1px solid rgba(74,222,128,.3)}
 .pill.off{background:rgba(248,113,113,.12);color:#f87171;border:1px solid rgba(248,113,113,.25)}
+.pill.warn{background:rgba(251,191,36,.12);color:#fbbf24;border:1px solid rgba(251,191,36,.3)}
 .btns{display:flex;gap:8px;flex-wrap:wrap}
 button,input,textarea{font:inherit}
 button{padding:9px 16px;border-radius:8px;border:0;font-size:13px;font-weight:600;cursor:pointer;background:#1e3a5f;color:#7dd3fc;transition:background .15s}
@@ -706,19 +744,35 @@ textarea{font-family:monospace;font-size:12px}
 .error{color:#f87171;font-size:13px;margin-top:8px}
 .success{color:#4ade80;font-size:13px;margin-top:8px}
 pre{background:#0d151e;padding:12px;border-radius:8px;font-size:12px;white-space:pre-wrap;overflow-wrap:break-word}
+a{color:#7dd3fc}
 </style></head>
 <body>
-<h1>PixelPlein Scherm Setup</h1>
-<p class="sub">Lokale provisioner · poort ${PORT}</p>
+<h1>PixelPlein Agent</h1>
+<p class="sub">Lokale agent · poort ${PORT}</p>
+
+${pairingSection}
 
 <div class="card">
   <h2>Status</h2>
   <div class="row"><span class="label">LAN IP's</span><span class="val">${_esc(ips)}</span></div>
-  <div class="row"><span class="label">Server</span><span class="pill ${running ? 'on' : 'off'}">${running ? 'Actief' : 'Gestopt'}</span></div>
-  <div class="row"><span class="label">Agent</span><span class="pill ${agent.connected ? 'on' : 'off'}">${agent.connected ? 'Verbonden' : (agent.pairingCode ? `Koppelcode ${_esc(agent.pairingCode)}` : 'Niet verbonden')}</span></div>
-  ${agent.lastError ? `<div class="error">Agent: ${_esc(agent.lastError)}</div>` : ''}
+  <div class="row"><span class="label">Kiosk</span><span class="pill ${kioskRunning ? 'on' : 'off'}">${kioskRunning ? 'Actief' : 'Gestopt'}</span></div>
+  <div class="row"><span class="label">Server</span><span class="pill ${serverRunning ? 'on' : 'off'}">${serverRunning ? 'Actief' : 'Gestopt'}</span></div>
+  <div class="row">
+    <span class="label">Agent</span>
+    <span class="pill ${agent.connected ? 'on' : (agent.pairingCode ? 'warn' : 'off')}">
+      ${agent.connected ? `Verbonden · ${_ago(agent.lastSeenAt)}` : (agent.pairingCode ? `Koppelen · code ${_esc(agent.pairingCode)}` : 'Niet verbonden')}
+    </span>
+  </div>
+  ${agent.reconnectAttempts > 0 ? `<div class="row"><span class="label">Herverbindingen</span><span class="val">${agent.reconnectAttempts}</span></div>` : ''}
+  ${agent.lastError ? `<div class="error">Fout: ${_esc(agent.lastError)}</div>` : ''}
   <div class="row"><span class="label">Modus</span><span class="val">${_esc(modeLabel)}</span></div>
-  ${cfg ? `<div class="row"><span class="label">Scherm URL</span><span class="val" style="font-size:12px">${screenUrl}</span></div>` : ''}
+  ${cfg ? `<div class="row"><span class="label">Scherm</span><span class="val">${_esc(cfg.deviceLabel || `Scherm ${cfg.screenId}`)} · #${_esc(cfg.screenId)}</span></div>` : ''}
+  ${screenUrl ? `<div class="row"><span class="label">Scherm URL</span><span class="val" style="font-size:11px"><a href="${screenUrl}" target="_blank">${screenUrl}</a></span></div>` : ''}
+  <div class="btns" style="margin-top:12px">
+    <button onclick="revertPairing()" class="danger">Opnieuw koppelen</button>
+    <button onclick="restartKiosk()">Herstart kiosk</button>
+  </div>
+  <div id="action-msg"></div>
 </div>
 
 <div class="card">
@@ -752,7 +806,9 @@ async function scanUsb(){msg('usb-msg','Bezig…',true);const r=await api('/api/
 async function saveConfig(){try{const val=document.getElementById('config').value;const r=await api('/api/apply',JSON.parse(val));msg('cfg-msg',r.ok?'Toegepast':'Fout: '+r.error,r.ok);if(r.ok)setTimeout(()=>location.reload(),1000);}catch(e){msg('cfg-msg','Ongeldige JSON: '+e.message,false);}}
 async function launchScreen(){const r=await api('/api/launch');if(!r.ok)alert(r.error||'Launch mislukt');}
 async function scanWifi(){const el=document.getElementById('wifi');el.style.display='block';el.textContent='Bezig…';const r=await fetch('/api/wifi').then(x=>x.json());el.textContent=JSON.stringify(r.networks||r,null,2);}
-setInterval(async()=>{try{const r=await fetch('/api/status').then(x=>x.json());const a=r.agent||{};const sig=(a.connected?'1':'0')+'|'+(a.pairingCode||'')+'|'+(a.lastError||'');if(sig!==initialAgentSig)location.reload();}catch{}},3000);
+async function revertPairing(){if(!confirm('Token wissen en opnieuw koppelen?'))return;const r=await api('/api/revert-pairing');msg('action-msg',r.ok?'Koppeling gereset — nieuwe code verschijnt zo':'Fout: '+r.error,r.ok);if(r.ok)setTimeout(()=>location.reload(),2000);}
+async function restartKiosk(){const r=await api('/api/kiosk/restart');msg('action-msg',r.ok?'Kiosk herstart':'Fout: '+r.error,r.ok);}
+setInterval(async()=>{try{const r=await fetch('/api/status').then(x=>x.json());const a=r.agent||{};const sig=(a.connected?'1':'0')+'|'+(a.pairingCode||'')+'|'+(a.lastError||'')+'|'+(a.reconnectAttempts||0);if(sig!==initialAgentSig)location.reload();}catch{}},3000);
 </script>
 </body></html>`;
 }
@@ -797,6 +853,16 @@ const server = http.createServer(async (req, res) => {
     if (req.method === 'POST' && req.url === '/api/kiosk/restart') return _json(res, 200, await _restartKiosk());
     if (req.method === 'POST' && req.url === '/api/system/reboot')  return _json(res, 200, _scheduleSystemAction('reboot'));
     if (req.method === 'POST' && req.url === '/api/system/shutdown') return _json(res, 200, _scheduleSystemAction('poweroff'));
+    if (req.method === 'POST' && req.url === '/api/revert-pairing') {
+      // Clear token + pairing state and immediately restart the pairing cycle.
+      await _saveAgentPatch({ token: '', pairingSecret: '', pairingCode: '', pairingExpiresAt: 0 });
+      if (_agentWs) { try { _agentWs.terminate(); } catch {} _agentWs = null; }
+      _reconnectDelay    = 2000;
+      _reconnectAttempts = 0;
+      _agentStatus = { ..._agentStatus, connected: false, pairingCode: '', lastError: '', reconnectAttempts: 0 };
+      _scheduleAgentConnect(0);
+      return _json(res, 200, { ok: true });
+    }
     _json(res, 404, { ok: false, error: 'Not found' });
   } catch (err) {
     _lastError = err.message;

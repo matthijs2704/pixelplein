@@ -190,7 +190,8 @@ async function approveScreenDevice(deviceId, patch = {}) {
   pending.oneTimeToken = token;
 
   await _saveStore(store);
-  return _publicDevice(device);
+  // Return the token once so the admin can optionally pre-provision USB configs.
+  return { ..._publicDevice(device), token };
 }
 
 async function revokeScreenDevice(deviceId) {

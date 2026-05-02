@@ -112,9 +112,12 @@ adminRouter.get('/devices', async (_req, res) => {
 
 adminRouter.post('/devices/:deviceId/approve', async (req, res) => {
   try {
-    const device = await approveScreenDevice(req.params.deviceId, req.body || {});
+    const result = await approveScreenDevice(req.params.deviceId, req.body || {});
     broadcast({ type: 'screen_pairing_update' });
-    return res.json({ ok: true, device });
+    // result.token is a one-time-readable value for USB pre-provisioning.
+    // Strip it from the device object so it isn't cached in state.
+    const { token, ...device } = result;
+    return res.json({ ok: true, device, token });
   } catch (err) {
     return res.status(404).json({ ok: false, error: err.message });
   }

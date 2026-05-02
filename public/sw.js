@@ -5,7 +5,7 @@
 // IMPORTANT: bump SHELL_VERSION whenever screen JS or CSS files change so
 // that all NUC clients pick up the new app shell on their next load.
 
-const SHELL_VERSION = 17;
+const SHELL_VERSION = 18;
 const SHELL_CACHE   = `pixelplein-shell-v${SHELL_VERSION}`;
 const MEDIA_CACHE   = 'pixelplein-media';
 
@@ -23,6 +23,7 @@ const SHELL_URLS = [
   '/screen/fit.js',
   '/screen/heartbeat.js',
   '/screen/idb.js',
+  '/screen/layout-lifecycle.js',
   '/screen/photo-selection.js',
   '/screen/photos.js',
   '/screen/preload.js',
@@ -85,28 +86,51 @@ const SHELL_URLS = [
 // ---------------------------------------------------------------------------
 
 self.addEventListener('install', event => {
+  // Skip waiting immediately so this SW version activates without delay even
+  // if the network is unreachable during the cache-population step.
+  self.skipWaiting();
+
   event.waitUntil(
     caches.open(SHELL_CACHE)
       .then(cache => cache.addAll(SHELL_URLS))
-      .then(() => self.skipWaiting())
       .catch(err => console.warn('[sw] Shell pre-cache failed:', err.message)),
   );
 });
 
 // ---------------------------------------------------------------------------
-// Activate — delete stale shell caches
+// Activate — delete stale shell caches (only when new cache has content)
 // ---------------------------------------------------------------------------
 
 self.addEventListener('activate', event => {
   event.waitUntil(
-    caches.keys().then(keys => Promise.all(
-      keys
-        .filter(k => k.startsWith('pixelplein-shell-') && k !== SHELL_CACHE)
-        .map(k => {
+    (async () => {
+      const newCache = await caches.open(SHELL_CACHE);
+      const newKeys  = await newCache.keys();
+
+      const allKeys    = await caches.keys();
+      const staleKeys  = allKeys.filter(k => k.startsWith('pixelplein-shell-') && k !== SHELL_CACHE);
+
+      if (newKeys.length > 0) {
+        // New cache populated successfully — remove stale shell caches.
+        await Promise.all(staleKeys.map(k => {
           console.log('[sw] Deleting stale cache:', k);
           return caches.delete(k);
-        }),
-    )).then(() => self.clients.claim()),
+        }));
+      } else if (staleKeys.length > 0) {
+        // Install failed to cache files (e.g. server was unreachable). Copy
+        // all entries from the most-recent old cache into the new cache so
+        // offline serving still works, then keep the old caches as a backup.
+        console.warn('[sw] New cache empty — copying from previous cache:', staleKeys[0]);
+        const oldCache = await caches.open(staleKeys[0]);
+        const oldKeys  = await oldCache.keys();
+        await Promise.all(oldKeys.map(async req => {
+          const resp = await oldCache.match(req);
+          if (resp) await newCache.put(req, resp);
+        }));
+      }
+
+      await self.clients.claim();
+    })(),
   );
 });
 
