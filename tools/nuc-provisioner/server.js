@@ -682,30 +682,31 @@ function _page(status) {
 <title>PixelPlein Scherm Setup</title>
 <style>
 *{box-sizing:border-box;margin:0;padding:0}
-body{font-family:system-ui,sans-serif;background:#0a0e14;color:#e2eaf4;padding:24px;line-height:1.5}
-h1{font-size:22px;font-weight:700;margin-bottom:4px}
-.sub{color:#8899aa;font-size:13px;margin-bottom:24px}
-.card{background:#111820;border:1px solid #1e2d3e;border-radius:14px;padding:20px;margin-bottom:16px}
-.card h2{font-size:13px;font-weight:600;letter-spacing:.12em;text-transform:uppercase;color:#6a8aaa;margin-bottom:12px}
+body{font-family:'Segoe UI',system-ui,-apple-system,sans-serif;background:#0d0d12;color:#e2e2f0;padding:24px;line-height:1.5;font-size:14px}
+h1{font-size:22px;font-weight:700;margin-bottom:4px;color:#fff}
+.sub{color:#7070a0;font-size:13px;margin-bottom:24px}
+.card{background:#1c1c28;border:1px solid #272736;border-radius:10px;padding:20px;margin-bottom:16px}
+.card h2{font-size:11px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:#7070a0;margin-bottom:12px}
 .row{display:flex;justify-content:space-between;align-items:center;gap:12px;margin-bottom:8px;flex-wrap:wrap}
-.label{font-size:13px;color:#8899aa}
+.label{font-size:13px;color:#7070a0}
 .val{font-size:14px;font-weight:500;font-family:monospace}
 .pill{padding:3px 10px;border-radius:999px;font-size:12px;font-weight:600}
-.pill.on{background:rgba(74,222,128,.15);color:#4ade80;border:1px solid rgba(74,222,128,.3)}
-.pill.off{background:rgba(248,113,113,.12);color:#f87171;border:1px solid rgba(248,113,113,.25)}
+.pill.on{background:rgba(62,207,142,.15);color:#3ecf8e;border:1px solid rgba(62,207,142,.3)}
+.pill.off{background:rgba(224,92,92,.12);color:#e05c5c;border:1px solid rgba(224,92,92,.25)}
 .btns{display:flex;gap:8px;flex-wrap:wrap}
 button,input,textarea{font:inherit}
-button{padding:9px 16px;border-radius:8px;border:0;font-size:13px;font-weight:600;cursor:pointer;background:#1e3a5f;color:#7dd3fc;transition:background .15s}
-button:hover{background:#254a73}
-button.danger{background:#3d1f1f;color:#f87171}
-button.danger:hover{background:#4d2828}
-button.primary{background:#4ea1ff;color:#06101b}
-button.primary:hover{background:#62adff}
-input,textarea{width:100%;background:#0d151e;color:#e2eaf4;border:1px solid #1e2d3e;border-radius:8px;padding:9px 12px}
-textarea{font-family:monospace;font-size:12px}
-.error{color:#f87171;font-size:13px;margin-top:8px}
-.success{color:#4ade80;font-size:13px;margin-top:8px}
-pre{background:#0d151e;padding:12px;border-radius:8px;font-size:12px;white-space:pre-wrap;overflow-wrap:break-word}
+button{padding:8px 18px;border-radius:8px;border:1px solid #272736;font-size:13px;font-weight:600;cursor:pointer;background:#222230;color:#e2e2f0;transition:background .12s,opacity .12s}
+button:hover{background:#2a2a3e;opacity:1}
+button.danger{background:#222230;color:#e05c5c;border-color:#e05c5c}
+button.danger:hover{background:#2d1f1f}
+button.primary{background:#6c63ff;color:#fff;border-color:#6c63ff}
+button.primary:hover{background:#7b73ff}
+input,textarea{width:100%;background:#222230;color:#e2e2f0;border:1px solid #272736;border-radius:7px;padding:9px 12px;font-size:13px;transition:border-color .15s}
+input:focus,textarea:focus{outline:none;border-color:#6c63ff}
+textarea{font-family:monospace;font-size:12px;resize:vertical}
+.error{color:#e05c5c;font-size:13px;margin-top:8px}
+.success{color:#3ecf8e;font-size:13px;margin-top:8px}
+pre{background:#14141c;padding:12px;border-radius:8px;font-size:12px;white-space:pre-wrap;overflow-wrap:break-word;border:1px solid #272736}
 </style></head>
 <body>
 <h1>PixelPlein Scherm Setup</h1>
