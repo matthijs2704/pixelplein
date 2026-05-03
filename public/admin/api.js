@@ -151,6 +151,10 @@ export async function sendScreenDeviceCommand(deviceId, command) {
   });
 }
 
+export async function reloadScreenDevice(deviceId) {
+  return apiFetch(`/api/screens/devices/${encodeURIComponent(deviceId)}/reload`, { method: 'POST' });
+}
+
 export async function reloadScreens() {
   return apiFetch('/api/screens/reload', { method: 'POST' });
 }

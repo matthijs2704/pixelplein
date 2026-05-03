@@ -12,6 +12,7 @@ import {
   deleteScreenDevice,
   updateScreenDevice,
   sendScreenDeviceCommand,
+  reloadScreenDevice,
 } from '../api.js';
 import { showToast as _toast } from '../app.js';
 import { esc as _esc } from '/shared/utils.js';
@@ -375,6 +376,18 @@ async function _loadScreenDevicesSection() {
       });
     });
 
+    pairedEl.querySelectorAll('[data-reload-screen-device]').forEach(btn => {
+      btn.addEventListener('click', async () => {
+        const deviceId = btn.getAttribute('data-reload-screen-device');
+        try {
+          await reloadScreenDevice(deviceId);
+          _toast('Reloading screen display…');
+        } catch (err) {
+          _toast(err.message, true);
+        }
+      });
+    });
+
     pairedEl.querySelectorAll('[data-screen-device-command]').forEach(btn => {
       btn.addEventListener('click', async () => {
         const deviceId = btn.getAttribute('data-device-id');
@@ -455,6 +468,7 @@ function _renderDeviceRow(d) {
       </div>
       <div class="screen-device-actions">
         <button class="btn btn-sm" data-edit-screen-device="${_esc(d.deviceId)}" ${d.revokedAt ? 'disabled' : ''}>Edit</button>
+        <button class="btn btn-primary btn-sm" data-reload-screen-device="${_esc(d.deviceId)}" ${!d.displayConnected || d.revokedAt ? 'disabled' : ''} title="Reload the browser to apply a new app version">Reload display</button>
         <button class="btn btn-sm" data-screen-device-command="restart_kiosk" data-device-id="${_esc(d.deviceId)}" ${disabled}>Restart kiosk</button>
         <button class="btn btn-danger btn-sm" data-screen-device-command="reboot" data-device-id="${_esc(d.deviceId)}" ${disabled}>Reboot</button>
         <button class="btn btn-danger btn-sm" data-screen-device-command="shutdown" data-device-id="${_esc(d.deviceId)}" ${disabled}>Shutdown</button>
