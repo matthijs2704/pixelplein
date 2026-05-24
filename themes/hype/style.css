@@ -1,0 +1,140 @@
+/* ─── De Hype theme ────────────────────────────────────────────────────────
+   Social-media palette: neon magenta/violet/cyan gradients, SF/Inter system
+   stack, generous safe area. Pairs with modules/hype which paints the chrome
+   (channel badges, likes, comments) on top.
+──────────────────────────────────────────────────────────────────────────── */
+
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800;900&display=swap');
+
+:root {
+  /* ── Brand palette ──────────────────────────────────────────────────── */
+  --hype-pink:    #ff2d87;
+  --hype-violet:  #7c5cff;
+  --hype-cyan:    #29e0ff;
+  --hype-amber:   #ffb347;
+  --hype-bg-0:    #0a0612;
+  --hype-bg-1:    #110823;
+  --hype-text:    #f6f4ff;
+  --hype-muted:   rgba(246, 244, 255, 0.62);
+
+  /* ── Safe area + tiles ──────────────────────────────────────────────── */
+  --rsw-frame-inset-x:     clamp(10px, 0.6vw, 22px);
+  --rsw-frame-inset-y:     clamp(10px, 0.7vh, 22px);
+  --screen-padding-top:    clamp(60px, 5vh, 96px);   /* leave room for top bar */
+  --screen-padding-right:  clamp(18px, 1vw, 32px);
+  --screen-padding-bottom: calc(var(--infobar-height, 56px) + 12px);
+  --screen-padding-left:   clamp(18px, 1vw, 32px);
+
+  --screen-bg:
+    radial-gradient(1200px 700px at 12% 6%,  rgba(255, 45, 135, 0.22), transparent 55%),
+    radial-gradient(1100px 700px at 92% 18%, rgba(124, 92, 255, 0.24), transparent 55%),
+    radial-gradient(1000px 700px at 50% 96%, rgba(41, 224, 255, 0.16), transparent 55%),
+    linear-gradient(180deg, var(--hype-bg-1), var(--hype-bg-0) 100%);
+
+  --tile-gap:     clamp(6px, 0.45vw, 12px);
+  --tile-radius:  14px;
+  --tile-shadow:  0 18px 40px rgba(0, 0, 0, 0.45), 0 0 0 1px rgba(255,255,255,0.04) inset;
+  --tile-border:  none;
+
+  /* ── Polaroid (used by some layouts) ─────────────────────────────────── */
+  --polaroid-bg:           transparent;
+  --polaroid-card-bg:      #15101f;
+  --polaroid-card-radius:  14px;
+  --polaroid-card-shadow:  0 16px 32px rgba(0,0,0,0.45);
+
+  /* ── Text slides ─────────────────────────────────────────────────────── */
+  --textcard-bg:           linear-gradient(160deg, rgba(255,45,135,0.18), rgba(124,92,255,0.18));
+  --textcard-color:        var(--hype-text);
+  --textcard-accent:       var(--hype-cyan);
+  --textcard-font:         'Inter', -apple-system, 'SF Pro Display', system-ui, sans-serif;
+  --textcard-title-size:   clamp(2.4rem, 4.6vw, 5.6rem);
+  --textcard-body-size:    clamp(1rem, 1.6vw, 2rem);
+
+  --qr-bg:                 rgba(255, 255, 255, 0.96);
+  --qr-color:              #110823;
+  --qr-muted-color:        #6a5b8f;
+
+  /* ── Ticker + infobar ────────────────────────────────────────────────── */
+  --ticker-bg:             rgba(10, 6, 18, 0.78);
+  --ticker-height:         clamp(28px, 2.2vh, 42px);
+  --ticker-color:          var(--hype-text);
+  --ticker-font-size:      clamp(16px, 1.05vw, 24px);
+  --ticker-font-weight:    700;
+  --ticker-font-family:    'Inter', system-ui, sans-serif;
+  --ticker-letter-spacing: 0.02em;
+  --ticker-radius:         12px;
+
+  --infobar-bg:                   rgba(10, 6, 18, 0.86);
+  --infobar-color:                var(--hype-text);
+  --infobar-height:               56px;
+  --infobar-border-top:           1px solid rgba(255,255,255,0.06);
+  --infobar-clock-color:          rgba(246,244,255,0.72);
+  --infobar-event-color:          var(--hype-text);
+  --infobar-countdown-color:      var(--hype-cyan);
+  --infobar-divider-color:        rgba(255,255,255,0.10);
+
+  --bug-bg:                rgba(10, 6, 18, 0.65);
+  --bug-radius:            999px;
+  --bug-padding:           6px 12px;
+  --bug-color:             var(--hype-text);
+  --bug-font-size:         clamp(14px, 0.9vw, 20px);
+  --bug-font-weight:       800;
+}
+
+/* Global type override — punchy social-media sans */
+body, #screen {
+  font-family: 'Inter', -apple-system, 'SF Pro Display', system-ui, sans-serif;
+  color: var(--hype-text);
+}
+
+/* Top "platform" bar — fakes an IG/TikTok status strip across the screen */
+#hype-top-bar {
+  position: fixed;
+  top: 0; left: 0; right: 0;
+  height: clamp(40px, 4.2vh, 64px);
+  z-index: 9100;
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 0 clamp(16px, 1.6vw, 32px);
+  background: linear-gradient(90deg,
+    rgba(255,45,135,0.18) 0%,
+    rgba(124,92,255,0.18) 50%,
+    rgba(41,224,255,0.18) 100%);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  border-bottom: 1px solid rgba(255,255,255,0.08);
+  pointer-events: none;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  font-size: clamp(14px, 1vw, 22px);
+}
+#hype-top-bar .hype-brand {
+  background: linear-gradient(90deg, var(--hype-pink), var(--hype-violet), var(--hype-cyan));
+  -webkit-background-clip: text;
+          background-clip: text;
+  color: transparent;
+  text-transform: uppercase;
+}
+#hype-top-bar .hype-brand::before { content: '★ '; -webkit-text-fill-color: var(--hype-amber); }
+#hype-top-bar .hype-meta { color: var(--hype-muted); font-size: 0.78em; letter-spacing: 0.1em; }
+#hype-top-bar .hype-dot {
+  display: inline-block; width: 8px; height: 8px; border-radius: 50%;
+  background: #4dff70; box-shadow: 0 0 8px #4dff70; margin-right: 6px;
+  vertical-align: middle; animation: hype-pulse 1.6s ease-in-out infinite;
+}
+@keyframes hype-pulse {
+  0%, 100% { opacity: 0.6; transform: scale(1); }
+  50%      { opacity: 1.0; transform: scale(1.15); }
+}
+
+/* Photo tiles — slightly more rounded with glow on viral */
+.tile, .photo-tile { border-radius: var(--tile-radius); overflow: hidden; }
+
+/* Hype chrome overlay (module) — give the badges this theme's accents */
+.hype-chrome-badge {
+  background: linear-gradient(135deg, var(--hype-pink), var(--hype-violet)) !important;
+  box-shadow: 0 4px 14px rgba(124, 92, 255, 0.45) !important;
+}
+.hype-chrome-viral {
+  background: linear-gradient(135deg, var(--hype-amber), var(--hype-pink)) !important;
+  text-shadow: 0 0 6px rgba(255,179,71,0.7) !important;
+}
