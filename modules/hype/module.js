@@ -6,7 +6,7 @@
 const hypeDb = require('./db');
 const state  = require('./state');
 const engine = require('./engine');
-const { createRouter } = require('./routes');
+const { createPublicRouter, createAdminRouter } = require('./routes');
 
 module.exports = {
   name: 'hype',
@@ -18,8 +18,8 @@ module.exports = {
   async register(ctx) {
     await state.load(ctx.db);
 
-    const router = createRouter(ctx, engine);
-    ctx.app.use('/api/modules/hype', ctx.requireAuth, router);
+    ctx.moduleApiPublic.use('/hype', createPublicRouter(ctx));
+    ctx.moduleApiAuth.use('/hype', createAdminRouter(ctx, engine));
 
     engine.start(ctx);
 

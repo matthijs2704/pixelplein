@@ -3,38 +3,50 @@
 // Default channels seeded on first migrate. Cubs camp "De Hype" needs 4
 // channels with distinct personalities/visuals so kids recognize them.
 const DEFAULT_CHANNELS = [
-  { id: 'chnl_wild',   name: 'Wild Welpen',     handle: '@wildwelpen',   color: '#ff5b8a', emoji: '🐺', follower_base: 12400, growth_rate: 1.2 },
-  { id: 'chnl_chef',   name: 'Kampkok',         handle: '@kampkok',      color: '#ffb347', emoji: '🍳', follower_base:  8700, growth_rate: 0.8 },
-  { id: 'chnl_avon',   name: 'Avonturiers',     handle: '@avonturiers',  color: '#4ec9b0', emoji: '🏕️', follower_base: 15200, growth_rate: 1.5 },
-  { id: 'chnl_stunt',  name: 'Stuntsquad',      handle: '@stuntsquad',   color: '#7c5cff', emoji: '🎯', follower_base:  6100, growth_rate: 1.0 },
+  { id: 'chnl_natuur', name: 'Dusty in het Wild', handle: '@dustywild',     color: '#3fa66b', emoji: '🦎', follower_base: 24800, growth_rate: 1.4 },
+  { id: 'chnl_kook',   name: 'Jochem Kookt',      handle: '@jochemkookt',   color: '#ff8a3d', emoji: '🍳', follower_base: 18200, growth_rate: 1.1 },
+  { id: 'chnl_game',   name: 'CJ Plays',          handle: '@cjplays',       color: '#7c5cff', emoji: '🎮', follower_base: 31500, growth_rate: 1.7 },
+  { id: 'chnl_beauty', name: 'Roos Beauty',       handle: '@roosbeauty',    color: '#ff5b8a', emoji: '💄', follower_base: 27300, growth_rate: 1.5 },
+  { id: 'chnl_fit',    name: 'FitDuo F&S',        handle: '@fitduofs',      color: '#4ec9b0', emoji: '💪', follower_base: 14600, growth_rate: 1.3 },
 ];
 
 // Per-channel comment pool: weighted snippets the engine injects on photos.
+// Toon afgestemd op het kanaal — vooral kort, herkenbaar voor welpen (7-11).
 const DEFAULT_COMMENT_POOLS = {
-  chnl_wild: [
-    { text: 'WAUW 🔥🔥🔥', weight: 5 },
-    { text: 'echt vet man', weight: 4 },
-    { text: 'wie is dit?? 😍', weight: 3 },
-    { text: 'goals 💯', weight: 4 },
-    { text: 'omg dit moet viraal', weight: 2 },
+  chnl_natuur: [
+    { text: 'WAUW wat een beestje 🦎', weight: 5 },
+    { text: 'is dit echt??', weight: 3 },
+    { text: 'Dusty doet het weer 🙌', weight: 4 },
+    { text: 'pak m vast!! 😱', weight: 3 },
+    { text: 'wist je dit ook al?', weight: 2 },
   ],
-  chnl_chef: [
+  chnl_kook: [
     { text: 'recept pls 🙏', weight: 5 },
     { text: 'ik kwijl nu', weight: 4 },
+    { text: 'Jochem chef!! 👨‍🍳', weight: 4 },
     { text: 'wat zit hierin??', weight: 3 },
     { text: 'mijn moeder zou trots zijn', weight: 2 },
   ],
-  chnl_avon: [
-    { text: 'iconisch', weight: 5 },
-    { text: 'breng me hierheen 😤', weight: 4 },
-    { text: 'dit is ART', weight: 3 },
-    { text: 'oef die vibes', weight: 4 },
+  chnl_game: [
+    { text: 'GG 🎮', weight: 5 },
+    { text: 'no way dat lukt', weight: 4 },
+    { text: 'cracked', weight: 3 },
+    { text: 'CJ voor altijd', weight: 4 },
+    { text: 'speedrun wanneer??', weight: 2 },
   ],
-  chnl_stunt: [
-    { text: 'HOE DAN', weight: 5 },
-    { text: 'niet proberen thuis kids', weight: 3 },
-    { text: 'send location', weight: 4 },
-    { text: 'absolute legend', weight: 3 },
+  chnl_beauty: [
+    { text: 'GLOW 💖', weight: 5 },
+    { text: 'tutorial!!', weight: 4 },
+    { text: 'Roos is een queen 👑', weight: 4 },
+    { text: 'iconisch 😍', weight: 3 },
+    { text: 'welk merk is dit?', weight: 2 },
+  ],
+  chnl_fit: [
+    { text: 'beast mode 💪', weight: 5 },
+    { text: 'F&S goals', weight: 4 },
+    { text: 'hoeveel sets??', weight: 3 },
+    { text: 'ik probeer dit morgen!', weight: 3 },
+    { text: 'sterk man 🔥', weight: 4 },
   ],
 };
 

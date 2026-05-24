@@ -8,26 +8,40 @@ const express = require('express');
 const hypeDb = require('./db');
 const state  = require('./state');
 
-function createRouter(ctx, engine) {
+function createPublicRouter(ctx) {
   const router = express.Router();
 
-  /* ── Snapshot for admin tab boot ──────────────────────────────────── */
+  // Screen-side snapshot — read-only display data. No auth: nothing
+  // sensitive (channel names, follower counts, like counts, photo→channel
+  // mapping). Admin endpoints below still require auth.
   router.get('/snapshot', async (_req, res) => {
     try {
       const channels = state.getChannels();
       const pools = {};
       for (const c of channels) pools[c.id] = state.getCommentPool(c.id);
       const photoStates = await ctx.db.all(`SELECT * FROM hype_photo_state`);
+      const tagMap = await ctx.db.listPhotoTagsByNamespace('hype');
+      const channelByPhotoId = {};
+      for (const [photoId, tags] of Object.entries(tagMap || {})) {
+        if (tags?.channel) channelByPhotoId[photoId] = tags.channel;
+      }
       res.json({
         channels,
         pools,
         followers: state.getAllFollowerCounts(),
         photoStates,
+        channelByPhotoId,
       });
     } catch (err) {
       res.status(500).json({ error: err.message });
     }
   });
+
+  return router;
+}
+
+function createAdminRouter(ctx, engine) {
+  const router = express.Router();
 
   /* ── Channels CRUD ────────────────────────────────────────────────── */
   router.get('/channels', (_req, res) => {
@@ -156,4 +170,4 @@ function createRouter(ctx, engine) {
   return router;
 }
 
-module.exports = { createRouter };
+module.exports = { createPublicRouter, createAdminRouter };

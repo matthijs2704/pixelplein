@@ -190,7 +190,15 @@ app.get('/login',   (_req, res) => res.sendFile(_pub('login.html')));
 app.get('/preview', (_req, res) => res.sendFile(_pub('preview.html')));
 app.get('/submit',  (_req, res) => res.sendFile(_pub('submit.html')));
 
-// API routes — /api/auth is public; everything else requires a session
+// API routes — /api/auth is public; everything else requires a session.
+// Module sub-routers mount on these reserved namespaces before the broad
+// /api requireAuth catches /api/modules/*. Modules pick which router to
+// attach to based on auth needs.
+const moduleApiPublic = express.Router();
+const moduleApiAuth   = express.Router();
+app.use('/api/modules', moduleApiPublic);
+app.use('/api/modules', requireAuth, moduleApiAuth);
+
 app.use('/api/auth',       authRouter);
 app.use('/api/submissions', submissionsPublicRouter);
 app.use('/api/screens',    screenDevicesPublicRouter);
@@ -235,6 +243,8 @@ async function boot() {
     broadcast: broadcastMod.broadcast,
     broadcastToScreens: broadcastMod.broadcastToScreens,
     requireAuth,
+    moduleApiPublic,
+    moduleApiAuth,
     paths: { MODULES_ROOT, CACHE_DIR, PHOTOS_DIR, THUMB_DIR },
   });
 
