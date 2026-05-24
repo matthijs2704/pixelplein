@@ -201,7 +201,12 @@ export function dismissAlert(alertId) {
 
   const el = entry.el;
   el.classList.add('ov-dismissing');
-  el.addEventListener('animationend', () => el.remove(), { once: true });
+  let removed = false;
+  const remove = () => { if (removed) return; removed = true; el.remove(); };
+  el.addEventListener('animationend', remove, { once: true });
+  // Backstop: module-rendered alerts may not have a dismiss animation, so
+  // animationend would never fire. Remove after a short timeout regardless.
+  setTimeout(remove, 600);
 
   if (entry.alert.style === 'banner') {
     setTimeout(_reStackBanners, 210);
