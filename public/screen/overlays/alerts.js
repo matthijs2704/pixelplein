@@ -10,6 +10,7 @@
 //   countdown: top-right | top-left | bottom-right | bottom-left
 
 import { fmtDuration, el } from '../../../shared/utils.js';
+import { getModuleAlertRenderer } from '../module-registry.js';
 
 const _active = new Map(); // alertId -> { alert, el, timeout }
 let _countdownTimer = null;
@@ -78,6 +79,23 @@ function _reStackBanners() {
 /* ── Element builder ──────────────────────────────────────────────────── */
 
 function _buildEl(alert) {
+  // Module-registered renderer wins (matched by alert.type). It must return
+  // an HTMLElement with [data-alert-id] set; the rest of this file treats it
+  // opaquely.
+  const moduleRender = alert.type && getModuleAlertRenderer(alert.type);
+  if (moduleRender) {
+    try {
+      const node = moduleRender(alert);
+      if (node instanceof HTMLElement) {
+        if (!node.dataset.alertId) node.dataset.alertId = alert.id;
+        if (!node.classList.contains('ov-alert')) node.classList.add('ov-alert');
+        return node;
+      }
+    } catch (err) {
+      console.warn('[modules] alert renderer threw:', alert.type, err && err.message);
+    }
+  }
+
   const style    = alert.style || 'banner';
   const posCls   = _positionClasses(style, alert.position);
   const urgentCls = alert.priority === 'urgent' ? 'urgent' : '';

@@ -49,6 +49,8 @@ import {
   removePhotos as idbRemovePhotos,
 } from './idb.js';
 import { initSettings } from './settings.js';
+import { dispatchModuleWsMessage } from './module-registry.js';
+import { moduleReady } from './modules-loader.js';
 
 // ---------------------------------------------------------------------------
 // Server display URL — prefer LAN IP over localhost
@@ -407,6 +409,10 @@ async function pollPairingStatus() {
 // ---------------------------------------------------------------------------
 
 async function handleMessage(msg) {
+  // Namespaced messages like "hype:state_update" go to the matching module.
+  if (msg && typeof msg.type === 'string' && msg.type.includes(':')) {
+    if (dispatchModuleWsMessage(msg)) return;
+  }
   switch (msg.type) {
     case 'screen_auth_ok':
       startHeartbeat(SCREEN_ID, () => displayState);
@@ -604,6 +610,11 @@ async function handleMessage(msg) {
 applyManagedIdentityFromHash();
 
 async function boot() {
+  // Wait for optional modules to finish registering (slide builders, layouts,
+  // overlays, alert renderers, WS handlers) before we start the cycle or open
+  // the WS, so module subscriptions don't miss the first init/config events.
+  await moduleReady.catch(() => {});
+
   const token = getDeviceToken();
   const deviceId = getDeviceId();
   console.log('[boot] Starting boot. DeviceId:', deviceId, 'Has token:', !!token, 'SCREEN_ID:', SCREEN_ID);

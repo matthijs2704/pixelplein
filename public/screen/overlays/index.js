@@ -12,6 +12,7 @@ import {
   getInfoBarHeight,
 } from './infobar.js';
 import { getScreenCfg, resolveScreenConfig } from '../../../shared/utils.js';
+import { applyModuleOverlays, removeAllModuleOverlays } from '../module-registry.js';
 
 /**
  * Returns the current bottom safe inset in pixels (info bar or standalone ticker).
@@ -76,6 +77,9 @@ export async function applyOverlays(config) {
   } else {
     removeQrBug();
   }
+
+  // Optional module-registered overlays
+  applyModuleOverlays(cfgWithGlobals);
 }
 
 export function removeAllOverlays() {
@@ -84,6 +88,7 @@ export function removeAllOverlays() {
   removeBug();
   removeQrBug();
   clearAlerts();
+  removeAllModuleOverlays();
 }
 
 /**

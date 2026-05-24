@@ -29,6 +29,7 @@ import {
 import { getBottomInset } from '../overlays/index.js';
 import { getScreenCfg } from '../../shared/utils.js';
 import { TEMPLATE_DEFS } from '../templates.js';
+import { getModuleLayouts, emitScreenEvent } from '../module-registry.js';
 
 // ---------------------------------------------------------------------------
 // Constants
@@ -94,6 +95,12 @@ async function _loadLayouts() {
       const reason = result.status === 'rejected' ? result.reason?.message : 'no layout export';
       console.warn(`[layouts] skipping ${name}: ${reason}`);
     }
+  }
+
+  // Merge in layouts registered by optional modules. Modules register before
+  // startCycle() runs (modules-loader.js awaits this on boot).
+  for (const [id, desc] of getModuleLayouts()) {
+    if (!_layouts.has(id)) _layouts.set(id, desc);
   }
 }
 
@@ -238,7 +245,13 @@ function _selectCandidates(cfg, poolSize) {
   }
 
   const adminEnabled = cfg.enabledLayouts || allNames;
-  let candidates = eligible.filter(l => adminEnabled.includes(l));
+  // Module-registered layouts (those with a `module` field) bypass the
+  // base enabledLayouts filter — the module being enabled IS the opt-in.
+  let candidates = eligible.filter(l => {
+    const desc = _layouts.get(l);
+    if (desc?.module) return true;
+    return adminEnabled.includes(l);
+  });
   if (!candidates.length) candidates = ['fullscreen'];
 
   return { candidates, cfg };
@@ -401,6 +414,14 @@ async function runCycle() {
   displayState.lastCycleAt         = cycleStart;
   displayState.lastCycleDurationMs = Date.now() - cycleStart;
   displayState.focusGroup          = cfg.groupMode === 'manual' ? cfg.activeGroup : null;
+
+  // Notify module overlays/slides about what's visible this cycle.
+  emitScreenEvent('layout:cycle', {
+    layoutType: resolvedType,
+    visibleIds,
+    cycleStart,
+    duration,
+  });
 
   _photoCycleCount += 1;
   _scheduleCycle(duration);

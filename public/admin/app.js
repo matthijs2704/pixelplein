@@ -9,6 +9,8 @@ import { initPhotosTab, refreshPhotos, onNewPhoto, onRemovePhoto, onPhotoUpdate,
 import { initSlidesTab, refreshSlides, createNewPlaylist, onTranscodeProgress } from './tabs/slides.js';
 import { initOverlaysTab, refreshFromConfig as ovRefresh } from './tabs/overlays.js';
 import { initSettingsTab, refreshFromConfig as settingsRefresh, refreshScreenDevices } from './tabs/settings.js';
+import { dispatchAdminWsMessage, getRegisteredAdminTabs } from './module-registry.js';
+import { adminModuleReady } from './modules-loader.js';
 
 // ---------------------------------------------------------------------------
 // State
@@ -490,7 +492,9 @@ function setPage(page) {
     btn.classList.toggle('active', btn.dataset.page === page);
   });
   document.querySelectorAll('.page').forEach(p => {
-    p.classList.toggle('active', p.dataset.page === page);
+    const isActive = p.dataset.page === page;
+    p.classList.toggle('active', isActive);
+    if (isActive) _ensureModuleTabMounted(p);
   });
 
   // Update save-bar title
@@ -532,6 +536,11 @@ function connectWs() {
   ws.onmessage = e => {
     let msg;
     try { msg = JSON.parse(e.data); } catch { return; }
+
+    // Namespaced module messages (e.g. "hype:state_update") routed first.
+    if (typeof msg.type === 'string' && msg.type.indexOf(':') > 0) {
+      if (dispatchAdminWsMessage(msg)) return;
+    }
 
     if (msg.type === 'health_update' && msg.stats) {
       _renderHealth(msg.stats);
@@ -680,6 +689,73 @@ function _normalizeConfig(raw) {
   return next;
 }
 
+const _mountedModuleTabs = new Set();
+
+function _mountModuleTabs() {
+  const tabs = getRegisteredAdminTabs();
+  if (!tabs.length) return;
+
+  const nav = document.querySelector('nav.nav');
+  const main = document.querySelector('.main');
+  if (!nav || !main) return;
+
+  // Insertion point: after Setup section, before screen chips
+  const screenChips = document.getElementById('nav-screen-chips');
+
+  let section = document.getElementById('nav-section-modules');
+  if (!section) {
+    section = document.createElement('div');
+    section.className = 'nav-section';
+    section.id = 'nav-section-modules';
+    section.innerHTML = '<div class="nav-section-label">Modules</div>';
+    const divider = document.createElement('div');
+    divider.className = 'nav-section-divider';
+    if (screenChips) {
+      nav.insertBefore(divider, screenChips);
+      nav.insertBefore(section, screenChips);
+    } else {
+      nav.appendChild(divider);
+      nav.appendChild(section);
+    }
+  }
+
+  for (const tab of tabs) {
+    const pageId = `module-${tab.id}`;
+    if (_mountedModuleTabs.has(pageId)) continue;
+    _mountedModuleTabs.add(pageId);
+
+    PAGE_TITLES[pageId] = tab.label;
+
+    const btn = document.createElement('button');
+    btn.className = 'nav-item';
+    btn.dataset.page = pageId;
+    btn.innerHTML = `<span class="nav-icon">${tab.icon || ''}</span> ${_esc(tab.label)}`;
+    btn.addEventListener('click', () => setPage(pageId));
+    section.appendChild(btn);
+
+    const page = document.createElement('div');
+    page.className = 'page';
+    page.dataset.page = pageId;
+    page.dataset.moduleMounted = '0';
+    main.appendChild(page);
+  }
+}
+
+function _ensureModuleTabMounted(page) {
+  const id = page?.dataset?.page;
+  if (!id || !id.startsWith('module-')) return;
+  if (page.dataset.moduleMounted === '1') return;
+  const tabId = id.slice('module-'.length);
+  const tab = getRegisteredAdminTabs().find(t => t.id === tabId);
+  if (!tab) return;
+  try {
+    tab.mount(page);
+    page.dataset.moduleMounted = '1';
+  } catch (err) {
+    console.warn('[modules] admin tab mount failed:', tabId, err && err.message);
+  }
+}
+
 function _setText(id, val) {
   const el = document.getElementById(id);
   if (el) el.textContent = String(val);
@@ -714,6 +790,12 @@ async function boot() {
   initSettingsTab(getConfig, onChanged);
 
   _bindThemeSelect();
+
+  // Wait for module admin entrypoints so their tabs/WS handlers are registered
+  // before we route the initial page or open the WebSocket.
+  await adminModuleReady.catch(() => {});
+  _mountModuleTabs();
+
   bindButtons();
   setPage('control');
   connectWs();

@@ -9,6 +9,7 @@ import { buildImageSlide }    from './image.js';
 import { buildArticleSlide }  from './article.js';
 import { getScreenCfg }       from '../../shared/utils.js';
 import { sendSlideReady, sendSlideEnded } from '../ws-send.js';
+import { getModuleSlideBuilder } from '../module-registry.js';
 
 // ---------------------------------------------------------------------------
 // State
@@ -241,6 +242,8 @@ async function _buildSlide(slide) {
   if (slide.type === 'qr')             return buildQrSlide(slide);
   if (slide.type === 'image')          return buildImageSlide(slide);
   if (slide.type === 'article')        return buildArticleSlide(slide);
+  const moduleBuilder = getModuleSlideBuilder(slide.type);
+  if (moduleBuilder) return moduleBuilder(slide);
   throw new Error(`unknown slide type: ${slide.type}`);
 }
 
