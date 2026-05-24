@@ -234,6 +234,7 @@ async function boot() {
     state,
     broadcast: broadcastMod.broadcast,
     broadcastToScreens: broadcastMod.broadcastToScreens,
+    requireAuth,
     paths: { MODULES_ROOT, CACHE_DIR, PHOTOS_DIR, THUMB_DIR },
   });
 
