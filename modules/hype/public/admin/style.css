@@ -1,0 +1,93 @@
+/* Hype admin tab styles. Loaded on register(). */
+
+.page[data-page="module-hype"] { display: none; padding: 24px; overflow-y: auto; }
+.page[data-page="module-hype"].active { display: block; }
+
+.hype-admin h2 { font-size: 20px; margin: 0 0 12px; font-weight: 700; }
+.hype-admin h3 { font-size: 15px; margin: 0 0 8px; font-weight: 600; color: var(--text-muted, #9ca3b8); text-transform: uppercase; letter-spacing: 0.05em; }
+
+.hype-admin-section {
+  background: var(--surface, #1a1a24);
+  border: 1px solid var(--border, #2a2a36);
+  border-radius: 12px;
+  padding: 18px;
+  margin-bottom: 18px;
+}
+
+.hype-admin-row { display: flex; gap: 12px; align-items: center; margin-bottom: 8px; flex-wrap: wrap; }
+.hype-admin-row label { font-size: 12px; color: var(--text-muted, #9ca3b8); }
+.hype-admin-row input, .hype-admin-row select, .hype-admin-row textarea {
+  background: var(--input-bg, #0e0e16); color: var(--text, #fff);
+  border: 1px solid var(--border, #2a2a36); border-radius: 6px;
+  padding: 6px 8px; font-size: 13px;
+}
+.hype-admin-row textarea { width: 100%; min-height: 80px; font-family: monospace; }
+
+.hype-admin-btn {
+  background: #7c5cff; color: #fff; border: 0; border-radius: 6px;
+  padding: 8px 14px; font-size: 13px; font-weight: 600; cursor: pointer;
+}
+.hype-admin-btn:hover { background: #6a4cf0; }
+.hype-admin-btn.secondary { background: transparent; border: 1px solid var(--border, #2a2a36); }
+.hype-admin-btn.danger { background: #d44; }
+.hype-admin-btn.big { padding: 14px 18px; font-size: 14px; }
+
+/* Trigger panel */
+.hype-triggers { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 10px; }
+.hype-trigger-card {
+  background: var(--input-bg, #0e0e16);
+  border: 1px solid var(--border, #2a2a36); border-radius: 10px;
+  padding: 14px; display: flex; flex-direction: column; gap: 8px;
+}
+.hype-trigger-card h4 { font-size: 14px; margin: 0; font-weight: 700; }
+.hype-trigger-card .hype-trigger-desc { font-size: 12px; color: var(--text-muted, #9ca3b8); margin: 0 0 4px; }
+.hype-trigger-card.glitch  { border-top: 3px solid #ff003c; }
+.hype-trigger-card.hacker  { border-top: 3px solid #4dff70; }
+.hype-trigger-card.offline { border-top: 3px solid #ffb347; }
+.hype-trigger-card.comeback{ border-top: 3px solid #7c5cff; }
+
+/* Channels editor */
+.hype-channels-list { display: flex; flex-direction: column; gap: 10px; }
+.hype-channel-row {
+  display: grid;
+  grid-template-columns: 24px 1.2fr 1.2fr 80px 80px 100px 100px auto;
+  gap: 8px; align-items: center;
+  background: var(--input-bg, #0e0e16); padding: 10px; border-radius: 8px;
+  border-left: 4px solid var(--ch-color, #888);
+}
+.hype-channel-row input { padding: 5px 7px; font-size: 12px; }
+.hype-channel-row .emoji { font-size: 18px; text-align: center; }
+.hype-foll-cur { font-size: 12px; color: var(--text-muted); font-variant-numeric: tabular-nums; }
+
+/* Pool editor (per channel) */
+.hype-pool-row {
+  background: var(--input-bg, #0e0e16); padding: 10px; border-radius: 8px;
+  border-left: 4px solid var(--ch-color, #888); margin-bottom: 10px;
+}
+.hype-pool-row h4 { margin: 0 0 6px; font-size: 13px; font-weight: 700; display: flex; gap: 8px; align-items: center; }
+.hype-pool-help { font-size: 11px; color: var(--text-muted, #9ca3b8); margin: 4px 0; }
+
+/* Tagging grid */
+.hype-tagging-grid {
+  display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+  gap: 10px;
+}
+.hype-tag-card {
+  background: var(--input-bg, #0e0e16); border-radius: 8px; overflow: hidden;
+  display: flex; flex-direction: column;
+}
+.hype-tag-card img { width: 100%; aspect-ratio: 1/1; object-fit: cover; display: block; }
+.hype-tag-card .controls { padding: 6px 8px; display: flex; flex-direction: column; gap: 4px; }
+.hype-tag-card select { width: 100%; font-size: 12px; }
+.hype-tag-card .viral-toggle { display: flex; gap: 4px; align-items: center; font-size: 12px; }
+
+/* Live monitor */
+.hype-monitor { max-height: 240px; overflow-y: auto; font-size: 12px; }
+.hype-monitor-row {
+  padding: 6px 8px; border-bottom: 1px solid var(--border, #2a2a36);
+  display: grid; grid-template-columns: 60px 100px 60px 1fr; gap: 10px; align-items: center;
+}
+.hype-monitor-time { color: var(--text-muted, #9ca3b8); font-variant-numeric: tabular-nums; }
+.hype-monitor-ch   { font-weight: 700; }
+.hype-monitor-likes{ color: #ff5b8a; text-align: right; }
+.hype-monitor-text { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
