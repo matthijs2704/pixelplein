@@ -186,6 +186,7 @@ function defaultConfig() {
     submissionWallMinApproved: 2,
     submissionWallShowQr: true,
     submissionWallHideWhenEmpty: true,
+    enabledModules: [],
   };
 }
 
@@ -882,6 +883,15 @@ function sanitizeConfig(input, validThemeIds) {
 
   _sanitizeSubmissionSettings(raw, next);
 
+  if (Array.isArray(raw.enabledModules)) {
+    next.enabledModules = [...new Set(
+      raw.enabledModules
+        .map(v => String(v ?? '').trim())
+        .filter(v => v && /^[a-z0-9_-]+$/i.test(v))
+        .slice(0, 32),
+    )];
+  }
+
   // Migrate per-screen overlay values that match global defaults to null
   _migrateOverlayInherit(next, next.screens);
 
@@ -1026,6 +1036,16 @@ function sanitizeGlobalConfig(input, target, validThemeIds) {
 
   _sanitizeSubmissionSettings(input, target);
 
+  if (Object.prototype.hasOwnProperty.call(input, 'enabledModules')) {
+    if (Array.isArray(input.enabledModules)) {
+      target.enabledModules = [...new Set(
+        input.enabledModules
+          .map(v => String(v ?? '').trim())
+          .filter(v => v && /^[a-z0-9_-]+$/i.test(v))
+          .slice(0, 32),
+      )];
+    }
+  }
 }
 
 function getScreenConfig(id) {

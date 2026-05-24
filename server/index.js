@@ -10,8 +10,11 @@ const session     = require('express-session');
 const compression = require('compression');
 
 const { loadConfig, getConfig, saveConfig } = require('./config');
-const { initDb, loadPhotoOverrides, loadAllPhotoMetadata, DB_PATH } = require('./db');
+const db = require('./db');
+const { initDb, loadPhotoOverrides, loadAllPhotoMetadata, DB_PATH } = db;
 const state          = require('./state');
+const { loadEnabledModules, MODULES_ROOT, listLoadedModuleNames } = require('./modules/loader');
+const broadcastMod = require('./features/ws/broadcast');
 const { createWss }  = require('./features/ws/index');
 const { startWatcher } = require('./features/ingest/watcher');
 const { scanPhotos, PHOTOS_DIR } = require('./features/ingest/index');
@@ -150,15 +153,39 @@ app.use('/cache/qr',         express.static(QR_CACHE_DIR, {
   immutable: true,
 }));
 app.use('/themes',           express.static(THEMES_DIR));
+
+// Module-owned static assets: /modules/<name>/* serves modules/<name>/public/*
+app.use('/modules/:name', (req, res, next) => {
+  const name = req.params.name;
+  if (!/^[a-z0-9_-]+$/i.test(name)) return next();
+  const dir = path.join(MODULES_ROOT, name, 'public');
+  return express.static(dir, { maxAge: '1h' })(req, res, next);
+});
 app.use('/submission-assets', express.static(SUBMISSION_ASSETS_DIR, {
   maxAge: '30d',
 }));
 app.use(express.static(path.join(__dirname, '..', 'public')));
 
-// Clean URLs — serve HTML files without the .html extension
+// Clean URLs — serve HTML files without the .html extension. For screen/admin
+// we inject window.PIXELPLEIN_MODULES so the client-side module loader knows
+// which modules to dynamically import.
 const _pub = f => path.join(__dirname, '..', 'public', f);
-app.get('/screen',  (_req, res) => res.sendFile(_pub('screen.html')));
-app.get('/admin',   (_req, res) => res.sendFile(_pub('admin.html')));
+
+function _sendWithModuleList(res, file) {
+  const filePath = _pub(file);
+  fs.readFile(filePath, 'utf8', (err, html) => {
+    if (err) return res.status(500).send('error');
+    const list = JSON.stringify(listLoadedModuleNames());
+    const inject = `<script>window.PIXELPLEIN_MODULES = ${list};</script>`;
+    const out = html.includes('</head>')
+      ? html.replace('</head>', `${inject}</head>`)
+      : inject + html;
+    res.type('html').send(out);
+  });
+}
+
+app.get('/screen',  (_req, res) => _sendWithModuleList(res, 'screen.html'));
+app.get('/admin',   (_req, res) => _sendWithModuleList(res, 'admin.html'));
 app.get('/login',   (_req, res) => res.sendFile(_pub('login.html')));
 app.get('/preview', (_req, res) => res.sendFile(_pub('preview.html')));
 app.get('/submit',  (_req, res) => res.sendFile(_pub('submit.html')));
@@ -197,6 +224,18 @@ async function boot() {
   startWatcher();
   await scanPhotos(true);
   startAlertScheduler();
+
+  // Load optional modules (e.g. "hype"). Each module self-registers via the
+  // registries set up by Phase 1b. Failures are logged and skipped.
+  await loadEnabledModules({
+    app,
+    db,
+    config: getConfig(),
+    state,
+    broadcast: broadcastMod.broadcast,
+    broadcastToScreens: broadcastMod.broadcastToScreens,
+    paths: { MODULES_ROOT, CACHE_DIR, PHOTOS_DIR, THUMB_DIR },
+  });
 
   const PORT = process.env.PORT || 3000;
   server.listen(PORT, '0.0.0.0', () => {
