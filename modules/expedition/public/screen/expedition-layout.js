@@ -7,7 +7,7 @@
 // ponytail: texts hardcoded — edit LEVELS before the event
 
 import { photoUrl } from '/shared/utils.js';
-import { getLevel, isManual } from './state-client.js';
+import { getLevel, getLevelChangedAt, isManual } from './state-client.js';
 
 const CYCLES_PER_LEVEL = 4;
 
@@ -165,6 +165,7 @@ let _cycleCnt = 0;
 let _groupIdx = 0;
 let _variantIdx = 0;
 let _lastLevel = 0;
+let _lastLevelOverrideAt = 0;
 let _showMap = false;
 let _skipMapCycle = false;
 let _liveRoot = null;
@@ -194,9 +195,10 @@ function _eventBadgesSvg(level, x, y, side) {
 function _buildMapHTML(li, lv, prevLi) {
   const pct = _stationPct(li);
   const fullPath = [START_PATH, ...SEGMENTS.map(s => s.path), CONTINUE_PATH].join(' ');
-  const isProgress = prevLi >= 0 && prevLi < li;
-  // Segment that animates is the one *arriving* at li; all segments before it are static-done.
-  const animSeg = isProgress ? li - 1 : -1;
+  const isLevelChange = prevLi >= 0 && prevLi !== li;
+  const isProgress = isLevelChange && li > 0;
+  // Segment that animates is the one *arriving* at li.
+  const animSeg = isLevelChange && li > 0 ? li - 1 : -1;
 
   let svg = '';
 
@@ -215,7 +217,7 @@ function _buildMapHTML(li, lv, prevLi) {
   // Faint full route background
   svg += `<path d="${fullPath}" fill="none" stroke="rgba(28,43,51,.22)"
     stroke-width="5" stroke-linecap="round"/>`;
-  svg += `<path d="${fullPath}" fill="none" stroke="#C8442B"
+  svg += `<path class="xp-route-dashed-bg" d="${fullPath}" fill="none" stroke="#C8442B"
     stroke-width="6" stroke-linecap="round" stroke-dasharray="14 16" opacity=".92"/>`;
 
   svg += `<path class="xp-route-start" d="${START_PATH}" fill="none" stroke="#6c9fc9"
@@ -246,8 +248,8 @@ function _buildMapHTML(li, lv, prevLi) {
   if (animSeg >= 0 && animSeg < SEGMENTS.length) {
     const seg = SEGMENTS[animSeg];
     svg += `<path class="xp-seg-anim" d="${seg.path}" fill="none" stroke="${lv.color}"
-      stroke-width="9" stroke-linecap="round"
-      stroke-dasharray="${seg.len}" stroke-dashoffset="${seg.len}"/>`;
+      stroke-width="9" stroke-linecap="round" pathLength="1"
+      stroke-dasharray="1" stroke-dashoffset="1"/>`;
   }
 
   // Inactive stations
@@ -381,10 +383,11 @@ function _advanceLevelCounters(manual) {
 function _appendPhotoPage(root, photos, level, levelIdx, revealFromStation, eventFocus, photoVariant = 'hero-grid') {
   const pct = _stationPct(levelIdx);
   const page = document.createElement('div');
-  page.className = `xp-page${revealFromStation ? ' xp-page-reveal' : ''}`;
+  page.className = `xp-page${revealFromStation ? ' xp-page-reveal xp-page-from-map' : ''}`;
   page.style.setProperty('--reveal-x', `${pct.x}%`);
   page.style.setProperty('--reveal-y', `${pct.y}%`);
   page.style.setProperty('--reveal-delay', `${JOURNEY_REVEAL_DELAY_MS}ms`);
+  page.style.setProperty('--xp-page-motion-delay', revealFromStation ? '0ms' : '460ms');
 
   const topBar = document.createElement('div');
   topBar.className = 'xp-topbar';
@@ -505,6 +508,13 @@ export const layout = {
 
   pick(cfg, helpers) {
     const manual = isManual();
+    const levelOverrideAt = getLevelChangedAt();
+    if (!manual && levelOverrideAt !== _lastLevelOverrideAt) {
+      _lastLevelOverrideAt = levelOverrideAt;
+      _levelIdx = Math.min(getLevel(), LEVELS.length - 1);
+      _cycleCnt = 0;
+      _groupIdx = 0;
+    }
     const li = manual ? Math.min(getLevel(), LEVELS.length - 1) : _levelIdx;
     const level = LEVELS[li];
 
@@ -556,8 +566,9 @@ export const layout = {
 
     // ── Photo mode ──────────────────────────────────────────────────────
     const root = document.createElement('div');
-    root.className = 'layout layout-expedition';
+    root.className = 'layout layout-expedition xp-photo-mode';
     root.dataset.level = levelIdx;
+    root.innerHTML = _buildMapHTML(levelIdx, level, prevLi);
     _appendPhotoPage(root, photos, level, levelIdx, false, eventFocus || _eventFocus(level, 0), photoVariant);
     _liveRoot = root;
     return { el: root, visibleIds, startMotion: () => { } };

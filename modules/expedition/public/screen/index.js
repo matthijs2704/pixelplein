@@ -10,7 +10,7 @@ function _loadStyle() {
   const link = document.createElement('link');
   link.id   = 'expedition-style';
   link.rel  = 'stylesheet';
-  link.href = '/modules/expedition/screen/style.css';
+  link.href = '/modules/expedition/screen/style.css?v=motion-12';
   document.head.appendChild(link);
 }
 

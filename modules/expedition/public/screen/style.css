@@ -82,6 +82,20 @@ overflow: hidden;
   overflow: hidden;
 }
 
+.xp-photo-mode .xp-map-stage {
+  opacity: 0;
+  pointer-events: none;
+}
+
+.xp-journey-mode .xp-map-stage {
+  opacity: 1;
+}
+
+.layout-expedition.xp-closing-to-map .xp-map-stage {
+  opacity: 1;
+  pointer-events: none;
+}
+
 .xp-map-stage::after {
   content: '';
   position: absolute;
@@ -117,7 +131,7 @@ overflow: hidden;
 }
 
 .xp-seg-anim {
-  animation: xp-route-draw 1.2s cubic-bezier(.2, .8, .2, 1) .45s both;
+  animation: xp-route-draw 1.2s cubic-bezier(.2, .8, .2, 1) 1.75s both;
 }
 
 @keyframes xp-route-continue {
@@ -125,6 +139,7 @@ overflow: hidden;
 }
 
 @keyframes xp-route-draw {
+  from { stroke-dashoffset: 1; }
   to { stroke-dashoffset: 0; }
 }
 
@@ -438,6 +453,7 @@ overflow: hidden;
   border-radius: 14px;
   box-shadow: 6px 8px 0 rgba(28,43,51,.84);
   overflow: hidden;
+  animation: xp-paper-strip-in .58s cubic-bezier(.18, .86, .25, 1) calc(var(--xp-page-motion-delay, 0ms) + 90ms) both;
 }
 
 .xp-waarom-label {
@@ -528,6 +544,12 @@ overflow: hidden;
   0%   { clip-path: circle(0 at var(--reveal-x) var(--reveal-y)); }
   24%  { clip-path: circle(clamp(78px, 5.8vw, 160px) at var(--reveal-x) var(--reveal-y)); }
   100% { clip-path: circle(155% at var(--reveal-x) var(--reveal-y)); }
+}
+
+@keyframes xp-page-close {
+  0%   { clip-path: circle(155% at var(--reveal-x) var(--reveal-y)); }
+  76%  { clip-path: circle(clamp(78px, 5.8vw, 160px) at var(--reveal-x) var(--reveal-y)); }
+  100% { clip-path: circle(0 at var(--reveal-x) var(--reveal-y)); }
 }
 
 .xp-topbar {
@@ -759,6 +781,8 @@ overflow: hidden;
     linear-gradient(135deg, rgba(248,241,222,.88), rgba(231,212,168,.88));
   box-shadow: 8px 10px 0 rgba(28,43,51,.82);
   contain: layout paint;
+  transform: rotate(var(--tile-rot, 0deg));
+  animation: xp-photo-tile-in .72s cubic-bezier(.18, .86, .25, 1) calc(var(--xp-page-motion-delay, 0ms) + var(--tile-delay, 0ms)) both;
 }
 
 .xp-photo-note {
@@ -774,6 +798,7 @@ overflow: hidden;
   border-radius: 12px;
   background: var(--xp-cream);
   box-shadow: 4px 5px 0 rgba(28,43,51,.8);
+  animation: xp-photo-note-in .48s cubic-bezier(.18, .86, .25, 1) calc(var(--xp-page-motion-delay, 0ms) + 360ms) both;
 }
 
 .xp-photo-note span {
@@ -902,10 +927,41 @@ overflow: hidden;
   max-width: none;
 }
 
-.xp-photo-tile-1 { --tile-delay: 0ms; --tile-rot: -.6deg; }
-.xp-photo-tile-2 { --tile-delay: 80ms; --tile-rot: .8deg; }
-.xp-photo-tile-3 { --tile-delay: 150ms; --tile-rot: -.4deg; }
-.xp-photo-tile-4 { --tile-delay: 220ms; --tile-rot: .5deg; }
+.xp-photo-tile-1 {
+  --tile-delay: 0ms;
+  --tile-rot: -.6deg;
+}
+
+.xp-photo-tile-2 {
+  --tile-delay: 90ms;
+  --tile-rot: .8deg;
+}
+
+.xp-photo-tile-3 {
+  --tile-delay: 170ms;
+  --tile-rot: -.4deg;
+}
+
+.xp-photo-tile-4 {
+  --tile-delay: 250ms;
+  --tile-rot: .5deg;
+}
+
+@keyframes xp-photo-tile-in {
+  from {
+    opacity: 0;
+    transform: translate3d(0, 26px, 0) rotate(calc(var(--tile-rot, 0deg) - 1.4deg)) scale(.965);
+    box-shadow: 3px 4px 0 rgba(28,43,51,.62);
+  }
+  62% {
+    opacity: 1;
+    transform: translate3d(0, -4px, 0) rotate(calc(var(--tile-rot, 0deg) + .35deg)) scale(1.012);
+  }
+  to {
+    opacity: 1;
+    transform: translate3d(0, 0, 0) rotate(var(--tile-rot, 0deg)) scale(1);
+  }
+}
 
 .xp-photo-empty::before {
   content: 'Geen foto';
@@ -935,6 +991,52 @@ overflow: hidden;
   border-radius: 20px;
   box-shadow: 10px 12px 0 rgba(28,43,51,.9);
   overflow: hidden;
+  animation: xp-info-panel-in .64s cubic-bezier(.18, .86, .25, 1) calc(var(--xp-page-motion-delay, 0ms) + 170ms) both;
+}
+
+.xp-page-from-map .xp-waarom-bar,
+.xp-page-from-map .xp-photo-tile,
+.xp-page-from-map .xp-photo-note,
+.xp-page-from-map .xp-info-panel {
+  animation: none;
+}
+
+@keyframes xp-paper-strip-in {
+  from {
+    opacity: 0;
+    transform: translate3d(0, -14px, 0);
+  }
+  to {
+    opacity: 1;
+    transform: translate3d(0, 0, 0);
+  }
+}
+
+@keyframes xp-info-panel-in {
+  from {
+    opacity: 0;
+    transform: translate3d(18px, 0, 0) rotate(.35deg);
+    box-shadow: 4px 5px 0 rgba(28,43,51,.72);
+  }
+  68% {
+    opacity: 1;
+    transform: translate3d(-3px, 0, 0) rotate(-.08deg);
+  }
+  to {
+    opacity: 1;
+    transform: translate3d(0, 0, 0) rotate(0);
+  }
+}
+
+@keyframes xp-photo-note-in {
+  from {
+    opacity: 0;
+    transform: translate3d(0, 12px, 0) rotate(-1.2deg) scale(.96);
+  }
+  to {
+    opacity: 1;
+    transform: translate3d(0, 0, 0) rotate(0) scale(1);
+  }
 }
 
 /* ── Info panel: station context (compact header) ─────────────────────────── */
@@ -1232,7 +1334,11 @@ overflow: hidden;
   .xp-map-glow,
   .xp-map-active-tag,
   .xp-map-mini-card,
-  .xp-map-pennant {
+  .xp-map-pennant,
+  .xp-waarom-bar,
+  .xp-photo-tile,
+  .xp-photo-note,
+  .xp-info-panel {
     animation: none !important;
   }
 
@@ -1241,6 +1347,14 @@ overflow: hidden;
   }
 
   .xp-map-mini-card {
+    opacity: 1;
+    transform: none;
+  }
+
+  .xp-photo-tile,
+  .xp-photo-note,
+  .xp-info-panel,
+  .xp-waarom-bar {
     opacity: 1;
     transform: none;
   }

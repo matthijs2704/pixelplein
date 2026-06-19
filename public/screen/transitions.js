@@ -89,39 +89,38 @@ export function runTransition(outEl, inEl, type, durationMs) {
       }
 
       const closingEl = outEl.querySelector?.('.xp-page') || outEl;
-      const parent = outEl.parentElement;
-      const closingLayer = closingEl.cloneNode(true);
       const x = closingEl.style.getPropertyValue('--reveal-x')
         || outEl.style.getPropertyValue('--reveal-x')
         || '50%';
       const y = closingEl.style.getPropertyValue('--reveal-y')
         || outEl.style.getPropertyValue('--reveal-y')
         || '50%';
-      closingLayer.classList?.remove('xp-page-reveal');
-      closingLayer.style.zIndex = '4';
-      closingLayer.style.opacity = '1';
-      closingLayer.style.visibility = 'visible';
-      closingLayer.style.transition = '';
-      closingLayer.style.animation = 'none';
-      closingLayer.style.clipPath = `circle(155% at ${x} ${y})`;
-      parent?.appendChild(closingLayer);
-      outEl.remove();
+      outEl.classList?.add('xp-closing-to-map');
+      closingEl.classList?.remove('xp-page-reveal');
+      outEl.style.zIndex = '4';
+      closingEl.style.zIndex = '4';
+      closingEl.style.opacity = '1';
+      closingEl.style.visibility = 'visible';
+      closingEl.style.transition = '';
+      closingEl.style.animation = 'none';
+      closingEl.style.clipPath = `circle(155% at ${x} ${y})`;
+      closingEl.style.setProperty('--reveal-x', x);
+      closingEl.style.setProperty('--reveal-y', y);
       requestAnimationFrame(() => {
         requestAnimationFrame(() => {
-          const closeMs = Math.max(ms, 1050);
-          const anim = closingLayer.animate(
-            [
-              { clipPath: `circle(155% at ${x} ${y})`, offset: 0 },
-              { clipPath: `circle(clamp(78px, 5.8vw, 160px) at ${x} ${y})`, offset: .76 },
-              { clipPath: `circle(0 at ${x} ${y})`, offset: 1 },
-            ],
-            { duration: closeMs, easing: 'cubic-bezier(.18,.86,.25,1)', fill: 'forwards' },
-          );
-          anim.finished.catch(() => {}).finally(() => {
-            closingLayer.remove();
+          const closeMs = Math.max(ms, 1150);
+          let done = false;
+          const finish = () => {
+            if (done) return;
+            done = true;
+            closingEl.removeEventListener('animationend', finish);
+            outEl.remove();
             inEl.style.zIndex = '';
             resolve();
-          });
+          };
+          closingEl.addEventListener('animationend', finish);
+          closingEl.style.animation = `xp-page-close ${closeMs}ms cubic-bezier(.18,.86,.25,1) both`;
+          setTimeout(finish, closeMs + 80);
         });
       });
       return;
