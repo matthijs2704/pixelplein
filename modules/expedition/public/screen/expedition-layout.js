@@ -25,6 +25,7 @@ const JOURNEY_REVEAL_DELAY_MS = 3600;
 const PAGE_REVEAL_MS = 2150;
 const RETURN_TO_MAP_MS = 850;
 const MAP_VIEWBOX = { x: 0, y: 0, w: 1600, h: 900 };
+const PHOTO_VARIANTS = ['hero-grid', 'hero-stack', 'triptych', 'postcard'];
 
 const STATIONS = [
   { x: 245, y: 720 },
@@ -162,6 +163,7 @@ let _levelIdx = 0;
 let _prevLevelIdx = -1;
 let _cycleCnt = 0;
 let _groupIdx = 0;
+let _variantIdx = 0;
 let _lastLevel = 0;
 let _showMap = false;
 let _skipMapCycle = false;
@@ -336,6 +338,20 @@ function _pickLevelPhotos(level, cfg, helpers, eventFocus) {
   return photos.slice(0, 4);
 }
 
+function _pickPhotoVariant(photoCount) {
+  const count = Math.max(0, Number(photoCount) || 0);
+  const variants = count <= 1
+    ? ['hero-grid']
+    : (count === 2
+        ? ['hero-stack', 'postcard']
+        : (count === 3
+            ? ['triptych', 'hero-stack', 'postcard']
+            : PHOTO_VARIANTS));
+  const variant = variants[_variantIdx % variants.length];
+  _variantIdx++;
+  return variant;
+}
+
 function _eventFocus(level, idx) {
   const events = level.events || [];
   const name = events.length ? events[idx % events.length] : level.naam;
@@ -362,7 +378,7 @@ function _advanceLevelCounters(manual) {
   }
 }
 
-function _appendPhotoPage(root, photos, level, levelIdx, revealFromStation, eventFocus) {
+function _appendPhotoPage(root, photos, level, levelIdx, revealFromStation, eventFocus, photoVariant = 'hero-grid') {
   const pct = _stationPct(levelIdx);
   const page = document.createElement('div');
   page.className = `xp-page${revealFromStation ? ' xp-page-reveal' : ''}`;
@@ -401,7 +417,7 @@ function _appendPhotoPage(root, photos, level, levelIdx, revealFromStation, even
   content.className = 'xp-station-content';
 
   const photoGrid = document.createElement('div');
-  photoGrid.className = `xp-photo-grid xp-photo-count-${Math.max(1, photos.length)}`;
+  photoGrid.className = `xp-photo-grid xp-photo-count-${Math.max(1, photos.length)} xp-photo-variant-${photoVariant}`;
   const slots = Array.from({ length: 4 }, (_, i) => photos[i] || null);
   slots.forEach((photo, i) => {
     const slot = document.createElement('div');
@@ -504,17 +520,19 @@ export const layout = {
       _showMap = false;
       const eventFocus = _eventFocus(level, _groupIdx);
       const photos = _pickLevelPhotos(level, cfg, helpers, eventFocus);
+      const photoVariant = _pickPhotoVariant(photos.length);
       _advanceLevelCounters(manual);
-      return { mode: 'journey', level, levelIdx: li, prevLevelIdx: _prevLevelIdx, photos, eventFocus };
+      return { mode: 'journey', level, levelIdx: li, prevLevelIdx: _prevLevelIdx, photos, eventFocus, photoVariant };
     }
 
     const eventFocus = _eventFocus(level, _groupIdx);
     const photos = _pickLevelPhotos(level, cfg, helpers, eventFocus);
+    const photoVariant = _pickPhotoVariant(photos.length);
     _advanceLevelCounters(manual);
-    return { mode: 'photo', photos, level, levelIdx: li, eventFocus };
+    return { mode: 'photo', photos, level, levelIdx: li, eventFocus, photoVariant };
   },
 
-  build({ mode, photos = [], level, levelIdx, prevLevelIdx, eventFocus }) {
+  build({ mode, photos = [], level, levelIdx, prevLevelIdx, eventFocus, photoVariant = 'hero-grid' }) {
     const prevLi = prevLevelIdx !== undefined ? prevLevelIdx : _prevLevelIdx;
     const visibleIds = _photoIds(photos);
 
@@ -524,7 +542,7 @@ export const layout = {
       root.className = 'layout layout-expedition xp-journey-mode';
       root.dataset.level = levelIdx;
       root.innerHTML = _buildMapHTML(levelIdx, level, prevLi);
-      _appendPhotoPage(root, photos, level, levelIdx, true, eventFocus || _eventFocus(level, 0));
+      _appendPhotoPage(root, photos, level, levelIdx, true, eventFocus || _eventFocus(level, 0), photoVariant);
       _liveRoot = root;
       return {
         el: root,
@@ -540,7 +558,7 @@ export const layout = {
     const root = document.createElement('div');
     root.className = 'layout layout-expedition';
     root.dataset.level = levelIdx;
-    _appendPhotoPage(root, photos, level, levelIdx, false, eventFocus || _eventFocus(level, 0));
+    _appendPhotoPage(root, photos, level, levelIdx, false, eventFocus || _eventFocus(level, 0), photoVariant);
     _liveRoot = root;
     return { el: root, visibleIds, startMotion: () => { } };
   },
