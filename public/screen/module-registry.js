@@ -15,6 +15,7 @@ const _overlays        = new Map();   // id   -> { mount(cfg), remove(), applies
 const _alertRenderers  = new Map();   // type -> (alert) => HTMLElement
 const _wsHandlers      = new Map();   // prefix -> (msg) => void
 const _eventBus        = new Map();   // event -> Set<listener>
+const _takeovers       = new Map();   // id -> { active(ctx), build(ctx) }
 
 // ---------------------------------------------------------------------------
 // Slide builders
@@ -42,6 +43,25 @@ export function registerLayout(descriptor) {
 
 export function getModuleLayouts() {
   return new Map(_layouts);
+}
+
+// ---------------------------------------------------------------------------
+// Full-screen takeovers
+// ---------------------------------------------------------------------------
+
+export function registerScreenTakeover(takeover) {
+  if (!takeover || typeof takeover !== 'object' || !takeover.id) return;
+  if (typeof takeover.active !== 'function' || typeof takeover.build !== 'function') return;
+  _takeovers.set(String(takeover.id), takeover);
+}
+
+export function getActiveScreenTakeover(ctx) {
+  for (const takeover of _takeovers.values()) {
+    let active = false;
+    try { active = Boolean(takeover.active(ctx)); } catch {}
+    if (active) return takeover;
+  }
+  return null;
 }
 
 // ---------------------------------------------------------------------------

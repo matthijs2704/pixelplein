@@ -252,21 +252,28 @@ router.patch('/:id(*)', async (req, res) => {
     return res.status(404).json({ ok: false, error: 'Photo not found' });
   }
 
-  const { heroCandidate } = req.body;
-  if (typeof heroCandidate !== 'boolean') {
-    return res.status(400).json({ ok: false, error: 'heroCandidate must be a boolean' });
+  const { heroCandidate, eventGroup } = req.body;
+  const photo = state.photosById.get(id);
+
+  if (typeof heroCandidate === 'boolean') {
+    const existing = state.photoOverrides.get(id) || {};
+    state.photoOverrides.set(id, { ...existing, heroCandidate });
+    setHeroCandidate(id, heroCandidate).catch(err => {
+      console.warn(`[photos] failed to persist heroCandidate for ${id}: ${err.message}`);
+    });
   }
 
-  const existing = state.photoOverrides.get(id) || {};
-  state.photoOverrides.set(id, { ...existing, heroCandidate });
-  setHeroCandidate(id, heroCandidate).catch(err => {
-    console.warn(`[photos] failed to persist heroCandidate for ${id}: ${err.message}`);
-  });
+  if (typeof eventGroup === 'string' || eventGroup === null) {
+    // null or empty string → reset to ungrouped
+    photo.eventGroup = eventGroup || null;
+  }
 
-  const photo = state.photosById.get(id);
-  upsertPhotoMetadata(photo).catch(err => {
+  try {
+    await upsertPhotoMetadata(photo);
+  } catch (err) {
     console.warn(`[photos] failed to persist metadata for ${id}: ${err.message}`);
-  });
+    return res.status(500).json({ ok: false, error: 'Failed to persist photo metadata' });
+  }
   broadcast({ type: 'photo_update', photo: serializePhoto(photo) });
 
   res.json({ ok: true });

@@ -55,9 +55,22 @@ async function loadEnabledModules(ctx) {
   }
 }
 
+// Returns all screen layout IDs declared by loaded modules (id -> label).
+function getModuleScreenLayouts() {
+  const out = new Map();
+  for (const mod of _loaded.values()) {
+    if (!Array.isArray(mod.screenLayouts)) continue;
+    for (const { id, label } of mod.screenLayouts) {
+      if (id) out.set(String(id), String(label || id));
+    }
+  }
+  return out;
+}
+
 module.exports = {
   MODULES_ROOT,
   loadEnabledModules,
   listLoadedModuleNames,
   getModule,
+  getModuleScreenLayouts,
 };

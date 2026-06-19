@@ -48,7 +48,7 @@ async function _waitForImages(el, timeoutMs) {
  *
  * @param {HTMLElement} outEl - The element currently on screen (may be null)
  * @param {HTMLElement} inEl  - The new element to show
- * @param {'fade'|'slide'|'zoom'} type
+ * @param {'expedition-journey'|'fade'|'slide'|'zoom'} type
  * @param {number} durationMs
  * @returns {Promise<void>} Resolves when the transition completes
  */
@@ -63,7 +63,11 @@ export function runTransition(outEl, inEl, type, durationMs) {
     if (outEl) {
       outEl.style.zIndex = '1';
       inEl.style.zIndex = '2';
-      if (transitionType === 'slide') {
+      if (transitionType === 'expedition-journey') {
+        inEl.style.opacity = '1';
+        inEl.style.transform = '';
+        outEl.style.zIndex = '3';
+      } else if (transitionType === 'slide') {
         inEl.style.transform = 'translateX(100%)';
         inEl.style.opacity = '1';
       } else if (transitionType === 'zoom') {
@@ -73,6 +77,54 @@ export function runTransition(outEl, inEl, type, durationMs) {
         inEl.style.opacity = '0';
         inEl.style.transform = '';
       }
+    }
+
+    if (transitionType === 'expedition-journey') {
+      if (!outEl) {
+        inEl.style.opacity = '1';
+        inEl.style.transform = '';
+        inEl.style.zIndex = '';
+        resolve();
+        return;
+      }
+
+      const closingEl = outEl.querySelector?.('.xp-page') || outEl;
+      const parent = outEl.parentElement;
+      const closingLayer = closingEl.cloneNode(true);
+      const x = closingEl.style.getPropertyValue('--reveal-x')
+        || outEl.style.getPropertyValue('--reveal-x')
+        || '50%';
+      const y = closingEl.style.getPropertyValue('--reveal-y')
+        || outEl.style.getPropertyValue('--reveal-y')
+        || '50%';
+      closingLayer.classList?.remove('xp-page-reveal');
+      closingLayer.style.zIndex = '4';
+      closingLayer.style.opacity = '1';
+      closingLayer.style.visibility = 'visible';
+      closingLayer.style.transition = '';
+      closingLayer.style.animation = 'none';
+      closingLayer.style.clipPath = `circle(155% at ${x} ${y})`;
+      parent?.appendChild(closingLayer);
+      outEl.remove();
+      requestAnimationFrame(() => {
+        requestAnimationFrame(() => {
+          const closeMs = Math.max(ms, 1050);
+          const anim = closingLayer.animate(
+            [
+              { clipPath: `circle(155% at ${x} ${y})`, offset: 0 },
+              { clipPath: `circle(clamp(78px, 5.8vw, 160px) at ${x} ${y})`, offset: .76 },
+              { clipPath: `circle(0 at ${x} ${y})`, offset: 1 },
+            ],
+            { duration: closeMs, easing: 'cubic-bezier(.18,.86,.25,1)', fill: 'forwards' },
+          );
+          anim.finished.catch(() => {}).finally(() => {
+            closingLayer.remove();
+            inEl.style.zIndex = '';
+            resolve();
+          });
+        });
+      });
+      return;
     }
 
     await _waitForImages(inEl, Math.min(IMAGE_READY_TIMEOUT_MS, Math.max(250, ms)));

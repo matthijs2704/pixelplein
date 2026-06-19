@@ -12,9 +12,18 @@ const _state = {
   pools: new Map(),              // channelId → [{ text, weight }]
   photoState: new Map(),         // photoId → { likes, viral, updated_at }
   followers: new Map(),          // channelId → current follower count
+  settings: null,
+  activity: [],
+  videos: [],
+  streamStats: {
+    viewers: 247,
+    online: 88,
+    updatedAt: 0,
+  },
 };
 
 async function load(db) {
+  _state.settings = await hypeDb.getSettings(db);
   _state.channels = await hypeDb.listChannels(db);
   _state.channelById.clear();
   _state.pools.clear();
@@ -36,6 +45,9 @@ async function load(db) {
       updated_at: row.updated_at | 0,
     });
   }
+
+  _state.activity = await hypeDb.listRecentActivity(db, 50);
+  _state.videos = await hypeDb.listVideos(db);
 }
 
 function getChannels()           { return _state.channels.slice(); }
@@ -44,6 +56,10 @@ function getCommentPool(id)      { return _state.pools.get(id) || []; }
 function getPhotoState(photoId)  { return _state.photoState.get(photoId) || null; }
 function getAllFollowerCounts()  { return Object.fromEntries(_state.followers); }
 function getFollowerCount(id)    { return _state.followers.get(id) | 0; }
+function getSettings()           { return { ..._state.settings, generalAccount: { ..._state.settings.generalAccount }, feedMix: { ..._state.settings.feedMix } }; }
+function getActivity()           { return _state.activity.slice(); }
+function getVideos()             { return _state.videos.slice(); }
+function getStreamStats()        { return { ..._state.streamStats }; }
 
 function setChannel(channel) {
   if (!channel || !channel.id) return;
@@ -79,6 +95,31 @@ function bumpFollowerCount(channelId, delta) {
   return next;
 }
 
+function setSettings(settings) {
+  _state.settings = settings;
+}
+
+function addActivity(item) {
+  _state.activity.unshift(item);
+  if (_state.activity.length > 80) _state.activity.length = 80;
+}
+
+function clearActivity() {
+  _state.activity = [];
+}
+
+function setVideos(videos) {
+  _state.videos = Array.isArray(videos) ? videos.slice() : [];
+}
+
+function setStreamStats(stats) {
+  _state.streamStats = {
+    viewers: Math.max(0, Number(stats?.viewers) | 0),
+    online: Math.max(0, Number(stats?.online) | 0),
+    updatedAt: Number(stats?.updatedAt) || Date.now(),
+  };
+}
+
 /**
  * Weighted random pick from a comment pool. Returns null when empty.
  */
@@ -102,10 +143,19 @@ module.exports = {
   getPhotoState,
   getAllFollowerCounts,
   getFollowerCount,
+  getSettings,
+  getActivity,
+  getVideos,
+  getStreamStats,
   setChannel,
   setCommentPool,
   setPhotoState,
   setFollowerCount,
   bumpFollowerCount,
+  setSettings,
+  addActivity,
+  clearActivity,
+  setVideos,
+  setStreamStats,
   pickComment,
 };

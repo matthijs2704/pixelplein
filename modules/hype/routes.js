@@ -26,11 +26,15 @@ function createPublicRouter(ctx) {
         if (tags?.channel) channelByPhotoId[photoId] = tags.channel;
       }
       res.json({
+        settings: state.getSettings(),
         channels,
         pools,
         followers: state.getAllFollowerCounts(),
         photoStates,
         channelByPhotoId,
+        activity: state.getActivity(),
+        videos: state.getVideos(),
+        streamStats: state.getStreamStats(),
       });
     } catch (err) {
       res.status(500).json({ error: err.message });
@@ -42,6 +46,109 @@ function createPublicRouter(ctx) {
 
 function createAdminRouter(ctx, engine) {
   const router = express.Router();
+
+  router.get('/snapshot', (_req, res) => {
+    res.json({
+      settings: state.getSettings(),
+      channels: state.getChannels(),
+      followers: state.getAllFollowerCounts(),
+      activity: state.getActivity(),
+      videos: state.getVideos(),
+      streamStats: state.getStreamStats(),
+    });
+  });
+
+  router.patch('/settings', async (req, res) => {
+    try {
+      res.json(await engine.updateSettings(req.body || {}));
+    } catch (err) {
+      res.status(500).json({ error: err.message });
+    }
+  });
+
+  router.post('/launch', async (_req, res) => {
+    try {
+      res.json(await engine.launchPlatform());
+    } catch (err) {
+      res.status(500).json({ error: err.message });
+    }
+  });
+
+  router.post('/reset-prelaunch', async (_req, res) => {
+    try {
+      res.json(await engine.resetPreLaunch());
+    } catch (err) {
+      res.status(500).json({ error: err.message });
+    }
+  });
+
+  router.post('/power-off', async (req, res) => {
+    try {
+      res.json(await engine.powerOff({ message: req.body?.message }));
+    } catch (err) {
+      res.status(500).json({ error: err.message });
+    }
+  });
+
+  router.post('/restart', async (_req, res) => {
+    try {
+      res.json(await engine.restartPlatform());
+    } catch (err) {
+      res.status(500).json({ error: err.message });
+    }
+  });
+
+  router.post('/morning-check', async (req, res) => {
+    try {
+      res.json(await engine.morningCheck({
+        day: req.body?.day,
+        featuredBump: req.body?.featuredBump,
+        ambientBump: req.body?.ambientBump,
+      }));
+    } catch (err) {
+      res.status(500).json({ error: err.message });
+    }
+  });
+
+  router.post('/activity', async (req, res) => {
+    const text = String(req.body?.text || '').trim();
+    if (!text) return res.status(400).json({ error: 'text required' });
+    try {
+      res.status(201).json(await engine.addActivity({
+        kind: req.body?.kind || 'juice',
+        actorType: req.body?.actorType || 'manual',
+        actorId: req.body?.actorId || null,
+        photoId: req.body?.photoId || null,
+        text: text.slice(0, 280),
+      }));
+    } catch (err) {
+      res.status(500).json({ error: err.message });
+    }
+  });
+
+  router.get('/videos', (_req, res) => {
+    res.json(state.getVideos());
+  });
+
+  router.put('/videos', async (req, res) => {
+    const filename = String(req.body?.filename || '').trim();
+    if (!filename) return res.status(400).json({ error: 'filename required' });
+    try {
+      const saved = await hypeDb.upsertVideo(ctx.db, {
+        id: Number(req.body?.id) || null,
+        slideId: req.body?.slideId || null,
+        filename,
+        label: String(req.body?.label || filename).slice(0, 120),
+        placement: req.body?.placement === 'stream' ? 'stream' : 'post',
+        active: req.body?.active !== false,
+      });
+      state.setVideos(await hypeDb.listVideos(ctx.db));
+      ctx.broadcast({ type: 'hype:videos_update', videos: state.getVideos() });
+      res.json(saved);
+    } catch (err) {
+      res.status(500).json({ error: err.message });
+    }
+  });
 
   /* ── Channels CRUD ────────────────────────────────────────────────── */
   router.get('/channels', (_req, res) => {
@@ -57,9 +164,9 @@ function createAdminRouter(ctx, engine) {
       name:           String(body.name || '').slice(0, 80),
       handle:         String(body.handle || '').slice(0, 40),
       color:          String(body.color || '#888888').slice(0, 16),
-      emoji:          String(body.emoji || '').slice(0, 8),
+      avatar_url:     String(body.avatar_url || body.avatarUrl || '').slice(0, 500),
       follower_base:  Math.max(0, Number(body.follower_base) | 0),
-      growth_rate:    Math.max(0, Number(body.growth_rate) || 0),
+      featured_days:  [],
     };
     if (!channel.name || !channel.handle) return res.status(400).json({ error: 'name and handle required' });
     try {

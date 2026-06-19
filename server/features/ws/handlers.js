@@ -316,7 +316,7 @@ function handleMessage(ws, msg) {
     const readyPhotos = getReadyPhotos();
     const serverIds = new Set(readyPhotos.map(p => p.id));
 
-    const toAdd = readyPhotos.filter(p => !knownIds.has(p.id));
+    const toAdd = readyPhotos;
     const toRemove = Array.from(knownIds).filter(id => !serverIds.has(id));
 
     const BATCH_SIZE = 50;

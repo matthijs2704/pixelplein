@@ -5,7 +5,7 @@
 import { el, photoUrl } from '/shared/utils.js';
 import { applySmartFit } from '/screen/fit.js';
 import { startKenBurns } from '/screen/transitions.js';
-import { getChannels, getPhotoChannel, getChannel } from '../state-client.js';
+import { getPhotoChannel, getChannel, getGeneralAccount } from '../state-client.js';
 
 export const layout = {
   id:        'hype:story',
@@ -27,9 +27,8 @@ function _build(photo) {
   const root = el('div', { cls: 'layout layout-hype-story' });
   if (!photo) return { el: root, visibleIds: [], startMotion: () => {} };
 
-  const channels = getChannels();
   const chId = getPhotoChannel(photo.id);
-  const ch = (chId && getChannel(chId)) || channels[0] || null;
+  const ch = (chId && getChannel(chId)) || getGeneralAccount();
 
   // Progress bar (decorative — animates with layout duration via CSS var)
   const progressBar = el('div', { cls: 'hype-story-progress' });
@@ -41,7 +40,12 @@ function _build(photo) {
   if (ch) {
     const header = el('div', { cls: 'hype-story-header' });
     header.style.setProperty('--ch-color', ch.color || '#7c5cff');
-    header.appendChild(el('div', { cls: 'hype-story-avatar', text: ch.emoji || '✨' }));
+    const avatar = el('div', { cls: 'hype-story-avatar', text: String(ch.name || ch.handle || '?').charAt(0).toUpperCase() });
+    if (ch.avatarUrl || ch.avatar_url) {
+      avatar.textContent = '';
+      avatar.appendChild(el('img', { src: ch.avatarUrl || ch.avatar_url, alt: '' }));
+    }
+    header.appendChild(avatar);
     header.appendChild(el('div', { cls: 'hype-story-meta' },
       el('div', { cls: 'hype-story-handle', text: ch.handle }),
       el('div', { cls: 'hype-story-time',   text: 'nu' }),

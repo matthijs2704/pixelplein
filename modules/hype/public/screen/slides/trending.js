@@ -21,10 +21,10 @@ function _topChannels(limit = 3) {
 function _headlines() {
   const lines = [];
   const top = _topChannels(1)[0];
-  if (top) lines.push(`🔥 ${top.handle} is trending`);
+  if (top) lines.push(`${top.handle} is trending`);
   for (const c of getRecentCommentsAny(8)) {
     const ch = c.channelId ? getChannel(c.channelId) : null;
-    lines.push(`${ch?.emoji || '✨'} ${c.author}: ${c.text}`);
+    lines.push(`${ch?.handle || '@kamp_live'} ${c.author}: ${c.text}`);
   }
   if (lines.length < 4) lines.push('De Hype is live  •  blijf posten!');
   return lines;
@@ -55,7 +55,12 @@ export function buildTrendingSlide(slide) {
       const card = el('div', { cls: `hype-trend-card rank-${idx + 1}` });
       card.style.setProperty('--ch-color', ch.color || '#7c5cff');
       card.appendChild(el('div', { cls: 'hype-trend-rank', text: `#${idx + 1}` }));
-      card.appendChild(el('div', { cls: 'hype-trend-emoji', text: ch.emoji || '✨' }));
+      const avatar = el('div', { cls: 'hype-trend-avatar', text: String(ch.name || ch.handle || '?').charAt(0).toUpperCase() });
+      if (ch.avatar_url) {
+        avatar.textContent = '';
+        avatar.appendChild(el('img', { src: ch.avatar_url, alt: '' }));
+      }
+      card.appendChild(avatar);
       card.appendChild(el('div', { cls: 'hype-trend-name',   text: ch.name }));
       card.appendChild(el('div', { cls: 'hype-trend-handle', text: ch.handle }));
       card.appendChild(el('div', { cls: 'hype-trend-foll',   text: `${ch.followers.toLocaleString('nl-NL')} volgers` }));

@@ -6,13 +6,22 @@
 // subscribes to "change" events to re-render.
 
 const _state = {
-  channels: [],                  // [{ id, name, handle, color, emoji, ... }]
+  channels: [],                  // [{ id, name, handle, color, avatar_url, ... }]
   channelById: new Map(),
   pools: {},                     // channelId -> [{ text, weight }]
   followers: {},                 // channelId -> count
   photoState: new Map(),         // photoId -> { likes, viral }
   channelByPhotoId: new Map(),   // photoId -> channelId
   recentComments: [],            // [{ photoId, channelId, author, text, ts }] (rolling 30)
+  settings: {
+    mode: 'normal',
+    launchActive: false,
+    generalAccount: { name: 'Kamp Live', handle: '@kamp_live', color: '#2bc1ff', avatarUrl: '' },
+    streamStats: { viewers: 247, online: 88, updatedAt: 0 },
+  },
+  activity: [],
+  videos: [],
+  streamStats: { viewers: 247, online: 88, updatedAt: 0 },
   ready: false,
 };
 
@@ -33,8 +42,8 @@ export function getChannels()             { return _state.channels.slice(); }
 export function getChannel(id)            { return _state.channelById.get(id) || null; }
 export function getFollowerCount(id)      { return _state.followers[id] | 0; }
 export function getAllFollowers()         { return { ..._state.followers }; }
-export function getPhotoLikes(photoId)    { return _state.photoState.get(photoId)?.likes | 0; }
-export function getPhotoViral(photoId)    { return !!_state.photoState.get(photoId)?.viral; }
+export function getPhotoLikes(photoId)    { const st = _state.photoState.get(photoId); return st ? (st.likes | 0) : 0; }
+export function getPhotoViral(photoId)    { const st = _state.photoState.get(photoId); return !!(st && st.viral); }
 export function getPhotoChannel(photoId)  { return _state.channelByPhotoId.get(photoId) || null; }
 export function getRecentComments(photoId, limit = 5) {
   return _state.recentComments
@@ -43,6 +52,14 @@ export function getRecentComments(photoId, limit = 5) {
 }
 export function getRecentCommentsAny(limit = 10) {
   return _state.recentComments.slice(0, limit);
+}
+export function getSettings() { return { ..._state.settings, generalAccount: { ..._state.settings.generalAccount } }; }
+export function getGeneralAccount() { return { ..._state.settings.generalAccount }; }
+export function getActivity(limit = 30) { return _state.activity.slice(0, limit); }
+export function getVideos() { return _state.videos.slice(); }
+export function getActor(id) {
+  if (!id) return getGeneralAccount();
+  return getChannel(id) || getGeneralAccount();
 }
 export function isReady() { return _state.ready; }
 
@@ -56,6 +73,7 @@ export async function hydrate() {
     const res = await fetch('/api/modules/hype/snapshot', { credentials: 'same-origin' });
     if (!res.ok) throw new Error(`snapshot ${res.status}`);
     const snap = await res.json();
+    if (snap.settings) _state.settings = { ..._state.settings, ...snap.settings };
     _ingestChannels(snap.channels);
     _state.pools = snap.pools || {};
     _state.followers = snap.followers || {};
@@ -63,6 +81,12 @@ export async function hydrate() {
       (snap.photoStates || []).map(p => [p.photo_id, { likes: p.likes | 0, viral: !!p.viral }]),
     );
     _state.channelByPhotoId = new Map(Object.entries(snap.channelByPhotoId || {}));
+    _state.activity = Array.isArray(snap.activity) ? snap.activity.slice() : [];
+    _state.videos = Array.isArray(snap.videos) ? snap.videos.slice() : [];
+    if (snap.streamStats) {
+      _state.streamStats = { ..._state.streamStats, ...snap.streamStats };
+      _state.settings.streamStats = { ..._state.streamStats };
+    }
     _state.ready = true;
     _emit({ kind: 'hydrate' });
   } catch (err) {
@@ -98,6 +122,44 @@ export function handleWsMessage(msg) {
   if (sub === 'followers_update') {
     _state.followers = { ..._state.followers, ...(msg.counts || {}) };
     _emit({ kind: 'followers' });
+    return;
+  }
+
+  if (sub === 'settings_update') {
+    _state.settings = { ..._state.settings, ...(msg.settings || {}) };
+    _emit({ kind: 'settings' });
+    return;
+  }
+
+  if (sub === 'activity') {
+    if (msg.item) _state.activity.unshift(msg.item);
+    if (_state.activity.length > 80) _state.activity.length = 80;
+    _emit({ kind: 'activity' });
+    return;
+  }
+
+  if (sub === 'activity_reset') {
+    _state.activity = Array.isArray(msg.activity) ? msg.activity.slice() : [];
+    _emit({ kind: 'activity' });
+    return;
+  }
+
+  if (sub === 'launch') {
+    if (msg.settings) _state.settings = { ..._state.settings, ...msg.settings };
+    _emit({ kind: 'launch' });
+    return;
+  }
+
+  if (sub === 'videos_update') {
+    _state.videos = Array.isArray(msg.videos) ? msg.videos.slice() : [];
+    _emit({ kind: 'videos' });
+    return;
+  }
+
+  if (sub === 'stream_stats') {
+    _state.streamStats = { ..._state.streamStats, ...(msg.stats || {}) };
+    _state.settings.streamStats = { ..._state.streamStats };
+    _emit({ kind: 'stream_stats' });
     return;
   }
 

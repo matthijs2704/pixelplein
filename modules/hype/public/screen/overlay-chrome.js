@@ -10,13 +10,15 @@
 import { onScreenEvent } from '/screen/module-registry.js';
 import {
   getChannel,
-  getChannels,
+  getGeneralAccount,
   getPhotoChannel,
   getPhotoLikes,
   getPhotoViral,
   getRecentComments,
   onHypeChange,
 } from './state-client.js';
+import { icon, monogramAvatar } from './icons.js';
+import { fmtCount } from './format.js';
 
 const ATTR_OWNED = 'data-hype-chrome';
 let _mounted = false;
@@ -24,17 +26,10 @@ let _offEvent = null;
 let _offState = null;
 let _commentTimer = null;
 
-function _fmtLikes(n) {
-  if (n >= 10_000) return Math.round(n / 1000) + 'K';
-  if (n >= 1000)   return (n / 1000).toFixed(1) + 'K';
-  return String(n | 0);
-}
-
 function _resolveChannel(photoId) {
   const id = getPhotoChannel(photoId);
   if (id) return getChannel(id);
-  const channels = getChannels();
-  return channels[0] || null;
+  return getGeneralAccount();
 }
 
 function _ensureBadge(img) {
@@ -56,8 +51,9 @@ function _ensureBadge(img) {
   const ch = _resolveChannel(photoId);
   if (ch) {
     badge.style.setProperty('--ch-color', ch.color || '#7c5cff');
-    badge.innerHTML = `<span class="hype-chrome-badge-emoji">${ch.emoji || '✨'}</span>` +
-                      `<span class="hype-chrome-badge-handle">${escapeHtml(ch.handle || '')}</span>`;
+    badge.innerHTML = monogramAvatar(ch.name, ch.color, 28) +
+      `<span class="hype-chrome-badge-handle">${escapeHtml(ch.handle || '')}</span>` +
+      `<span class="hype-chrome-verified">${icon.verified(14)}</span>`;
   }
 
   let counter = parent.querySelector(`:scope > [${ATTR_OWNED}="likes"]`);
@@ -65,20 +61,20 @@ function _ensureBadge(img) {
     counter = document.createElement('div');
     counter.setAttribute(ATTR_OWNED, 'likes');
     counter.className = 'hype-chrome-likes';
-    counter.innerHTML = `<span class="hype-chrome-heart">♥</span><span class="hype-chrome-likes-num"></span>`;
+    counter.innerHTML = `<span class="hype-chrome-heart">${icon.heartFill(16)}</span><span class="hype-chrome-likes-num"></span>`;
     parent.appendChild(counter);
   }
   const num = counter.querySelector('.hype-chrome-likes-num');
-  if (num) num.textContent = _fmtLikes(getPhotoLikes(photoId));
+  if (num) num.textContent = fmtCount(getPhotoLikes(photoId));
 
-  // Viral badge
+  // Viral badge uses the module icon set.
   const isViral = getPhotoViral(photoId);
   let viral = parent.querySelector(`:scope > [${ATTR_OWNED}="viral"]`);
   if (isViral && !viral) {
     viral = document.createElement('div');
     viral.setAttribute(ATTR_OWNED, 'viral');
     viral.className = 'hype-chrome-viral';
-    viral.textContent = '🔥 viral';
+    viral.innerHTML = `${icon.flame(14)}<span>viral</span>`;
     parent.appendChild(viral);
   } else if (!isViral && viral) {
     viral.remove();

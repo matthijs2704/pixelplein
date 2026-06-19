@@ -53,8 +53,13 @@ export function buildFollowersSlide(slide) {
       if (cards.has(ch.id)) continue;
       const card = el('div', { cls: 'hype-foll-card' });
       card.style.setProperty('--ch-color', ch.color || '#7c5cff');
+      const avatar = el('div', { cls: 'hype-foll-avatar', text: String(ch.name || ch.handle || '?').charAt(0).toUpperCase() });
+      if (ch.avatar_url) {
+        avatar.textContent = '';
+        avatar.appendChild(el('img', { src: ch.avatar_url, alt: '' }));
+      }
       const top = el('div', { cls: 'hype-foll-top' },
-        el('div', { cls: 'hype-foll-emoji', text: ch.emoji || '✨' }),
+        avatar,
         el('div', { cls: 'hype-foll-meta' },
           el('div', { cls: 'hype-foll-name',   text: ch.name }),
           el('div', { cls: 'hype-foll-handle', text: ch.handle }),

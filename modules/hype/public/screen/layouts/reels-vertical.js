@@ -4,7 +4,8 @@
 import { el, photoUrl } from '/shared/utils.js';
 import { applySmartFit } from '/screen/fit.js';
 import { startKenBurns } from '/screen/transitions.js';
-import { getChannels, getPhotoChannel, getChannel, getPhotoLikes } from '../state-client.js';
+import { getPhotoChannel, getChannel, getGeneralAccount, getPhotoLikes } from '../state-client.js';
+import { icon } from '../icons.js';
 
 function _fmt(n) {
   if (n >= 10_000) return Math.round(n / 1000) + 'K';
@@ -41,9 +42,8 @@ function _build(photo) {
   stage.appendChild(img);
 
   // Channel info bottom-left
-  const channels = getChannels();
   const chId = getPhotoChannel(photo.id);
-  const ch = (chId && getChannel(chId)) || channels[0] || null;
+  const ch = (chId && getChannel(chId)) || getGeneralAccount();
   if (ch) {
     const info = el('div', { cls: 'hype-reels-info' });
     info.style.setProperty('--ch-color', ch.color || '#7c5cff');
@@ -56,17 +56,20 @@ function _build(photo) {
   const rail = el('div', { cls: 'hype-reels-rail' });
   const likes = getPhotoLikes(photo.id);
   rail.appendChild(el('div', { cls: 'hype-reels-rail-btn' },
-    el('div', { cls: 'hype-reels-rail-icon', text: '♥' }),
+    el('div', { cls: 'hype-reels-rail-icon', attrs: { 'aria-label': 'likes' } }),
     el('div', { cls: 'hype-reels-rail-num',  text: _fmt(likes) }),
   ));
+  rail.lastChild.firstChild.innerHTML = icon.heartFill(28);
   rail.appendChild(el('div', { cls: 'hype-reels-rail-btn' },
-    el('div', { cls: 'hype-reels-rail-icon', text: '💬' }),
+    el('div', { cls: 'hype-reels-rail-icon', attrs: { 'aria-label': 'comments' } }),
     el('div', { cls: 'hype-reels-rail-num',  text: _fmt(Math.max(1, Math.round(likes / 12))) }),
   ));
+  rail.lastChild.firstChild.innerHTML = icon.comment(28);
   rail.appendChild(el('div', { cls: 'hype-reels-rail-btn' },
-    el('div', { cls: 'hype-reels-rail-icon', text: '↗' }),
+    el('div', { cls: 'hype-reels-rail-icon', attrs: { 'aria-label': 'share' } }),
     el('div', { cls: 'hype-reels-rail-num',  text: 'deel' }),
   ));
+  rail.lastChild.firstChild.innerHTML = icon.send(28);
   stage.appendChild(rail);
 
   root.appendChild(stage);

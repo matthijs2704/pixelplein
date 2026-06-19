@@ -1,13 +1,13 @@
 'use strict';
 
-// Default channels seeded on first migrate. Cubs camp "De Hype" needs 4
-// channels with distinct personalities/visuals so kids recognize them.
+// Default channels seeded on first migrate. Cubs camp "De Hype" needs channels
+// with distinct personalities/visuals so kids recognize them.
 const DEFAULT_CHANNELS = [
-  { id: 'chnl_natuur', name: 'Dusty in het Wild', handle: '@dustywild',     color: '#3fa66b', emoji: '🦎', follower_base: 24800, growth_rate: 1.4 },
-  { id: 'chnl_kook',   name: 'Jochem Kookt',      handle: '@jochemkookt',   color: '#ff8a3d', emoji: '🍳', follower_base: 18200, growth_rate: 1.1 },
-  { id: 'chnl_game',   name: 'CJ Plays',          handle: '@cjplays',       color: '#7c5cff', emoji: '🎮', follower_base: 31500, growth_rate: 1.7 },
-  { id: 'chnl_beauty', name: 'Roos Beauty',       handle: '@roosbeauty',    color: '#ff5b8a', emoji: '💄', follower_base: 27300, growth_rate: 1.5 },
-  { id: 'chnl_fit',    name: 'FitDuo F&S',        handle: '@fitduofs',      color: '#4ec9b0', emoji: '💪', follower_base: 14600, growth_rate: 1.3 },
+  { id: 'chnl_natuur', name: 'Dusty in het Wild', handle: '@dustywild',  color: '#3fa66b', avatar_url: '', follower_base: 24800, featured_days: [] },
+  { id: 'chnl_kook',   name: 'Jochem Kookt',      handle: '@jochemkookt', color: '#ff8a3d', avatar_url: '', follower_base: 18200, featured_days: [] },
+  { id: 'chnl_game',   name: 'CJ Plays',          handle: '@cjplays',    color: '#7c5cff', avatar_url: '', follower_base: 31500, featured_days: [] },
+  { id: 'chnl_beauty', name: 'Roos Beauty',       handle: '@roosbeauty', color: '#ff5b8a', avatar_url: '', follower_base: 27300, featured_days: [] },
+  { id: 'chnl_fit',    name: 'FitDuo F&S',        handle: '@fitduofs',   color: '#4ec9b0', avatar_url: '', follower_base: 14600, featured_days: [] },
 ];
 
 // Per-channel comment pool: weighted snippets the engine injects on photos.
@@ -53,14 +53,50 @@ const DEFAULT_COMMENT_POOLS = {
 // Engine tuning. Tweak via /api/modules/hype/config later if needed.
 const DEFAULT_ENGINE = {
   tickMs: 4000,
+  activityTickMs: 7000,
   baseLikesPerTick: 1.5,       // visible-photo baseline
+  generalLikesPerTick: 0.9,
   viralMultiplier: 4.0,
   commentChancePerTick: 0.12,  // per visible photo
+  chatChancePerTick: 0.45,
   viralCommentBoost: 2.5,
+};
+
+const DEFAULT_SETTINGS = {
+  // Operator-controlled. platformOff persists across server restart.
+  mode: 'normal',
+  platformOff: false,
+  // True for fresh installs — screens show a pre-launch idle teaser until
+  // admin clicks Launch for the first time. Persists across restarts so
+  // re-opening the server doesn't accidentally re-arm the teaser.
+  preLaunch: true,
+  launchActive: false,
+  generalAccount: {
+    name: 'Kamp Live',
+    handle: '@kamp_live',
+    color: '#2bc1ff',
+    avatarUrl: '',
+  },
+  feedMix: {
+    generalWeight: 2,
+    influencerWeight: 1,
+  },
+  contentProvider: 'template',
+  activeVideo: null,
+  stream: {
+    enabled: false,
+    sourceType: 'video',
+    videoId: null,
+    url: '',
+    deviceId: '',
+    title: 'Keuken Live',
+    subtitle: 'live vanaf het kamp',
+  },
 };
 
 module.exports = {
   DEFAULT_CHANNELS,
   DEFAULT_COMMENT_POOLS,
   DEFAULT_ENGINE,
+  DEFAULT_SETTINGS,
 };

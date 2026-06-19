@@ -117,7 +117,7 @@ function _buildScreenForm(screenKey, cfg, globalCfg) {
       ${_range(screenKey, 'layoutDuration', 'Display duration', 3000, 30000, 500, s.layoutDuration ?? 8000, v => (v/1000).toFixed(1)+'s')}
       ${_range(screenKey, 'transitionTime', 'Transition speed', 200, 2000, 100, s.transitionTime ?? 800, v => v+'ms')}
       ${_toggleGroup(screenKey, 'enabledLayouts', 'Enabled layouts',
-          (globalCfg?.availableLayouts || Object.keys(LAYOUT_LABELS)).map(id => [id, LAYOUT_LABELS[id] || id]),
+          (globalCfg?.availableLayouts || Object.keys(LAYOUT_LABELS)).map(id => [id, LAYOUT_LABELS[id] || globalCfg?.moduleLayoutLabels?.[id] || id]),
           s.enabledLayouts || globalCfg?.availableLayouts || Object.keys(LAYOUT_LABELS))}
       ${_select(screenKey, 'transition', 'Transition animation',
           [['fade','Fade'],['slide','Slide'],['zoom','Zoom']], s.transition || 'fade')}

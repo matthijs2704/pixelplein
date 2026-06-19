@@ -32,7 +32,12 @@ function _build(photos) {
   const header = el('div', { cls: 'hype-pg-header' });
   if (ch) {
     header.style.setProperty('--ch-color', ch.color || '#7c5cff');
-    header.appendChild(el('div', { cls: 'hype-pg-avatar', text: ch.emoji || '✨' }));
+    const avatar = el('div', { cls: 'hype-pg-avatar', text: String(ch.name || ch.handle || '?').charAt(0).toUpperCase() });
+    if (ch.avatar_url) {
+      avatar.textContent = '';
+      avatar.appendChild(el('img', { src: ch.avatar_url, alt: '' }));
+    }
+    header.appendChild(avatar);
     header.appendChild(el('div', { cls: 'hype-pg-meta' },
       el('div', { cls: 'hype-pg-handle', text: ch.handle }),
       el('div', { cls: 'hype-pg-name',   text: ch.name }),

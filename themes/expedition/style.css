@@ -1,0 +1,16 @@
+/* ── Expeditie theme ─────────────────────────────────────────────────────────
+   The expedition layout owns all chrome (top bar, route map, info card).
+   Theme only sets the base canvas: no padding, dark fallback background.
+────────────────────────────────────────────────────────────────────────────── */
+
+:root {
+  --screen-padding-top:    0px;
+  --screen-padding-right:  0px;
+  --screen-padding-bottom: 0px;
+  --screen-padding-left:   0px;
+
+  --screen-bg: #1a1a0a;
+
+  --tile-radius: 8px;
+  --tile-gap:    clamp(4px, 0.4vw, 10px);
+}

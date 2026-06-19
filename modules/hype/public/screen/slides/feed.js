@@ -1,5 +1,5 @@
 // "hype-feed" slide — IG-style "Activity" feed driven by the live
-// engine. Each card shows: channel emoji/handle, recent comment text,
+// engine. Each card shows: channel handle, recent comment text,
 // current like count for the photo. No image fetch (screens lack admin
 // auth for /api/photos); the visual photos live in the photo wall +
 // chrome overlay. This slide is the "look at all this engagement" view.
@@ -13,6 +13,7 @@ import {
   getRecentCommentsAny,
   onHypeChange,
 } from '../state-client.js';
+import { icon } from '../icons.js';
 
 const MAX_CARDS = 16;
 
@@ -28,7 +29,7 @@ function _placeholderCards(scope) {
   return channels.map(ch => ({
     channelId: ch.id,
     author:    ch.handle,
-    text:      `${ch.name} is live op De Hype 🎉`,
+    text:      `${ch.name} is live op De Hype`,
     photoId:   '',
     ts:        Date.now(),
   }));
@@ -61,14 +62,13 @@ export function buildFeedSlide(slide) {
       card.style.setProperty('--ch-color', ch?.color || '#7c5cff');
 
       const head = el('div', { cls: 'hype-feed-head' },
-        el('div', { cls: 'hype-feed-emoji', text: ch?.emoji || '✨' }),
         el('div', { cls: 'hype-feed-meta' },
           el('div', { cls: 'hype-feed-handle', text: ch?.handle || '@hype' }),
           el('div', { cls: 'hype-feed-name',   text: ch?.name || 'De Hype' }),
         ),
         likes
           ? el('div', { cls: 'hype-feed-likes' },
-              el('span', { cls: 'hype-feed-heart', text: '♥' }),
+              el('span', { cls: 'hype-feed-heart' }),
               el('span', { text: _fmtLikes(likes) }),
             )
           : null,
@@ -80,6 +80,8 @@ export function buildFeedSlide(slide) {
       );
 
       card.appendChild(head);
+      const heart = card.querySelector('.hype-feed-heart');
+      if (heart) heart.innerHTML = icon.heartFill(16);
       card.appendChild(body);
       track.appendChild(card);
     }

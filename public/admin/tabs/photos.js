@@ -293,6 +293,31 @@ function _renderGrid() {
       }
     });
   });
+
+  grid.querySelectorAll('.photo-group-select').forEach(sel => {
+    sel.addEventListener('change', async e => {
+      e.stopPropagation();
+      const id = sel.dataset.id;
+      let newGroup = sel.value;
+
+      if (newGroup === '__new__') {
+        newGroup = prompt('New group name:')?.trim() || '';
+        if (!newGroup) { _renderGrid(); return; }
+      }
+
+      try {
+        await patchPhoto(id, { eventGroup: newGroup === 'ungrouped' ? null : newGroup });
+        const p = _photos.find(p => p.id === id);
+        if (p) p.eventGroup = newGroup === 'ungrouped' ? null : newGroup;
+        _groups = _deriveGroupsFromPhotos();
+        _renderGrid();
+        if (_onReload) _onReload();
+      } catch (err) {
+        alert(`Group update failed: ${err.message}`);
+        _renderGrid();
+      }
+    });
+  });
 }
 
 function _renderPhotoCard(photo) {
@@ -302,6 +327,8 @@ function _renderPhotoCard(photo) {
   const heroClass = photo.heroCandidate ? 'active' : '';
   const imgSrc    = photo.thumbUrl || photo.displayUrl || photo.url || '';
   const fullSrc   = photo.displayUrl || photo.url || photo.thumbUrl || '';
+  const curGroup  = photo.eventGroup || 'ungrouped';
+  const allGroups = [...new Set([..._groups, curGroup])].sort();
 
   return `
     <div class="photo-card" data-id="${esc(photo.id)}">
@@ -323,7 +350,10 @@ function _renderPhotoCard(photo) {
       </div>
       <div class="photo-info">
         <span class="photo-name">${esc(photo.name)}</span>
-        <span class="photo-group">${esc(photo.eventGroup)}</span>
+        <select class="photo-group-select" data-id="${esc(photo.id)}" title="Move to group">
+          ${allGroups.map(g => `<option value="${esc(g)}" ${g === curGroup ? 'selected' : ''}>${esc(g)}</option>`).join('')}
+          <option value="__new__">+ new group…</option>
+        </select>
       </div>
     </div>`;
 }

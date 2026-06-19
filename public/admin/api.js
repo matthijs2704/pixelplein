@@ -45,11 +45,11 @@ export async function loadPhotos() {
   return apiFetch('/api/photos');
 }
 
-export async function patchPhoto(id, { heroCandidate }) {
+export async function patchPhoto(id, patch) {
   return apiFetch(`/api/photos/${encodeURIComponent(id)}`, {
     method: 'PATCH',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ heroCandidate }),
+    body: JSON.stringify(patch),
   });
 }
 

@@ -11,6 +11,7 @@ import {
   registerOverlay,
   registerAlertRenderer,
   registerWsHandler,
+  registerScreenTakeover,
 } from '/screen/module-registry.js';
 
 import { buildFollowersSlide } from './slides/followers.js';
@@ -22,13 +23,17 @@ import { layout as storyLayout         } from './layouts/story.js';
 import { layout as reelsVerticalLayout } from './layouts/reels-vertical.js';
 
 import { overlay as chromeOverlay } from './overlay-chrome.js';
+import { takeover as socialOnlyTakeover } from './social-dashboard.js';
 
-import { renderGlitchAlert   } from './alerts/glitch.js';
-import { renderHackerAlert   } from './alerts/hacker.js';
-import { renderOfflineAlert  } from './alerts/offline.js';
-import { renderComebackAlert } from './alerts/comeback.js';
+import { renderGlitchAlert  } from './alerts/glitch.js';
+import { renderHackerAlert  } from './alerts/hacker.js';
+import { renderOfflineAlert } from './alerts/offline.js';
+import { renderRestartAlert } from './alerts/restart.js';
+import { renderLaunchAlert  } from './alerts/launch.js';
+import { renderPreLaunchAlert } from './alerts/prelaunch.js';
 
 import { hydrate, handleWsMessage } from './state-client.js';
+import { ensureAudioUnlock } from './audio-unlock.js';
 
 function _loadStyle() {
   if (document.getElementById('hype-style')) return;
@@ -41,6 +46,7 @@ function _loadStyle() {
 
 export async function register() {
   _loadStyle();
+  ensureAudioUnlock();
 
   // Slide builders
   registerSlideBuilder('hype-followers', buildFollowersSlide);
@@ -54,12 +60,15 @@ export async function register() {
 
   // Chrome overlay
   registerOverlay(chromeOverlay);
+  registerScreenTakeover(socialOnlyTakeover);
 
   // Alert renderers
-  registerAlertRenderer('hype-glitch',   renderGlitchAlert);
-  registerAlertRenderer('hype-hacker',   renderHackerAlert);
-  registerAlertRenderer('hype-offline',  renderOfflineAlert);
-  registerAlertRenderer('hype-comeback', renderComebackAlert);
+  registerAlertRenderer('hype-launch',  renderLaunchAlert);
+  registerAlertRenderer('hype-glitch',  renderGlitchAlert);
+  registerAlertRenderer('hype-hacker',  renderHackerAlert);
+  registerAlertRenderer('hype-offline', renderOfflineAlert);
+  registerAlertRenderer('hype-restart', renderRestartAlert);
+  registerAlertRenderer('hype-prelaunch', renderPreLaunchAlert);
 
   // WS namespace router: anything with type "hype:*" lands here.
   registerWsHandler('hype', handleWsMessage);

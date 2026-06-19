@@ -3,6 +3,7 @@
 const fs = require('fs');
 const fsp = require('fs').promises;
 const path = require('path');
+const loader = require('./modules/loader');
 
 // Config lives in the data directory so it persists in the Docker named
 // volume alongside the database — no bind-mount required.
@@ -605,7 +606,9 @@ function sanitizeScreenConfig(input, base) {
 
       case 'stringArray': {
         const allowed  = spec.allowed;
-        const filter   = v => (Array.isArray(allowed) ? allowed.includes(v) : allowed.has(v));
+        // Module layout IDs use "module:id" format — always allowed regardless of load order.
+        const filter   = v => (Array.isArray(allowed) ? allowed.includes(v) : allowed.has(v))
+          || (key === 'enabledLayouts' && /^[a-z0-9_-]+:[a-z0-9_-]+$/i.test(v));
         const filtered = Array.isArray(value) ? value.filter(filter) : [];
         if (filtered.length) {
           next[key] = filtered;
@@ -1071,7 +1074,11 @@ function getPublicConfig() {
   } = config;
   return {
     ...rest,
-    availableLayouts: SCREEN_CONFIG_SCHEMA.enabledLayouts.allowed,
+    availableLayouts: [
+      ...SCREEN_CONFIG_SCHEMA.enabledLayouts.allowed,
+      ...loader.getModuleScreenLayouts().keys(),
+    ],
+    moduleLayoutLabels: Object.fromEntries(loader.getModuleScreenLayouts()),
   };
 }
 

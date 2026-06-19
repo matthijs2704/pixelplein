@@ -29,7 +29,7 @@ import {
 import { getBottomInset } from '../overlays/index.js';
 import { getScreenCfg } from '../../shared/utils.js';
 import { TEMPLATE_DEFS } from '../templates.js';
-import { getModuleLayouts, emitScreenEvent } from '../module-registry.js';
+import { getModuleLayouts, getActiveScreenTakeover, onScreenEvent, emitScreenEvent } from '../module-registry.js';
 
 // ---------------------------------------------------------------------------
 // Constants
@@ -72,6 +72,7 @@ let _cycleTimer            = null;
 let _running               = false;
 let _photoCycleCount       = 0;       // completed photo cycles since last slide interleave
 let _lastSubmissionWallAt  = Date.now();
+let _requestCycleUnsub     = null;
 
 /** @type {Map<string, Object>} name → layout descriptor */
 let _layouts = new Map();
@@ -149,6 +150,9 @@ export function initCycle(container, screenId) {
   _container = container;
   _screenId  = screenId;
   _lifecycle = createLayoutLifecycle(container);
+  if (!_requestCycleUnsub) {
+    _requestCycleUnsub = onScreenEvent('layout:request-cycle', () => _scheduleCycle(0));
+  }
   initSlides(container, screenId);
 }
 
@@ -264,6 +268,12 @@ function _selectCandidates(cfg, poolSize) {
 async function runCycle() {
   await _layoutsReady;
 
+  // Merge any module layouts that registered after _loadLayouts() ran.
+  // Safe to call every cycle — just a Map read.
+  for (const [id, desc] of getModuleLayouts()) {
+    if (!_layouts.has(id)) _layouts.set(id, desc);
+  }
+
   if (!_running || !_config || !_lifecycle) {
     _scheduleCycle(NO_CONFIG_RETRY_MS);
     return;
@@ -296,6 +306,55 @@ async function runCycle() {
   }
 
   const cycleStart = Date.now();
+  const takeover = getActiveScreenTakeover({
+    cfg,
+    globalConfig: _globalConfig,
+    screenId: _screenId,
+    cycleStart,
+    displayState,
+  });
+  if (takeover) {
+    let built = null;
+    try {
+      built = await takeover.build({
+        cfg,
+        globalConfig: _globalConfig,
+        screenId: _screenId,
+        cycleStart,
+        displayState,
+      });
+    } catch (err) {
+      console.warn('[layouts] takeover failed:', takeover.id, err && err.message);
+    }
+
+    if (built?.el) {
+      const duration = built.duration || cfg.layoutDuration || DEFAULT_LAYOUT_DUR_MS;
+      const shown = await _lifecycle.showRenderable({
+        el: built.el,
+        onWillShow({ signal }) {
+          if (typeof built.startMotion === 'function') built.startMotion(duration, signal);
+        },
+        destroy: built.destroy || null,
+      }, transType, transMs);
+
+      if (!_running || !shown) return;
+
+      displayState.layoutType = takeover.id;
+      displayState.visibleIds = built.visibleIds || [];
+      displayState.lastCycleAt = cycleStart;
+      displayState.lastCycleDurationMs = Date.now() - cycleStart;
+      displayState.focusGroup = null;
+      emitScreenEvent('layout:cycle', {
+        layoutType: takeover.id,
+        visibleIds: displayState.visibleIds,
+        cycleStart,
+        duration,
+      });
+      _scheduleCycle(duration);
+      return;
+    }
+  }
+
   const submissionMode = _globalConfig?.submissionDisplayMode || 'off';
   const wallOptions = { ...getSubmissionWallOptions(), bottomInset: getBottomInset() };
   const wallState = getSubmissionWallState();
@@ -350,7 +409,7 @@ async function runCycle() {
     cfg = { ...cfg, _overrideDuration: scaled };
   }
 
-  const duration = cfg._overrideDuration || cfg.layoutDuration || DEFAULT_LAYOUT_DUR_MS;
+  const duration = built.duration || cfg._overrideDuration || cfg.layoutDuration || DEFAULT_LAYOUT_DUR_MS;
   const visibleIds = built.visibleIds || [];
   const startMotionAfterShow = resolvedType === 'submissionwall';
 
@@ -405,7 +464,7 @@ async function runCycle() {
       }).catch(() => {});
     },
     destroy: built.destroy || null,
-  }, transType, transMs);
+  }, built.transition || transType, built.transitionMs ?? transMs);
 
   if (!_running || !shown) return;
 
