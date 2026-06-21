@@ -1,16 +1,16 @@
-// Expedition admin tab — presenter remote for the "Van Maarn naar de wereld" display.
+// Fulco Festival 2026 admin tab — presenter remote for the "Van Maarn naar de wereld" display.
 // Shows 4 big stop buttons + auto/manual toggle.
 
 import { registerAdminTab, registerAdminWsHandler } from '/admin/module-registry.js';
 
-const API = '/api/modules/expedition';
+const API = '/api/modules/fulco-festival-2026';
 
 function _loadStyle() {
-  if (document.getElementById('expedition-admin-style')) return;
+  if (document.getElementById('fulco-festival-2026-admin-style')) return;
   const link = document.createElement('link');
-  link.id   = 'expedition-admin-style';
+  link.id   = 'fulco-festival-2026-admin-style';
   link.rel  = 'stylesheet';
-  link.href = '/modules/expedition/admin/style.css';
+  link.href = '/modules/fulco-festival-2026/admin/style.css';
   document.head.appendChild(link);
 }
 
@@ -36,7 +36,7 @@ function _render(container, state) {
   container.innerHTML = `
     <div class="xpa-wrap">
       <div class="xpa-header">
-        <h2 class="xpa-title">Expeditie · Presenter</h2>
+        <h2 class="xpa-title">Fulco Festival 2026 · Presenter</h2>
         <label class="xpa-toggle">
           <input type="checkbox" id="xpa-manual" ${manual ? 'checked' : ''}>
           <span class="xpa-toggle-track"></span>
@@ -78,8 +78,8 @@ export function register() {
   let _container = null;
 
   registerAdminTab({
-    id:    'expedition',
-    label: 'Expeditie',
+    id:    'fulco-festival-2026',
+    label: 'Fulco Festival 2026',
     icon:  '🧭',
     async mount(container) {
       _container = container;
@@ -90,7 +90,7 @@ export function register() {
     },
   });
 
-  registerAdminWsHandler('expedition', (msg) => {
-    if (_container && msg.type === 'expedition:state') _render(_container, msg);
+  registerAdminWsHandler('fulco-festival-2026', (msg) => {
+    if (_container && msg.type === 'fulco-festival-2026:state') _render(_container, msg);
   });
 }

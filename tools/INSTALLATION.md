@@ -40,6 +40,22 @@ cd photodisplay
 scp -r /path/to/photodisplay user@device-ip:/home/user/
 ```
 
+### Optional: Deploy a Private Local Working Tree
+
+Normal deployment should use the public repository path above. For event-specific
+local changes that should not be pushed publicly, deploy from your workstation to
+an already-installed NUC over SSH:
+
+```bash
+tools/deploy-nuc.sh pixelplein@device-ip
+tools/deploy-nuc.sh --photos pixelplein@device-ip
+tools/deploy-nuc.sh --photos --data --restart-kiosk pixelplein@device-ip
+```
+
+By default this syncs code only to `/opt/pixelplein`, installs production npm
+dependencies, and restarts `pixelplein-server`. Photos and SQLite data are only
+copied when explicitly requested.
+
 ### 3. Run Installation Script
 
 ```bash
@@ -56,6 +72,7 @@ The script will:
 - Install npm dependencies
 - Configure systemd services (provisioner, kiosk, server)
 - Set up USB auto-configuration
+- Install PulseAudio/ALSA/Bluetooth audio support and allow HDMI/analog/Bluetooth output selection
 - Configure Chromium policies for autoplay
 
 **Installation takes 5-15 minutes depending on internet speed.**

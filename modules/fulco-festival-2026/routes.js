@@ -3,7 +3,7 @@
 const express = require('express');
 const state   = require('./state');
 
-const NS = 'expedition';
+const NS = 'fulco-festival-2026';
 
 function createPublicRouter() {
   const r = express.Router();
@@ -28,7 +28,7 @@ function createAdminRouter(broadcast, photoState, db) {
     res.json(state.getState());
   });
 
-  // Update a photo's eventGroup so it appears in the correct expedition zone.
+  // Update a photo's eventGroup so it appears in the correct festival zone.
   r.post('/photo-zone', async (req, res) => {
     const { photoId, zone } = req.body || {};
     if (!photoId || !ZONE_KEYS.has(zone)) {

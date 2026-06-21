@@ -111,6 +111,7 @@ const server = httpMod.createServer(app);
 
 app.set('trust proxy', 1);
 
+app.use((_, res, next) => { res.setHeader('Access-Control-Allow-Private-Network', 'true'); next(); });
 app.use(compression());
 app.use(express.json());
 const sessionMiddleware = session({
@@ -122,7 +123,7 @@ const sessionMiddleware = session({
   cookie: {
     httpOnly: true,
     sameSite: 'lax',
-    secure: process.env.NODE_ENV === 'production',
+    secure: (getConfig().publicBaseUrl || '').startsWith('https://'),
   },
 });
 

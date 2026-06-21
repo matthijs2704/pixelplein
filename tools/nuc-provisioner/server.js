@@ -78,6 +78,82 @@ function _run(cmd, args) {
   });
 }
 
+function _runInput(cmd, args, input, timeoutMs = 30_000) {
+  return new Promise((resolve, reject) => {
+    const child = childProcess.spawn(cmd, args, { stdio: ['pipe', 'pipe', 'pipe'] });
+    let stdout = '';
+    let stderr = '';
+    const timer = setTimeout(() => {
+      child.kill('SIGTERM');
+      reject(new Error('Command timed out'));
+    }, timeoutMs);
+
+    child.stdout.on('data', chunk => { stdout += chunk.toString(); });
+    child.stderr.on('data', chunk => { stderr += chunk.toString(); });
+    child.on('error', err => {
+      clearTimeout(timer);
+      reject(err);
+    });
+    child.on('close', code => {
+      clearTimeout(timer);
+      if (code !== 0) {
+        reject(new Error((stderr || stdout || `Command exited ${code}`).trim()));
+        return;
+      }
+      resolve(stdout.trim());
+    });
+    child.stdin.end(input);
+  });
+}
+
+function _runBluetoothScan(timeoutMs = 12_000) {
+  return new Promise((resolve, reject) => {
+    const child = childProcess.spawn('sudo', ['/usr/bin/bluetoothctl'], { stdio: ['pipe', 'pipe', 'pipe'] });
+    let stdout = '';
+    let stderr = '';
+    let done = false;
+
+    const finish = (err, output) => {
+      if (done) return;
+      done = true;
+      clearTimeout(stopTimer);
+      clearTimeout(killTimer);
+      if (err) reject(err);
+      else resolve(output);
+    };
+
+    const stopTimer = setTimeout(() => {
+      try {
+        child.stdin.write('scan off\n');
+        child.stdin.write('devices\n');
+        child.stdin.write('quit\n');
+        child.stdin.end();
+      } catch {}
+    }, timeoutMs);
+
+    const killTimer = setTimeout(() => {
+      child.kill('SIGTERM');
+      finish(new Error('Bluetooth scan timed out'));
+    }, timeoutMs + 5000);
+
+    child.stdout.on('data', chunk => { stdout += chunk.toString(); });
+    child.stderr.on('data', chunk => { stderr += chunk.toString(); });
+    child.on('error', err => finish(err));
+    child.on('close', code => {
+      if (code !== 0 && !stdout) {
+        finish(new Error((stderr || `Bluetooth scan exited ${code}`).trim()));
+        return;
+      }
+      finish(null, `${stdout}\n${stderr}`.trim());
+    });
+
+    child.stdin.write('power on\n');
+    child.stdin.write('agent on\n');
+    child.stdin.write('default-agent\n');
+    child.stdin.write('scan bredr\n');
+  });
+}
+
 function _getLocalIPs() {
   return Object.values(os.networkInterfaces())
     .flat()
@@ -152,11 +228,29 @@ function _sanitizeConfig(raw) {
       }
     : null;
 
+  // Hotspot
+  const hotspot = src.hotspot && typeof src.hotspot === 'object'
+    ? {
+        enabled:  Boolean(src.hotspot.enabled),
+        ssid:     String(src.hotspot.ssid || 'PixelPlein').trim(),
+        password: String(src.hotspot.password || '').trim(),
+      }
+    : null;
+
   // Local server control
   const localServer = src.localServer && typeof src.localServer === 'object'
     ? {
         enabled:       Boolean(src.localServer.enabled),
         publicBaseUrl: String(src.localServer.publicBaseUrl || '').trim(),
+      }
+    : null;
+
+  const audioOutput = ['default', 'hdmi', 'analog', 'bluetooth'].includes(String(src.audio?.output || '').toLowerCase())
+    ? String(src.audio.output).toLowerCase()
+    : 'default';
+  const bluetooth = src.bluetooth && typeof src.bluetooth === 'object'
+    ? {
+        device: String(src.bluetooth.device || '').trim().toUpperCase(),
       }
     : null;
 
@@ -174,7 +268,10 @@ function _sanitizeConfig(raw) {
     },
     wifi:        wifi?.ssid ? wifi : null,
     network:     network?.interface ? network : null,
+    hotspot:     hotspot?.ssid ? hotspot : null,
     kiosk:       { autostart: src.kiosk?.autostart !== false },
+    audio:       { output: audioOutput },
+    bluetooth:   bluetooth?.device ? bluetooth : null,
     localServer: localServer,
     webPin:      String(src.webPin || '').trim().toUpperCase() || undefined,
     updatedAt:   Date.now(),
@@ -191,12 +288,12 @@ async function _applyNetwork(config) {
   if (mode === 'static') {
     if (!ip) throw new Error('network.ip required for static mode');
     const dnsStr = dns.length ? dns.join(' ') : '';
-    await _run('nmcli', ['con', 'mod', iface, 'ipv4.addresses', `${ip}/${prefix}`, 'ipv4.gateway', gateway, 'ipv4.method', 'manual']);
-    if (dnsStr) await _run('nmcli', ['con', 'mod', iface, 'ipv4.dns', dnsStr]);
+    await _run('sudo', ['nmcli', 'con', 'mod', iface, 'ipv4.addresses', `${ip}/${prefix}`, 'ipv4.gateway', gateway, 'ipv4.method', 'manual']);
+    if (dnsStr) await _run('sudo', ['nmcli', 'con', 'mod', iface, 'ipv4.dns', dnsStr]);
   } else {
-    await _run('nmcli', ['con', 'mod', iface, 'ipv4.method', 'auto']);
+    await _run('sudo', ['nmcli', 'con', 'mod', iface, 'ipv4.method', 'auto']);
   }
-  await _run('nmcli', ['con', 'up', iface]).catch(() => {});
+  await _run('sudo', ['nmcli', 'con', 'up', iface]).catch(() => {});
 }
 
 // ---------------------------------------------------------------------------
@@ -205,10 +302,10 @@ async function _applyNetwork(config) {
 
 async function _applyWifi(config) {
   if (!config.wifi?.ssid) return;
-  const args = ['device', 'wifi', 'connect', config.wifi.ssid];
+  const args = ['sudo', 'nmcli', 'device', 'wifi', 'connect', config.wifi.ssid];
   if (config.wifi.password) args.push('password', config.wifi.password);
   if (config.wifi.hidden) args.push('hidden', 'yes');
-  await _run('nmcli', args);
+  await _run(args[0], args.slice(1));
 }
 
 // ---------------------------------------------------------------------------
@@ -240,6 +337,221 @@ async function _applyLocalServer(config) {
 }
 
 // ---------------------------------------------------------------------------
+// Audio output
+// ---------------------------------------------------------------------------
+
+async function _applyAudio(config) {
+  const output = config.audio?.output || 'default';
+  const attempts = output === 'bluetooth' ? 12 : 1;
+  const args = ['/opt/pixelplein/tools/pixelplein-audio.sh', output, 'pixelplein'];
+  if (output === 'bluetooth' && config.bluetooth?.device) args.push(config.bluetooth.device);
+
+  for (let attempt = 1; attempt <= attempts; attempt += 1) {
+    try {
+      await _run('sudo', args);
+      return;
+    } catch (err) {
+      if (attempt >= attempts) {
+        console.warn(`[audio] failed to select ${output}:`, err.message);
+        throw err;
+      }
+      await new Promise(resolve => setTimeout(resolve, 1000));
+    }
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Bluetooth audio via BlueZ
+// ---------------------------------------------------------------------------
+
+function _isBluetoothAddress(value) {
+  return /^([0-9A-F]{2}:){5}[0-9A-F]{2}$/i.test(String(value || '').trim());
+}
+
+function _parseBluetoothDevices(out) {
+  return String(out || '').split('\n')
+    .map(line => {
+      const match = line.match(/^(?:\[[^\]]+\]\s+)?Device\s+([0-9A-F:]{17})\s+(.+)$/i);
+      return match ? { address: match[1].toUpperCase(), name: match[2].trim() } : null;
+    })
+    .filter(Boolean);
+}
+
+function _bluetoothLooksLikeAudio(info) {
+  return /UUID:.*(Audio Sink|Advanced Audio Distribution|Headset|Handsfree|A\/V Remote Control)/i.test(String(info || ''));
+}
+
+function _bluetoothIsConnected(info) {
+  return /^(\s*)Connected:\s+yes\s*$/im.test(String(info || ''));
+}
+
+async function _bluetoothctl(commands, timeoutMs) {
+  return await _runInput('sudo', ['/usr/bin/bluetoothctl'], `${commands.join('\n')}\n`, timeoutMs);
+}
+
+async function _bluetoothctlCommand(args, timeoutMs = 30_000) {
+  return await new Promise((resolve, reject) => {
+    childProcess.execFile('sudo', ['/usr/bin/bluetoothctl', '--agent', 'NoInputNoOutput', ...args], {
+      timeout: timeoutMs,
+    }, (err, stdout, stderr) => {
+      const out = `${stdout || ''}${stderr || ''}`.trim();
+      if (err) {
+        err.message = out || err.message;
+        reject(err);
+        return;
+      }
+      resolve(out);
+    });
+  });
+}
+
+async function _ensureBluetooth() {
+  await _run('sudo', ['systemctl', 'enable', 'bluetooth']).catch(() => {});
+  await _run('sudo', ['systemctl', 'start', 'bluetooth']).catch(() => {});
+  await _bluetoothctl(['power on', 'agent NoInputNoOutput', 'default-agent'], 10_000).catch(() => {});
+}
+
+async function _bluetoothDevices() {
+  await _ensureBluetooth();
+  const pairedOut = await _bluetoothctl(['paired-devices'], 10_000).catch(() => '');
+  const knownOut = await _bluetoothctl(['devices'], 10_000).catch(() => '');
+  const connectedOut = await _bluetoothctl(['devices Connected'], 10_000).catch(() => '');
+  const paired = new Set(_parseBluetoothDevices(pairedOut).map(d => d.address));
+  const connected = new Set(_parseBluetoothDevices(connectedOut).map(d => d.address));
+  const devices = _parseBluetoothDevices(`${pairedOut}\n${knownOut}`)
+    .filter((device, idx, devices) => devices.findIndex(d => d.address === device.address) === idx)
+    .map(device => ({ ...device, paired: paired.has(device.address), connected: connected.has(device.address) }));
+
+  for (const device of devices) {
+    const info = await _bluetoothctl([`info ${device.address}`], 8000).catch(() => '');
+    device.audio = _bluetoothLooksLikeAudio(info);
+  }
+
+  return devices.sort((a, b) => Number(b.audio) - Number(a.audio) || Number(b.connected) - Number(a.connected));
+}
+
+async function _scanBluetooth() {
+  await _ensureBluetooth();
+  const scanOut = await _runBluetoothScan();
+  const scanned = _parseBluetoothDevices(scanOut);
+  const devices = await _bluetoothDevices();
+  const byAddress = new Map();
+  for (const device of scanned) {
+    byAddress.set(device.address, {
+      ...device,
+      paired:    false,
+      connected: false,
+      audio:     false,
+    });
+  }
+  for (const device of devices) {
+    byAddress.set(device.address, {
+      ...(byAddress.get(device.address) || {}),
+      ...device,
+    });
+  }
+  return [...byAddress.values()]
+    .map(device => ({
+      ...device,
+      paired:    Boolean(device.paired),
+      connected: Boolean(device.connected),
+      audio:     Boolean(device.audio),
+    }))
+    .sort((a, b) => Number(b.audio) - Number(a.audio) || Number(b.connected) - Number(a.connected));
+}
+
+async function _connectBluetooth(address) {
+  const device = String(address || '').trim().toUpperCase();
+  if (!_isBluetoothAddress(device)) throw new Error('Invalid Bluetooth address');
+
+  await _ensureBluetooth();
+
+  // If already connected, force a reclaim: multipoint speakers (e.g. JBL) keep the
+  // BlueZ link up while handing active playback to another phone, so a plain
+  // 'connect' is a no-op. Dropping and re-establishing makes the speaker switch
+  // its active source back to us.
+  const wasConnected = _bluetoothIsConnected(
+    await _bluetoothctlCommand(['info', device], 8000).catch(() => '')
+  );
+  if (wasConnected) {
+    await _bluetoothctlCommand(['disconnect', device], 15_000).catch(() => {});
+    await new Promise(resolve => setTimeout(resolve, 1500));
+  }
+
+  const pairOut = [
+    await _bluetoothctlCommand(['scan', 'off'], 10_000).catch(err => err.message),
+    await _bluetoothctlCommand(['pair', device], 45_000).catch(err => err.message),
+    await _bluetoothctlCommand(['trust', device], 15_000).catch(err => err.message),
+  ].join('\n');
+
+  let connected = false;
+  let lastConnectOut = '';
+  let lastInfo = '';
+  for (let attempt = 0; attempt < 8; attempt += 1) {
+    lastConnectOut = await _bluetoothctlCommand(['connect', device], 20_000).catch(err => err.message);
+    const info = await _bluetoothctlCommand(['info', device], 8000).catch(() => '');
+    lastInfo = info;
+    connected = _bluetoothIsConnected(info);
+    if (connected) break;
+    await new Promise(resolve => setTimeout(resolve, 1500));
+  }
+  if (!connected) {
+    throw new Error(`Bluetooth device did not report Connected: yes\n\npair/trust:\n${pairOut || '(no output)'}\n\nlast connect:\n${lastConnectOut || '(no output)'}\n\ninfo:\n${lastInfo || '(no output)'}`);
+  }
+
+  const cfg = await _readConfig() || {};
+  cfg.bluetooth = { device };
+  cfg.audio = { ...(cfg.audio || {}), output: 'bluetooth' };
+  await _writeConfig(cfg);
+  await _applyAudio(cfg);
+  return { ok: true, device };
+}
+
+async function _applyBluetooth(config) {
+  const device = String(config?.bluetooth?.device || '').trim().toUpperCase();
+  if (!_isBluetoothAddress(device)) return;
+  await _ensureBluetooth();
+  await _bluetoothctlCommand(['trust', device], 15_000).catch(() => {});
+  await _bluetoothctlCommand(['connect', device], 20_000).catch(err => console.warn('[bluetooth] connect failed:', err.message));
+}
+
+async function _disconnectBluetooth(address) {
+  const device = String(address || '').trim().toUpperCase();
+  if (!_isBluetoothAddress(device)) throw new Error('Invalid Bluetooth address');
+  await _bluetoothctlCommand(['disconnect', device], 15_000);
+  return { ok: true, device };
+}
+
+async function _forgetBluetooth(address) {
+  const device = String(address || '').trim().toUpperCase();
+  if (!_isBluetoothAddress(device)) throw new Error('Invalid Bluetooth address');
+  await _bluetoothctlCommand(['disconnect', device], 15_000).catch(() => {});
+  await _bluetoothctlCommand(['remove', device], 15_000);
+
+  const cfg = await _readConfig() || {};
+  if (cfg.bluetooth?.device === device) {
+    delete cfg.bluetooth;
+    if (cfg.audio?.output === 'bluetooth') cfg.audio.output = 'default';
+    await _writeConfig(cfg);
+  }
+  return { ok: true, device };
+}
+
+// ---------------------------------------------------------------------------
+// Hotspot boot apply
+// ---------------------------------------------------------------------------
+
+async function _applyHotspot(config) {
+  if (!config?.hotspot?.ssid) return;
+  if (config.hotspot.enabled) {
+    await _startHotspot(config.hotspot.ssid, config.hotspot.password).catch(err =>
+      console.warn('[hotspot] start failed:', err.message));
+  } else {
+    await _stopHotspot().catch(() => {});
+  }
+}
+
+// ---------------------------------------------------------------------------
 // Apply full provisioning
 // ---------------------------------------------------------------------------
 
@@ -256,9 +568,12 @@ async function applyProvisioning(raw) {
   const config = _sanitizeConfig(merged);
   await _writeConfig(config);
   if (config.webPin) _webPin = config.webPin;
-  // Order: network → wifi → local-server control
+  // Order: network → wifi → hotspot → bluetooth → audio → local-server control
   await _applyNetwork(config);
   await _applyWifi(config);
+  await _applyHotspot(config);
+  await _applyBluetooth(config);
+  await _applyAudio(config);
   await _applyLocalServer(config);
   _lastAppliedAt = Date.now();
   _lastError = '';
@@ -324,12 +639,57 @@ async function _wifiStatus() {
   }
 }
 
+async function _hasNetworkConnection() {
+  try {
+    const out = await _run('nmcli', ['-t', '-f', 'TYPE,STATE', 'device']);
+    return out.split('\n').some(l => {
+      const [type, state] = l.split(':');
+      return (type === 'ethernet' || type === 'wifi') && state === 'connected';
+    });
+  } catch {
+    return false;
+  }
+}
+
 async function _scanWifi() {
   const out = await _run('nmcli', ['-t', '-f', 'SSID,SIGNAL,SECURITY', 'device', 'wifi', 'list', '--rescan', 'yes']);
   return out.split('\n')
     .map(line => line.split(':'))
     .filter(parts => parts[0])
     .map(([ssid, signal, security]) => ({ ssid, signal, security }));
+}
+
+// ---------------------------------------------------------------------------
+// Hotspot control via nmcli
+// ---------------------------------------------------------------------------
+
+const HOTSPOT_CON = 'pixelplein-hotspot';
+
+async function _hotspotActive() {
+  try {
+    const out = await _run('nmcli', ['-t', '-f', 'NAME', 'connection', 'show', '--active']);
+    return out.split('\n').some(l => l.trim() === HOTSPOT_CON);
+  } catch {
+    return false;
+  }
+}
+
+async function _startHotspot(ssid, password) {
+  await _run('sudo', ['nmcli', 'connection', 'delete', HOTSPOT_CON]).catch(() => {});
+  if (password) {
+    await _run('sudo', ['nmcli', 'device', 'wifi', 'hotspot', 'con-name', HOTSPOT_CON, 'ssid', ssid, 'password', password]);
+  } else {
+    // Open hotspot — nmcli hotspot always sets a random password, so build the profile manually
+    await _run('sudo', ['nmcli', 'con', 'add', 'type', 'wifi', 'ifname', '*', 'con-name', HOTSPOT_CON,
+      'autoconnect', 'no', 'ssid', ssid,
+      '802-11-wireless.mode', 'ap',
+      'ipv4.method', 'shared']);
+    await _run('sudo', ['nmcli', 'con', 'up', HOTSPOT_CON]);
+  }
+}
+
+async function _stopHotspot() {
+  await _run('sudo', ['nmcli', 'connection', 'delete', HOTSPOT_CON]).catch(() => {});
 }
 
 // ---------------------------------------------------------------------------
@@ -354,9 +714,29 @@ async function _kioskRunning() {
   }
 }
 
-async function _restartKiosk() {
-  await _run('sudo', ['systemctl', 'restart', 'pixelplein-kiosk']);
+function _restartKiosk() {
+  // ponytail: fire-and-forget like _scheduleSystemAction; systemctl restart blocks
+  // until the old process dies (TimeoutStopSec=10) which exceeds _run's 15s timeout
+  setTimeout(() => {
+    const child = childProcess.spawn('sudo', ['systemctl', 'restart', 'pixelplein-kiosk'], {
+      detached: true,
+      stdio: 'ignore',
+    });
+    child.unref();
+  }, 250);
   return { ok: true, action: 'restart_kiosk' };
+}
+
+function _clearKioskCache() {
+  // stop → wipe cache → start, sequentially via execFile (allowed by sudoers)
+  _run('sudo', ['systemctl', 'stop', 'pixelplein-kiosk'])
+    .catch(() => {})
+    .then(() => Promise.all([
+      _run('sudo', ['rm', '-rf', '/home/pixelplein/.cache/chromium']).catch(() => {}),
+      _run('sudo', ['rm', '-rf', '/home/pixelplein/.cache/google-chrome']).catch(() => {}),
+    ]))
+    .then(() => _run('sudo', ['systemctl', 'start', 'pixelplein-kiosk']).catch(() => {}));
+  return { ok: true, action: 'clear_cache' };
 }
 
 function _scheduleSystemAction(action) {
@@ -475,7 +855,7 @@ async function _pollAgentPairing(config) {
       console.log(`[agent] screenId changed from ${config.screenId} to ${result.screenId}, restarting kiosk`);
       patch.screenId = result.screenId;
       const updated = await _saveAgentPatch(patch);
-      await _restartKiosk();
+      _restartKiosk();
       return updated;
     }
     return await _saveAgentPatch(patch);
@@ -489,7 +869,7 @@ async function _pollAgentPairing(config) {
 }
 
 async function _runAgentCommand(command) {
-  if (command === 'restart_kiosk') return await _restartKiosk();
+  if (command === 'restart_kiosk') return _restartKiosk();
   if (command === 'reboot') return _scheduleSystemAction('reboot');
   if (command === 'shutdown') return _scheduleSystemAction('poweroff');
   throw new Error('Unsupported agent command');
@@ -678,7 +1058,7 @@ function _launchChromium(config) {
 
 async function _status() {
   const config = await _readConfig();
-  const [serverRunning, kioskRunning] = await Promise.all([_serverRunning(), _kioskRunning()]);
+  const [serverRunning, kioskRunning, hotspotActive] = await Promise.all([_serverRunning(), _kioskRunning(), _hotspotActive()]);
   return {
     ok:            true,
     config,
@@ -686,6 +1066,7 @@ async function _status() {
     lanIps:        _getLocalIPs(),
     serverRunning,
     kioskRunning,
+    hotspotActive,
     agent:         {
       ..._agentStatus,
       pairingCode: _agentStatus.pairingCode || config?.agent?.pairingCode || '',
@@ -775,18 +1156,16 @@ function _ago(ts) {
 }
 
 function _page(status) {
-  const cfg        = status?.config;
-  const ips        = (status?.lanIps || []).join(', ') || '—';
+  const cfg           = status?.config;
+  const ips           = (status?.lanIps || []).join(', ') || '—';
   const serverRunning = status?.serverRunning;
   const kioskRunning  = status?.kioskRunning;
-  const modeLabel  = cfg?.localServer?.enabled === false ? 'Extern' : 'Lokaal';
-  const screenUrl  = _esc(status?.screenUrl || '');
-  const agent       = status?.agent || {};
-  const agentSig    = `${agent.connected ? '1' : '0'}|${agent.pairingCode || ''}|${agent.lastError || ''}|${agent.reconnectAttempts || 0}`;
-  const configJson = cfg ? _esc(JSON.stringify({ serverUrl: cfg.serverUrl, screenId: cfg.screenId, deviceLabel: cfg.deviceLabel }, null, 2)) : '';
-  const adminUrl   = cfg?.serverUrl ? _esc(`${cfg.serverUrl}/admin`) : '';
+  const hotspotActive = status?.hotspotActive;
+  const screenUrl     = _esc(status?.screenUrl || '');
+  const agent         = status?.agent || {};
+  const agentSig      = `${agent.connected ? '1' : '0'}|${agent.pairingCode || ''}|${agent.lastError || ''}|${agent.reconnectAttempts || 0}`;
+  const adminUrl      = cfg?.serverUrl ? _esc(`${cfg.serverUrl}/admin`) : '';
 
-  // Pairing section — shown when waiting for approval
   const pairingSection = (!agent.connected && agent.pairingCode) ? `
 <div class="card" style="border-color:rgba(108,99,255,.4)">
   <h2>Koppelen</h2>
@@ -794,12 +1173,11 @@ function _page(status) {
   <div class="row"><span class="label">Koppelcode</span><span class="val" style="font-size:22px;letter-spacing:.15em;color:#6c63ff">${_esc(agent.pairingCode)}</span></div>
   <div class="row"><span class="label">Apparaat-ID</span><span class="val" style="font-size:11px">${_esc(cfg?.agent?.deviceId || '—')}</span></div>
   ${adminUrl ? `<div class="row" style="margin-top:8px"><a href="${adminUrl}" target="_blank" style="font-size:13px;font-weight:600">→ Open admin (${_esc(cfg.serverUrl)})</a></div>` : ''}
-  <div id="pair-msg"></div>
 </div>` : '';
 
   return `<!doctype html>
 <html lang="nl"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>PixelPlein Agent Setup</title>
+<title>PixelPlein Agent</title>
 <style>${_pageStyles}</style></head>
 <body>
 <h1>PixelPlein Agent</h1>
@@ -820,49 +1198,231 @@ ${pairingSection}
   </div>
   ${agent.reconnectAttempts > 0 ? `<div class="row"><span class="label">Herverbindingen</span><span class="val">${agent.reconnectAttempts}</span></div>` : ''}
   ${agent.lastError ? `<div class="error">Fout: ${_esc(agent.lastError)}</div>` : ''}
-  <div class="row"><span class="label">Modus</span><span class="val">${_esc(modeLabel)}</span></div>
   ${cfg ? `<div class="row"><span class="label">Scherm</span><span class="val">${_esc(cfg.deviceLabel || `Scherm ${cfg.screenId}`)} · #${_esc(cfg.screenId)}</span></div>` : ''}
   ${screenUrl ? `<div class="row"><span class="label">Scherm URL</span><span class="val" style="font-size:11px"><a href="${screenUrl}" target="_blank">${screenUrl}</a></span></div>` : ''}
   <div class="btns" style="margin-top:12px">
-    <button onclick="revertPairing()" class="danger">Opnieuw koppelen</button>
+    <button onclick="reloadKiosk()">Herladen</button>
+    <button onclick="clearKioskCache()">Cache wissen</button>
     <button onclick="restartKiosk()">Herstart kiosk</button>
+    <button onclick="revertPairing()" class="danger">Opnieuw koppelen</button>
+    <button onclick="doReboot()" class="danger">Herstart NUC</button>
+  </div>
+  <div style="margin-top:12px;display:flex;gap:8px;align-items:center">
+    <input id="custom-url" type="url" placeholder="https://..." style="flex:1;background:#222230;color:#e2e2f0;border:1px solid #272736;border-radius:7px;padding:9px 12px;font-size:13px" value="${_esc(cfg?.customUrl||'')}">
+    <button onclick="openCustomUrl()">Openen</button>
+    ${cfg?.customUrl ? `<button onclick="resetUrl()" class="danger">Reset</button>` : ''}
   </div>
   <div id="action-msg"></div>
 </div>
 
 <div class="card">
-  <h2>USB-stick</h2>
-  <p style="font-size:13px;color:#8899aa;margin-bottom:12px">Plaats een USB-stick met <code>${USB_FILE}</code> en klik Scan.</p>
-  <div class="btns">
-    <button onclick="scanUsb()">Scan USB</button>
-    <button onclick="launchScreen()" class="primary">Start kiosk</button>
+  <h2>Configuratie</h2>
+  <div class="row"><label class="label" for="f-serverUrl">Server URL</label><input id="f-serverUrl" type="url" placeholder="http://192.168.1.10:3000" value="${_esc(cfg?.serverUrl||'')}"></div>
+  <div class="row"><label class="label" for="f-screenId">Scherm-ID</label>
+    <select id="f-screenId" style="background:#222230;color:#e2e2f0;border:1px solid #272736;border-radius:7px;padding:9px 12px;font-size:13px">
+      ${['1','2','3','4'].map(n=>`<option value="${n}"${cfg?.screenId===n?' selected':''}>${n}</option>`).join('')}
+    </select>
   </div>
-  <div id="usb-msg"></div>
-</div>
-
-<div class="card">
-  <h2>Handmatige configuratie</h2>
-  <textarea id="config" rows="8" placeholder='{"serverUrl":"http://192.168.1.10:3000","screenId":"1"}'>${configJson}</textarea>
-  <p style="margin-top:8px"><button onclick="saveConfig()" class="primary">Toepassen</button></p>
+  <div class="row"><label class="label" for="f-deviceLabel">Apparaatnaam</label><input id="f-deviceLabel" type="text" placeholder="Zaal Links" value="${_esc(cfg?.deviceLabel||'')}"></div>
+  <div class="row">
+    <label class="label" for="f-localServer">Lokale server</label>
+    <input id="f-localServer" type="checkbox"${cfg?.localServer?.enabled?' checked':''} style="width:auto">
+  </div>
+  <div class="row"><label class="label" for="f-publicBaseUrl">Publieke basis-URL</label><input id="f-publicBaseUrl" type="url" placeholder="http://192.168.1.10:3000" value="${_esc(cfg?.localServer?.publicBaseUrl||'')}"></div>
+  <div class="row">
+    <label class="label" for="f-autostart">Kiosk autostart</label>
+    <input id="f-autostart" type="checkbox"${cfg?.kiosk?.autostart!==false?' checked':''} style="width:auto">
+  </div>
+  <div class="row"><label class="label" for="f-audioOutput">Audio-uitgang</label>
+    <select id="f-audioOutput" style="background:#222230;color:#e2e2f0;border:1px solid #272736;border-radius:7px;padding:9px 12px;font-size:13px">
+      ${[
+        ['default','Systeemstandaard'],
+        ['hdmi','HDMI'],
+        ['analog','Analoog / koptelefoon'],
+        ['bluetooth','Bluetooth'],
+      ].map(([value,label])=>`<option value="${value}"${(cfg?.audio?.output||'default')===value?' selected':''}>${label}</option>`).join('')}
+    </select>
+  </div>
+  <hr style="border:none;border-top:1px solid #272736;margin:12px 0">
+  <details>
+    <summary style="cursor:pointer;font-size:12px;color:#7070a0;margin-bottom:10px">Vaste IP-instellingen</summary>
+    <div class="row" style="margin-top:10px"><label class="label" for="f-interface">Interface</label>
+      <select id="f-interface" style="background:#222230;color:#e2e2f0;border:1px solid #272736;border-radius:7px;padding:9px 12px;font-size:13px">
+        <option value="">Laden…</option>
+      </select>
+    </div>
+    <div class="row"><label class="label" for="f-netmode">IP-modus</label>
+      <select id="f-netmode" style="background:#222230;color:#e2e2f0;border:1px solid #272736;border-radius:7px;padding:9px 12px;font-size:13px">
+        <option value="dhcp"${cfg?.network?.mode!=='static'?' selected':''}>DHCP</option>
+        <option value="static"${cfg?.network?.mode==='static'?' selected':''}>Statisch</option>
+      </select>
+    </div>
+    <div class="row"><label class="label" for="f-ip">IP-adres</label><input id="f-ip" type="text" placeholder="192.168.1.20" value="${_esc(cfg?.network?.ip||'')}"></div>
+    <div class="row"><label class="label" for="f-prefix">Prefix</label><input id="f-prefix" type="number" min="1" max="32" placeholder="24" value="${_esc(String(cfg?.network?.prefix||''))}"></div>
+    <div class="row"><label class="label" for="f-gateway">Gateway</label><input id="f-gateway" type="text" placeholder="192.168.1.1" value="${_esc(cfg?.network?.gateway||'')}"></div>
+    <div class="row"><label class="label" for="f-dns">DNS (kommagescheiden)</label><input id="f-dns" type="text" placeholder="8.8.8.8,1.1.1.1" value="${_esc((cfg?.network?.dns||[]).join(','))}"></div>
+  </details>
+  <p style="margin-top:12px"><button onclick="saveConfig()" class="primary">Toepassen</button></p>
   <div id="cfg-msg"></div>
 </div>
 
 <div class="card">
   <h2>Wi-Fi</h2>
-  <div class="btns"><button onclick="scanWifi()">Scan netwerken</button></div>
-  <pre id="wifi" style="margin-top:12px;display:none"></pre>
+  <p style="font-size:12px;color:#7070a0;margin-bottom:8px">Opgeslagen netwerken</p>
+  <div id="wifi-saved" style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:12px"></div>
+  <hr style="border:none;border-top:1px solid #272736;margin:12px 0">
+  <p style="font-size:12px;color:#7070a0;margin-bottom:8px">Verbinden</p>
+  <div class="btns"><button onclick="scanWifiNetworks()">Scan netwerken</button></div>
+  <div id="wifi-scan-list" style="margin-top:8px;display:flex;flex-wrap:wrap;gap:6px"></div>
+  <div class="row" style="margin-top:10px"><label class="label" for="w-ssid">SSID</label><input id="w-ssid" type="text" placeholder="Netwerknaam"></div>
+  <div class="row"><label class="label" for="w-pass">Wachtwoord</label><input id="w-pass" type="password"></div>
+  <p style="margin-top:12px"><button onclick="connectWifi()" class="primary">Verbinden</button></p>
+  <div id="wifi-msg"></div>
+</div>
+
+<div class="card">
+  <h2>Bluetooth audio</h2>
+  <div class="row"><span class="label">Geselecteerd</span><span class="val">${_esc(cfg?.bluetooth?.device || '—')}</span></div>
+  <div class="btns"><button onclick="scanBluetooth()">Scan apparaten</button></div>
+  <div id="bt-list" style="margin-top:10px;display:flex;flex-direction:column;gap:8px"></div>
+  <div id="bt-msg"></div>
+</div>
+
+<div class="card">
+  <h2>Hotspot</h2>
+  <div class="row"><span class="label">Status</span><span class="pill ${hotspotActive ? 'on' : 'off'}" id="hotspot-pill">${hotspotActive ? 'Actief' : 'Uit'}</span></div>
+  <div class="row"><label class="label" for="h-ssid">SSID</label><input id="h-ssid" type="text" placeholder="PixelPlein" value="${_esc(cfg?.hotspot?.ssid || 'PixelPlein')}"></div>
+  <div class="row"><label class="label" for="h-pass">Wachtwoord</label><input id="h-pass" type="password" placeholder="min. 8 tekens" value="${_esc(cfg?.hotspot?.password || '')}"></div>
+  <div class="btns" style="margin-top:12px">
+    <button onclick="startHotspot()" class="primary">Starten</button>
+    <button onclick="stopHotspot()" class="danger">Stoppen</button>
+  </div>
+  <div id="hotspot-msg"></div>
+</div>
+
+<div class="card">
+  <h2>USB-stick</h2>
+  <p style="font-size:13px;color:#8899aa;margin-bottom:12px">Plaats een USB-stick met <code>${USB_FILE}</code> en klik Scan om de configuratie te laden.</p>
+  <div class="btns">
+    <button onclick="scanUsb()">Scan USB</button>
+  </div>
+  <div id="usb-msg"></div>
+</div>
+
+<div class="card">
+  <h2>Toegangscode</h2>
+  <div class="row"><label class="label" for="p-new">Nieuwe PIN</label><input id="p-new" type="text" placeholder="4–8 tekens" maxlength="8" style="text-transform:uppercase"></div>
+  <p style="margin-top:12px"><button onclick="changePin()" class="primary">Wijzigen</button></p>
+  <div id="pin-msg"></div>
 </div>
 
 <script>
 const initialAgentSig = ${JSON.stringify(agentSig)};
+const hotspotCurrentlyActive = ${hotspotActive ? 'true' : 'false'};
 async function api(url,body){const r=await fetch(url,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body||{})});return r.json();}
 function msg(id,text,ok){const el=document.getElementById(id);if(el){el.textContent=text;el.className=ok?'success':'error';}}
+function v(id){const el=document.getElementById(id);return el?el.value.trim():'';}
+function _e(s){return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
+async function saveConfig(){
+  const dns=v('f-dns'),iface=v('f-interface');
+  const body={
+    serverUrl:v('f-serverUrl'),
+    screenId:v('f-screenId'),
+    deviceLabel:v('f-deviceLabel'),
+    localServer:{enabled:document.getElementById('f-localServer').checked,publicBaseUrl:v('f-publicBaseUrl')},
+    kiosk:{autostart:document.getElementById('f-autostart').checked},
+    audio:{output:v('f-audioOutput')},
+    network:iface?{interface:iface,mode:v('f-netmode'),ip:v('f-ip'),prefix:Number(v('f-prefix'))||24,gateway:v('f-gateway'),dns:dns?dns.split(',').map(s=>s.trim()).filter(Boolean):[]}:null,
+  };
+  const r=await api('/api/apply',body);
+  msg('cfg-msg',r.ok?'Toegepast':'Fout: '+r.error,r.ok);
+  if(r.ok)setTimeout(()=>location.reload(),1000);
+}
 async function scanUsb(){msg('usb-msg','Bezig…',true);const r=await api('/api/scan-usb');msg('usb-msg',r.ok?(r.config?'Toegepast: '+r.config.serverUrl:'Geen bestand gevonden'):('Fout: '+r.error),r.ok&&r.config);}
-async function saveConfig(){try{const val=document.getElementById('config').value;const r=await api('/api/apply',JSON.parse(val));msg('cfg-msg',r.ok?'Toegepast':'Fout: '+r.error,r.ok);if(r.ok)setTimeout(()=>location.reload(),1000);}catch(e){msg('cfg-msg','Ongeldige JSON: '+e.message,false);}}
-async function launchScreen(){const r=await api('/api/launch');if(!r.ok)alert(r.error||'Launch mislukt');}
-async function scanWifi(){const el=document.getElementById('wifi');el.style.display='block';el.textContent='Bezig…';const r=await fetch('/api/wifi').then(x=>x.json());el.textContent=JSON.stringify(r.networks||r,null,2);}
-async function revertPairing(){if(!confirm('Token wissen en opnieuw koppelen?'))return;const r=await api('/api/revert-pairing');msg('action-msg',r.ok?'Koppeling gereset — nieuwe code verschijnt zo':'Fout: '+r.error,r.ok);if(r.ok)setTimeout(()=>location.reload(),2000);}
-async function restartKiosk(){const r=await api('/api/kiosk/restart');msg('action-msg',r.ok?'Kiosk herstart':'Fout: '+r.error,r.ok);}
+function forgetWifi(el){const name=el.dataset.net;if(!confirm('Netwerk "'+name+'" vergeten?'))return;api('/api/wifi/forget',{name}).then(r=>{msg('wifi-msg',r.ok?'Vergeten':'Fout: '+r.error,r.ok);if(r.ok)loadSavedWifi();});}
+function pickSsid(el){document.getElementById('w-ssid').value=el.dataset.ssid;}
+async function loadSavedWifi(){
+  const r=await fetch('/api/wifi/saved').then(x=>x.json()).catch(()=>({networks:[]}));
+  const el=document.getElementById('wifi-saved');
+  if(!r.networks||!r.networks.length){el.innerHTML='<span style="color:#7070a0;font-size:12px">Geen opgeslagen netwerken</span>';return;}
+  el.innerHTML=r.networks.map(n=>'<span style="display:inline-flex;align-items:center;gap:4px;background:#222230;border:1px solid #272736;border-radius:6px;padding:3px 8px;font-size:12px">'+_e(n)+'<button data-net="'+_e(n)+'" onclick="forgetWifi(this)" style="padding:0 4px;font-size:11px;background:none;border:none;color:#e05c5c;cursor:pointer">✕</button></span>').join('');
+}
+async function scanWifiNetworks(){
+  const list=document.getElementById('wifi-scan-list');
+  list.innerHTML='<span style="color:#7070a0;font-size:12px">Bezig…</span>';
+  const r=await fetch('/api/wifi').then(x=>x.json()).catch(()=>({networks:[]}));
+  const nets=r.networks||[];
+  if(!nets.length){list.innerHTML='<span style="color:#7070a0;font-size:12px">Geen netwerken gevonden</span>';return;}
+  list.innerHTML=nets.map(n=>'<button data-ssid="'+_e(n.ssid)+'" onclick="pickSsid(this)" style="padding:4px 10px;font-size:12px">'+_e(n.ssid)+' ('+n.signal+'%)</button>').join('');
+}
+async function connectWifi(){
+  if(!v('w-ssid'))return msg('wifi-msg','Voer een SSID in',false);
+  if(hotspotCurrentlyActive&&!confirm('Hotspot wordt gestopt om verbinding te maken. Je verliest de verbinding met dit portaal. Doorgaan?'))return;
+  msg('wifi-msg',hotspotCurrentlyActive?'Hotspot stoppen en verbinden…':'Verbinden…',true);
+  const r=await api('/api/wifi/connect',{ssid:v('w-ssid'),password:v('w-pass')});
+  msg('wifi-msg',r.ok?(hotspotCurrentlyActive?'Verbonden — herverbind met het Wi-Fi netwerk en open dit portaal opnieuw':'Verbonden'):'Fout: '+r.error,r.ok);
+}
+function renderBluetooth(devices){
+  const list=document.getElementById('bt-list');
+  if(!devices||!devices.length){list.innerHTML='<span style="color:#7070a0;font-size:12px">Geen apparaten gevonden</span>';return;}
+  list.innerHTML=devices.map(d=>{
+    const status=d.connected?'verbonden':(d.paired?'gekoppeld':'nieuw');
+    return '<div style="display:flex;gap:8px;align-items:center;justify-content:space-between;background:#222230;border:1px solid #272736;border-radius:7px;padding:8px 10px">'+
+      '<span><strong>'+_e(d.name||d.address)+'</strong><br><span style="font-size:11px;color:#7070a0">'+_e(d.address)+' · '+status+'</span></span>'+
+      '<span class="btns">'+
+        '<button data-address="'+_e(d.address)+'" onclick="connectBluetooth(this)">Verbinden</button>'+
+        (d.connected?'<button data-address="'+_e(d.address)+'" onclick="disconnectBluetooth(this)">Loskoppelen</button>':'')+
+        (d.paired?'<button data-address="'+_e(d.address)+'" onclick="forgetBluetooth(this)" class="danger">Vergeten</button>':'')+
+      '</span></div>';
+  }).join('');
+}
+async function loadBluetooth(){
+  const r=await fetch('/api/bluetooth/devices').then(x=>x.json()).catch(()=>({devices:[]}));
+  renderBluetooth(r.devices||[]);
+}
+async function scanBluetooth(){
+  msg('bt-msg','Scannen… zet je speaker/headset in pairing-modus',true);
+  const r=await api('/api/bluetooth/scan');
+  msg('bt-msg',r.ok?'Scan klaar':'Fout: '+r.error,r.ok);
+  renderBluetooth(r.devices||[]);
+}
+async function connectBluetooth(el){
+  const address=el.dataset.address;
+  msg('bt-msg','Koppelen en verbinden…',true);
+  const r=await api('/api/bluetooth/connect',{address});
+  msg('bt-msg',r.ok?'Verbonden, audio staat op Bluetooth':'Fout: '+r.error,r.ok);
+  if(r.ok)setTimeout(()=>location.reload(),1200);else loadBluetooth();
+}
+async function disconnectBluetooth(el){
+  const r=await api('/api/bluetooth/disconnect',{address:el.dataset.address});
+  msg('bt-msg',r.ok?'Losgekoppeld':'Fout: '+r.error,r.ok);
+  loadBluetooth();
+}
+async function forgetBluetooth(el){
+  if(!confirm('Bluetooth apparaat vergeten?'))return;
+  const r=await api('/api/bluetooth/forget',{address:el.dataset.address});
+  msg('bt-msg',r.ok?'Vergeten':'Fout: '+r.error,r.ok);
+  if(r.ok)setTimeout(()=>location.reload(),1000);else loadBluetooth();
+}
+async function startHotspot(){msg('hotspot-msg','Bezig…',true);const r=await api('/api/hotspot/start',{ssid:v('h-ssid'),password:v('h-pass')});msg('hotspot-msg',r.ok?'Hotspot gestart':'Fout: '+r.error,r.ok);if(r.ok)setTimeout(()=>location.reload(),1500);}
+async function stopHotspot(){msg('hotspot-msg','Bezig…',true);const r=await api('/api/hotspot/stop');msg('hotspot-msg',r.ok?'Hotspot gestopt':'Fout: '+r.error,r.ok);if(r.ok)setTimeout(()=>location.reload(),1500);}
+async function restartKiosk(){const r=await api('/api/kiosk/restart');msg('action-msg',r.ok?'Kiosk herstart…':'Fout: '+r.error,r.ok);}
+async function reloadKiosk(){const r=await api('/api/kiosk/reload');msg('action-msg',r.ok?'Kiosk herladen…':'Fout: '+r.error,r.ok);}
+async function clearKioskCache(){if(!confirm('Cache wissen en kiosk herstarten?'))return;const r=await api('/api/kiosk/clear-cache');msg('action-msg',r.ok?'Cache gewist, kiosk herstart…':'Fout: '+r.error,r.ok);}
+async function openCustomUrl(){const url=document.getElementById('custom-url').value.trim();if(!url)return;const r=await api('/api/kiosk/open-url',{url});msg('action-msg',r.ok?'Kiosk opent URL…':'Fout: '+r.error,r.ok);if(r.ok)setTimeout(()=>location.reload(),1500);}
+async function resetUrl(){const r=await api('/api/kiosk/reset-url');msg('action-msg',r.ok?'URL gereset, kiosk herstart…':'Fout: '+r.error,r.ok);if(r.ok)setTimeout(()=>location.reload(),1500);}
+async function revertPairing(){if(!confirm('Token wissen en opnieuw koppelen?'))return;const r=await api('/api/revert-pairing');msg('action-msg',r.ok?'Koppeling gereset':'Fout: '+r.error,r.ok);if(r.ok)setTimeout(()=>location.reload(),2000);}
+async function doReboot(){if(!confirm('NUC opnieuw opstarten?'))return;const r=await api('/api/system/reboot');msg('action-msg',r.ok?'Herstart gepland…':'Fout: '+r.error,r.ok);}
+async function changePin(){const r=await api('/api/change-pin',{newPin:v('p-new')});msg('pin-msg',r.ok?'PIN gewijzigd':'Fout: '+r.error,r.ok);}
+loadSavedWifi();
+loadBluetooth();
+(async function loadInterfaces(){
+  const r=await fetch('/api/network/interfaces').then(x=>x.json()).catch(()=>({interfaces:[]}));
+  const sel=document.getElementById('f-interface');
+  const saved=${JSON.stringify(cfg?.network?.interface||'')};
+  sel.innerHTML='<option value="">— geen —</option>'+
+    (r.interfaces||[]).map(i=>'<option value="'+_e(i.device)+'"'+(i.device===saved?' selected':'')+'>'+_e(i.device)+' ('+_e(i.type)+(i.state==='connected'?' · verbonden':'')+')'+' </option>').join('');
+})();
 setInterval(async()=>{try{const r=await fetch('/api/status').then(x=>x.json());const a=r.agent||{};const sig=(a.connected?'1':'0')+'|'+(a.pairingCode||'')+'|'+(a.lastError||'')+'|'+(a.reconnectAttempts||0);if(sig!==initialAgentSig)location.reload();}catch{}},3000);
 </script>
 </body></html>`;
@@ -935,6 +1495,46 @@ const server = http.createServer(async (req, res) => {
     }
     if (req.method === 'GET'  && req.url === '/api/status')   return _json(res, 200, await _status());
     if (req.method === 'GET'  && req.url === '/api/wifi')     return _json(res, 200, { ok: true, networks: await _scanWifi() });
+    if (req.method === 'GET'  && req.url === '/api/network/interfaces') {
+      const out = await _run('nmcli', ['-t', '-f', 'DEVICE,TYPE,STATE', 'device']).catch(() => '');
+      const ifaces = out.split('\n')
+        .map(l => { const p = l.split(':'); return { device: p[0], type: p[1], state: p[2] }; })
+        .filter(i => i.device && i.type !== 'loopback' && i.type !== 'wifi' && i.device !== 'lo');
+      return _json(res, 200, { ok: true, interfaces: ifaces });
+    }
+    if (req.method === 'GET'  && req.url === '/api/wifi/saved') {
+      const out = await _run('nmcli', ['-t', '-f', 'NAME,TYPE', 'connection', 'show']).catch(() => '');
+      const networks = out.split('\n')
+        .map(l => { const i = l.lastIndexOf(':'); return [l.slice(0, i), l.slice(i + 1)]; })
+        .filter(([, type]) => type === '802-11-wireless')
+        .map(([name]) => name)
+        .filter(n => n && n !== HOTSPOT_CON);
+      return _json(res, 200, { ok: true, networks });
+    }
+    if (req.method === 'POST' && req.url === '/api/wifi/forget') {
+      const { name } = await _readBody(req);
+      if (!name) return _json(res, 400, { ok: false, error: 'name vereist' });
+      await _run('sudo', ['nmcli', 'connection', 'delete', name]);
+      return _json(res, 200, { ok: true });
+    }
+    if (req.method === 'GET' && req.url === '/api/bluetooth/devices') {
+      return _json(res, 200, { ok: true, devices: await _bluetoothDevices() });
+    }
+    if (req.method === 'POST' && req.url === '/api/bluetooth/scan') {
+      return _json(res, 200, { ok: true, devices: await _scanBluetooth() });
+    }
+    if (req.method === 'POST' && req.url === '/api/bluetooth/connect') {
+      const { address } = await _readBody(req);
+      return _json(res, 200, await _connectBluetooth(address));
+    }
+    if (req.method === 'POST' && req.url === '/api/bluetooth/disconnect') {
+      const { address } = await _readBody(req);
+      return _json(res, 200, await _disconnectBluetooth(address));
+    }
+    if (req.method === 'POST' && req.url === '/api/bluetooth/forget') {
+      const { address } = await _readBody(req);
+      return _json(res, 200, await _forgetBluetooth(address));
+    }
     if (req.method === 'POST' && req.url === '/api/scan-usb') return _json(res, 200, { ok: true, config: await scanUsb() });
     if (req.method === 'POST' && req.url === '/api/apply') {
       const body   = await _readBody(req);
@@ -945,9 +1545,64 @@ const server = http.createServer(async (req, res) => {
       return _json(res, 200, { ok: true, config });
     }
     if (req.method === 'POST' && req.url === '/api/launch')   return _json(res, 200, _launchChromium(await _readConfig()));
-    if (req.method === 'POST' && req.url === '/api/kiosk/restart') return _json(res, 200, await _restartKiosk());
+    if (req.method === 'POST' && req.url === '/api/kiosk/restart') return _json(res, 200, _restartKiosk());
+    if (req.method === 'POST' && req.url === '/api/kiosk/open-url') {
+      const { url } = await _readBody(req);
+      if (!url) return _json(res, 400, { ok: false, error: 'url vereist' });
+      const cfg = await _readConfig() || {};
+      cfg.customUrl = url;
+      await _writeConfig(cfg);
+      return _json(res, 200, _restartKiosk());
+    }
+    if (req.method === 'POST' && req.url === '/api/kiosk/reset-url') {
+      const cfg = await _readConfig() || {};
+      delete cfg.customUrl;
+      await _writeConfig(cfg);
+      return _json(res, 200, _restartKiosk());
+    }
+    if (req.method === 'POST' && req.url === '/api/kiosk/reload') return _json(res, 200, _restartKiosk());
+    if (req.method === 'POST' && req.url === '/api/kiosk/clear-cache') return _json(res, 200, _clearKioskCache());
     if (req.method === 'POST' && req.url === '/api/system/reboot')  return _json(res, 200, _scheduleSystemAction('reboot'));
     if (req.method === 'POST' && req.url === '/api/system/shutdown') return _json(res, 200, _scheduleSystemAction('poweroff'));
+    if (req.method === 'POST' && req.url === '/api/change-pin') {
+      const { newPin } = await _readBody(req);
+      const pin = String(newPin || '').trim().toUpperCase();
+      if (!/^[A-Z0-9]{4,8}$/.test(pin)) return _json(res, 400, { ok: false, error: 'PIN moet 4-8 alfanumerieke tekens zijn' });
+      const cfg = await _readConfig() || {};
+      cfg.webPin = pin;
+      await _writeConfig(cfg);
+      _webPin = pin;
+      return _json(res, 200, { ok: true });
+    }
+    if (req.method === 'POST' && req.url === '/api/wifi/connect') {
+      const { ssid, password } = await _readBody(req);
+      if (!ssid) return _json(res, 400, { ok: false, error: 'ssid vereist' });
+      // Stop hotspot first — adapter can't be in AP mode and connect as client simultaneously
+      await _stopHotspot().catch(() => {});
+      await _applyWifi({ wifi: { ssid, password: password || '', hidden: false } });
+      // Persist wifi + disabled hotspot to config
+      const cfg = await _readConfig() || {};
+      cfg.wifi = { ssid, password: password || '', hidden: false };
+      if (cfg.hotspot) cfg.hotspot.enabled = false;
+      await _writeConfig(cfg);
+      return _json(res, 200, { ok: true });
+    }
+    if (req.method === 'POST' && req.url === '/api/hotspot/start') {
+      const { ssid, password } = await _readBody(req);
+      if (!ssid) return _json(res, 400, { ok: false, error: 'ssid vereist' });
+      // Persist hotspot config
+      const cfg = await _readConfig() || {};
+      cfg.hotspot = { enabled: true, ssid, password: password || '' };
+      await _writeConfig(cfg);
+      await _startHotspot(ssid, password);
+      return _json(res, 200, { ok: true });
+    }
+    if (req.method === 'POST' && req.url === '/api/hotspot/stop') {
+      const cfg = await _readConfig() || {};
+      if (cfg.hotspot) { cfg.hotspot.enabled = false; await _writeConfig(cfg); }
+      await _stopHotspot();
+      return _json(res, 200, { ok: true });
+    }
     if (req.method === 'POST' && req.url === '/api/revert-pairing') {
       // Clear token + pairing state and immediately restart the pairing cycle.
       await _saveAgentPatch({ token: '', pairingSecret: '', pairingCode: '', pairingExpiresAt: 0 });
@@ -978,6 +1633,29 @@ async function _boot() {
     await _writeConfig(cfg);
   }
   _webPin = cfg.webPin;
+
+  // Auto-start hotspot if no active network connection
+  const hasNet = await _hasNetworkConnection();
+  if (!hasNet) {
+    const ssid     = cfg?.hotspot?.ssid     || 'PixelPlein';
+    const password = cfg?.hotspot?.password || '';
+    console.log(`[hotspot] No network detected — starting hotspot "${ssid}"`);
+    await _startHotspot(ssid, password).catch(err => console.warn('[hotspot] auto-start failed:', err.message));
+    if (cfg) {
+      cfg.hotspot = { enabled: true, ssid, password };
+      await _writeConfig(cfg);
+    }
+  } else {
+    // Apply hotspot state from saved config (may start or stop based on enabled flag)
+    await _applyHotspot(cfg);
+  }
+
+  if (cfg?.audio?.output === 'bluetooth' && cfg?.bluetooth?.device) {
+    await _applyBluetooth(cfg);
+    await _applyAudio(cfg).catch(err => console.warn('[audio] boot apply failed:', err.message));
+  }
+
+  await _applyLocalServer(cfg);
 
   // Auto-scan USB on startup
   try {

@@ -4,7 +4,7 @@
 // DB round-trip adds nothing; if the server restarts it resets to stop 0.
 
 let _level  = 0;   // active journey stop (0-3)
-let _manual = true; // true = presenter controls; false = auto-cycle
+let _manual = false; // true = presenter controls; false = auto-cycle
 
 module.exports = {
   getState:  () => ({ level: _level, manual: _manual }),

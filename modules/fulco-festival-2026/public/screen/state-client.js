@@ -1,8 +1,8 @@
-// Expedition screen state — fetches current stop from server on load,
-// then stays in sync via WS `expedition:state` messages.
+// Fulco Festival 2026 screen state — fetches current stop from server on load,
+// then stays in sync via WS `fulco-festival-2026:state` messages.
 
 let _level  = 0;
-let _manual = true;
+let _manual = false;
 let _levelChangedAt = 0;
 
 export function getLevel()   { return _level; }
@@ -20,11 +20,11 @@ function _apply(data, options = {}) {
 
 export async function hydrate() {
   try {
-    const res = await fetch('/api/modules/expedition/snapshot', { credentials: 'include' });
+    const res = await fetch('/api/modules/fulco-festival-2026/snapshot', { credentials: 'include' });
     if (res.ok) _apply(await res.json(), { initial: true });
-  } catch { /* server not running expedition module — stay at defaults */ }
+  } catch { /* server not running festival module — stay at defaults */ }
 }
 
 export function handleWsMessage(msg) {
-  if (msg.type === 'expedition:state') _apply(msg);
+  if (msg.type === 'fulco-festival-2026:state') _apply(msg);
 }

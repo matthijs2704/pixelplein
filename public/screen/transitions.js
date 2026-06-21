@@ -48,7 +48,7 @@ async function _waitForImages(el, timeoutMs) {
  *
  * @param {HTMLElement} outEl - The element currently on screen (may be null)
  * @param {HTMLElement} inEl  - The new element to show
- * @param {'expedition-journey'|'fade'|'slide'|'zoom'} type
+ * @param {'fulco-festival-2026-journey'|'fade'|'slide'|'zoom'} type
  * @param {number} durationMs
  * @returns {Promise<void>} Resolves when the transition completes
  */
@@ -63,7 +63,7 @@ export function runTransition(outEl, inEl, type, durationMs) {
     if (outEl) {
       outEl.style.zIndex = '1';
       inEl.style.zIndex = '2';
-      if (transitionType === 'expedition-journey') {
+      if (transitionType === 'fulco-festival-2026-journey') {
         inEl.style.opacity = '1';
         inEl.style.transform = '';
         outEl.style.zIndex = '3';
@@ -79,7 +79,7 @@ export function runTransition(outEl, inEl, type, durationMs) {
       }
     }
 
-    if (transitionType === 'expedition-journey') {
+    if (transitionType === 'fulco-festival-2026-journey') {
       if (!outEl) {
         inEl.style.opacity = '1';
         inEl.style.transform = '';

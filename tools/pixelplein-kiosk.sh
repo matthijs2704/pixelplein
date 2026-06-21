@@ -7,16 +7,24 @@ set -euo pipefail
 readonly CONFIG_FILE="$HOME/.config/pixelplein-screen/config.json"
 readonly DEFAULT_URL="http://127.0.0.1:3987"
 readonly LOG_TAG="pixelplein-kiosk"
-readonly DEFAULT_CHROMIUM_EXTRA_FLAGS="--use-gl=egl --enable-gpu-rasterization"
+readonly DEFAULT_CHROMIUM_EXTRA_FLAGS="--no-sandbox --enable-logging=stderr --log-level=0"
 readonly KIOSK_BACKEND="${PIXELPLEIN_KIOSK_BACKEND:-wayland}"
 
 # Logging helpers (uses systemd journal when available)
 log_info() {
-	echo "[$LOG_TAG] $*" >&2
+	local msg="[$LOG_TAG] $*"
+	echo "$msg" >&2
+	if command -v systemd-cat &>/dev/null; then
+		printf '%s\n' "$msg" | systemd-cat -t "$LOG_TAG" -p info
+	fi
 }
 
 log_error() {
-	echo "[$LOG_TAG] ERROR: $*" >&2
+	local msg="[$LOG_TAG] ERROR: $*"
+	echo "$msg" >&2
+	if command -v systemd-cat &>/dev/null; then
+		printf '%s\n' "$msg" | systemd-cat -t "$LOG_TAG" -p err
+	fi
 }
 
 # Build URL from config file
@@ -35,13 +43,18 @@ build_url() {
       const fs = require('fs');
       const c = JSON.parse(fs.readFileSync('$CONFIG_FILE', 'utf8'));
       
-      // Build base URL
-      const serverUrl = c.serverUrl || '';
+      // When local server is enabled: prefer publicBaseUrl, else loopback
+      const localEnabled = c.localServer && c.localServer.enabled;
+      const serverUrl = localEnabled
+        ? (c.localServer.publicBaseUrl || 'http://localhost:3000')
+        : (c.serverUrl || '');
       if (!serverUrl) {
         console.log('$DEFAULT_URL');
         process.exit(0);
       }
-      
+
+      if (c.customUrl) { console.log(c.customUrl); process.exit(0); }
+
       const screenId = c.screenId || '1';
       let url = serverUrl + '/screen?screen=' + encodeURIComponent(screenId);
       
@@ -70,10 +83,20 @@ build_url() {
 
 # Find Chromium binary (different package names on different distros)
 find_chromium() {
-	if command -v chromium-browser &>/dev/null; then
-		echo "chromium-browser"
+	local candidate
+
+	# ponytail: snap stubs are shell scripts containing the word "snap"; skip them
+	for candidate in /usr/bin/chromium /usr/bin/chromium-browser /usr/bin/google-chrome-stable /usr/bin/google-chrome; do
+		if [[ -x "$candidate" ]] && ! grep -q snap "$candidate" 2>/dev/null; then
+			echo "$candidate"
+			return 0
+		fi
+	done
+
+	if command -v google-chrome-stable &>/dev/null; then
+		command -v google-chrome-stable
 	elif command -v chromium &>/dev/null; then
-		echo "chromium"
+		command -v chromium
 	else
 		log_error "Chromium not found in PATH"
 		return 1
@@ -97,10 +120,16 @@ launch_cage_if_needed() {
 	chmod 700 "$XDG_RUNTIME_DIR"
 
 	log_info "Starting Wayland kiosk session with Cage"
+	local cage_status=0
 	if command -v dbus-run-session &>/dev/null; then
-		exec dbus-run-session -- cage -s -- "$0"
+		dbus-run-session -- cage -s -- "$0"
+		cage_status=$?
+	else
+		cage -s -- "$0"
+		cage_status=$?
 	fi
-	exec cage -s -- "$0"
+	log_error "Cage exited with status $cage_status"
+	exit "$cage_status"
 }
 
 wait_for_x() {
@@ -129,15 +158,45 @@ wait_for_x() {
 	fi
 }
 
+ensure_audio() {
+	if ! command -v pulseaudio &>/dev/null; then
+		return
+	fi
+
+	if [[ -z "${XDG_RUNTIME_DIR:-}" ]]; then
+		export XDG_RUNTIME_DIR="/tmp/pixelplein-runtime-$(id -u)"
+		mkdir -p "$XDG_RUNTIME_DIR"
+		chmod 700 "$XDG_RUNTIME_DIR"
+	fi
+
+	if command -v pactl &>/dev/null && pactl info >/dev/null 2>&1; then
+		log_info "Audio server already available"
+		return
+	fi
+
+	if pulseaudio --start >/dev/null 2>&1; then
+		log_info "Started PulseAudio for kiosk session"
+	else
+		log_error "Could not start PulseAudio; browser audio may be unavailable"
+	fi
+}
+
 # Main loop
 main() {
 	local chromium_bin
+
+	log_info "Starting kiosk shell"
+	log_info "Backend=$KIOSK_BACKEND DISPLAY=${DISPLAY:-unset} WAYLAND_DISPLAY=${WAYLAND_DISPLAY:-unset} PATH=$PATH"
+
 	launch_cage_if_needed
-	chromium_bin=$(find_chromium)
+	if ! chromium_bin=$(find_chromium); then
+		log_error "Unable to resolve a Chromium binary"
+		exit 1
+	fi
 
 	log_info "Starting kiosk loop"
 	log_info "Chromium binary: $chromium_bin"
-	log_info "Backend=$KIOSK_BACKEND DISPLAY=${DISPLAY:-unset} WAYLAND_DISPLAY=${WAYLAND_DISPLAY:-unset}"
+	ensure_audio
 	if [[ "$KIOSK_BACKEND" == "x11" ]]; then
 		wait_for_x
 	fi
@@ -161,6 +220,8 @@ main() {
 		log_info "Launching Chromium with URL: ${url%%#*}" # Log without credentials
 
 		# Launch Chromium in kiosk mode
+		set +e
+		# ponytail: no pipe — a pipe subshell blocks TERM from exiting until chromium closes stdout
 		"$chromium_bin" \
 			--kiosk \
 			--noerrdialogs \
@@ -171,20 +232,17 @@ main() {
 			--no-first-run \
 			--check-for-update-interval=31536000 \
 			--autoplay-policy=no-user-gesture-required \
-			--disable-features=TranslateUI \
+			--disable-features=TranslateUI,Translate \
 			--disable-breakpad \
 			"${chromium_backend_flags[@]}" \
 			"${extra_flag_args[@]}" \
-			"$url" 2>&1 | while IFS= read -r line; do
-			# Only log errors and important messages
-			if [[ "$line" =~ (ERROR|FATAL|Failed) ]]; then
-				log_error "$line"
-			fi
-		done
+			"$url" >>/tmp/pixelplein-chrome.log 2>&1
+		local chromium_status=$?
+		set -e
 
 		# Chromium exited (crash or manual kill)
 		restart_count=$((restart_count + 1))
-		log_info "Chromium exited (restart #$restart_count), restarting in 2 seconds..."
+		log_info "Chromium exited with status $chromium_status (restart #$restart_count), restarting in 2 seconds..."
 		sleep 2
 	done
 }

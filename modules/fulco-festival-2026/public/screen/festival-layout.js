@@ -1,4 +1,4 @@
-// expedition:zone-loop — "Van Maarn naar de wereld"
+// fulco-festival-2026:zone-loop — "Van Maarn naar de wereld"
 // Level change -> scouting journey map, then station photo page expands from the station.
 // Admin click → map overlay immediately, card updates live.
 //
@@ -81,21 +81,21 @@ const EVENT_INFO = {
   'Gewone Opkomsten': {
     label: 'Bij je eigen groep',
     text: 'Elke week samen spelen, bouwen, avonturen beleven en nieuwe dingen leren in je eigen speltak, met je eigen vrienden.',
-    feit: 'Scouting Ridder Fulco bestaat al sinds 1969, dus is waarschijnlijk ouder dan jouw ouders!',
+    feit: 'Scouting Ridder Fulco bestaat al sinds 1969, dus Scouting in Maarn is waarschijnlijk ouder dan jouw ouders!',
     chips: ['jouw speltak', 'wekelijks', 'vrienden', 'blokhut'],
     question: 'Hoeveel speltakken heeft Scouting Ridder Fulco?',
   },
   'Weekendkampen': {
     label: 'Een nachtje weg',
     text: 'Overnachten in een gebouw/tent, nachtspellen doen en keten met je groep — je eerste stapje richting echt avontuur!',
-    feit: 'De bevers en welpen slapen meestal in het gebouw, de verkenners en explorers slapen vaak in tenten op het terrein en zetten deze zelf op!',
+    feit: 'De bevers en welpen slapen meestal in het gebouw, de verkenners en explorers slapen vaak in tenten op het terrein, en zetten deze ook zelf op.',
     chips: ['overnachten', 'nachtspel', 'tentenkamp', 'avontuur', 'Maarn'],
     question: 'Hoeveel keer per jaar is er een weekendkamp?',
   },
   'Zomerkamp': {
     label: 'Het hoogtepunt van het jaar',
     text: 'Een hele week op pad, zelf koken, bouwen en slapen onder de sterren. Het moment waarop je merkt dat je meer kunt dan je dacht!',
-    feit: 'De Explorers gaan naar het buitenland op zomerkamp en verdienen daar zelf hun geld voor. Dat doen ze bijvoorbeeld door klussen te doen en het Pannenkoeken restaurant te organiseren.',
+    feit: 'De Explorers gaan naar het buitenland op zomerkamp en verdienen daar zelf hun geld voor — door te klussen en het Pannenkoeken restaurant te organiseren.',
     chips: ['7 dagen', 'koken', 'bouwen', 'zelfstandig', 'ergens anders'],
     question: 'Hoeveelste zomerkamp is het voor Matthijs als leiding?',
   },
@@ -310,7 +310,7 @@ function _buildMapHTML(li, lv, prevLi) {
     <div class="xp-topbar xp-map-topbar">
       <div class="xp-header-main">
         <div class="xp-brand">
-          <img class="xp-brand-logo" src="/modules/expedition/logos/fulco.svg"
+          <img class="xp-brand-logo" src="/modules/fulco-festival-2026/logos/fulco.svg"
             alt="Scouting Ridder Fulco" onerror="this.style.display='none'">
           <div class="xp-brand-titles">
             <div class="xp-brand-event">Fulco Festival 2026</div>
@@ -345,10 +345,10 @@ function _pickPhotoVariant(photoCount) {
   const variants = count <= 1
     ? ['hero-grid']
     : (count === 2
-        ? ['hero-stack', 'postcard']
-        : (count === 3
-            ? ['triptych', 'hero-stack', 'postcard']
-            : PHOTO_VARIANTS));
+      ? ['hero-stack', 'postcard']
+      : (count === 3
+        ? ['triptych', 'hero-stack', 'postcard']
+        : PHOTO_VARIANTS));
   const variant = variants[_variantIdx % variants.length];
   _variantIdx++;
   return variant;
@@ -394,7 +394,7 @@ function _appendPhotoPage(root, photos, level, levelIdx, revealFromStation, even
   topBar.innerHTML = `
     <div class="xp-header-main">
       <div class="xp-brand">
-        <img class="xp-brand-logo" src="/modules/expedition/logos/fulco.svg"
+        <img class="xp-brand-logo" src="/modules/fulco-festival-2026/logos/fulco.svg"
           alt="Scouting Ridder Fulco" onerror="this.style.display='none'">
         <div class="xp-brand-titles">
           <div class="xp-brand-event">Fulco Festival 2026</div>
@@ -450,9 +450,11 @@ function _appendPhotoPage(root, photos, level, levelIdx, revealFromStation, even
     <div class="xp-card-header">
       <div class="xp-stamp-row">
         <div class="xp-stamp">STAP ${String(level.step).padStart(2, '0')}</div>
-        <div class="xp-laag">${level.laag}</div>
+        <div>
+          <h2 class="xp-naam">${level.naam}</h2>
+          <div class="xp-laag">${level.laag}</div>
+        </div>
       </div>
-      <h2 class="xp-naam">${level.naam}</h2>
       <h3 class="xp-event-hero">${eventFocus.name}</h3>
       <div class="xp-event-sub">${eventFocus.label}</div>
     </div>
@@ -501,9 +503,9 @@ function _journeyBar(activeLi) {
 // ── Layout export ─────────────────────────────────────────────────────────
 
 export const layout = {
-  id: 'expedition:zone-loop',
-  name: 'expedition:zone-loop',
-  module: 'expedition',
+  id: 'fulco-festival-2026:zone-loop',
+  name: 'fulco-festival-2026:zone-loop',
+  module: 'fulco-festival-2026',
   minPhotos: 1,
 
   pick(cfg, helpers) {
@@ -549,7 +551,7 @@ export const layout = {
     // ── Journey transition: map first, station page expands inside same root.
     if (mode === 'journey') {
       const root = document.createElement('div');
-      root.className = 'layout layout-expedition xp-journey-mode';
+      root.className = 'layout layout-fulco-festival-2026 xp-journey-mode';
       root.dataset.level = levelIdx;
       root.innerHTML = _buildMapHTML(levelIdx, level, prevLi);
       _appendPhotoPage(root, photos, level, levelIdx, true, eventFocus || _eventFocus(level, 0), photoVariant);
@@ -558,7 +560,7 @@ export const layout = {
         el: root,
         visibleIds,
         duration: (JOURNEY_REVEAL_DELAY_MS + PAGE_REVEAL_MS + (8000)),
-        transition: 'expedition-journey',
+        transition: 'fulco-festival-2026-journey',
         transitionMs: RETURN_TO_MAP_MS,
         startMotion: () => { },
       };
@@ -566,7 +568,7 @@ export const layout = {
 
     // ── Photo mode ──────────────────────────────────────────────────────
     const root = document.createElement('div');
-    root.className = 'layout layout-expedition xp-photo-mode';
+    root.className = 'layout layout-fulco-festival-2026 xp-photo-mode';
     root.dataset.level = levelIdx;
     root.innerHTML = _buildMapHTML(levelIdx, level, prevLi);
     _appendPhotoPage(root, photos, level, levelIdx, false, eventFocus || _eventFocus(level, 0), photoVariant);

@@ -45,6 +45,12 @@ Minimum required configuration:
   "kiosk": {
     "autostart": true
   },
+  "audio": {
+    "output": "bluetooth"
+  },
+  "bluetooth": {
+    "device": "00:11:22:33:44:55"
+  },
   "localServer": {
     "enabled": false,
     "publicBaseUrl": "http://192.168.1.20:3000"
@@ -162,6 +168,29 @@ Kiosk behavior configuration.
 - **Type**: Boolean
 - **Default**: `true`
 - **Description**: Whether to auto-start kiosk browser. Set to `false` for setup-only mode.
+
+### `audio` (optional)
+
+Audio output selection for browser playback.
+
+#### `audio.output` (optional)
+
+- **Type**: String
+- **Values**: `"default"`, `"hdmi"`, `"analog"`, or `"bluetooth"`
+- **Default**: `"default"`
+- **Description**: Selects the system default audio output, HDMI audio, analog/headphone output, or a paired Bluetooth audio device.
+
+### `bluetooth` (optional)
+
+Bluetooth audio device configuration. The agent portal can scan, pair, trust,
+connect, disconnect, and forget Bluetooth audio devices.
+
+#### `bluetooth.device` (optional)
+
+- **Type**: String
+- **Format**: Bluetooth MAC address
+- **Example**: `"00:11:22:33:44:55"`
+- **Description**: Device address to reconnect when `audio.output` is `"bluetooth"`.
 
 ### `localServer` (optional)
 

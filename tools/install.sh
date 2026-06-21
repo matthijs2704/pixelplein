@@ -93,16 +93,28 @@ configure_apt_sources() {
 
 install_chromium() {
 	echo "Installing Chromium..."
-	if apt-get install -y --no-install-recommends chromium; then
+
+	# On Raspberry Pi OS / Debian, chromium is a real apt package
+	if apt-get install -y --no-install-recommends chromium 2>/dev/null; then
+		# Verify it's not a snap stub
+		if [[ -x /usr/bin/chromium ]] && ! grep -q snap /usr/bin/chromium 2>/dev/null; then
+			return
+		fi
+	fi
+
+	# Ubuntu 22.04+ ships chromium-browser as a snap stub; use Google Chrome instead
+	echo "Chromium not available from apt without snap; installing Google Chrome..."
+	local keyring=/usr/share/keyrings/google-chrome.gpg
+	curl -fsSL https://dl.google.com/linux/linux_signing_key.pub | \
+		gpg --dearmor -o "$keyring"
+	echo "deb [arch=amd64 signed-by=$keyring] http://dl.google.com/linux/chrome/deb/ stable main" \
+		> /etc/apt/sources.list.d/google-chrome.list
+	apt-get update -qq
+	if apt-get install -y --no-install-recommends google-chrome-stable; then
 		return
 	fi
 
-	if apt-get install -y --no-install-recommends chromium-browser; then
-		return
-	fi
-
-	echo "ERROR: Neither chromium nor chromium-browser is available from apt." >&2
-	echo "Enable the Debian/Raspberry Pi OS main repository or install Chromium manually." >&2
+	echo "ERROR: Could not install a real Chromium/Chrome binary." >&2
 	exit 1
 }
 
@@ -165,9 +177,14 @@ install_chromium
 
 # Media processing (for server mode)
 # - ffmpeg: video transcoding for uploaded videos
+# - bluez, bluetooth: Bluetooth controller and pairing tools
+# - alsa-utils, pulseaudio, pulseaudio-utils, pulseaudio-module-bluetooth, libasound2-plugins:
+#   browser audio playback, Bluetooth audio, output selection, and diagnostics
 # Note: Sharp (image processing) uses bundled libvips via npm
 apt-get install -y --no-install-recommends \
-	ffmpeg
+	ffmpeg \
+	bluez bluetooth \
+	alsa-utils pulseaudio pulseaudio-utils pulseaudio-module-bluetooth libasound2-plugins
 
 # Ensure NetworkManager is enabled and running (critical for provisioner)
 mkdir -p /etc/NetworkManager/conf.d
@@ -181,6 +198,7 @@ unmanaged-devices=none
 EOF
 systemctl enable NetworkManager 2>/dev/null || true
 systemctl enable seatd 2>/dev/null || true
+systemctl enable bluetooth 2>/dev/null || true
 # Do not restart NetworkManager here: on fresh installs the active SSH/DNS
 # connection may still be owned by ifupdown. The config takes effect after the
 # final reboot without disrupting the installation session.
@@ -202,6 +220,9 @@ echo "Creating $APP_USER user..."
 USER_GROUPS="video,audio,plugdev,netdev,render"
 if getent group seat >/dev/null; then
 	USER_GROUPS="$USER_GROUPS,seat"
+fi
+if getent group bluetooth >/dev/null; then
+	USER_GROUPS="$USER_GROUPS,bluetooth"
 fi
 if ! id "$APP_USER" &>/dev/null; then
 	if [[ $PLATFORM == "rpi" ]]; then
@@ -277,6 +298,7 @@ systemctl enable pixelplein-kiosk
 
 # ── 9. Kiosk launch script ──────────────────────────────────────────────────
 chmod +x "$APP_DIR/tools/pixelplein-kiosk.sh"
+chmod +x "$APP_DIR/tools/pixelplein-audio.sh"
 
 # ── 10. USB auto-configuration ──────────────────────────────────────────────
 echo "Setting up USB auto-configuration..."
@@ -293,14 +315,17 @@ chmod 440 /etc/sudoers.d/pixelplein
 
 # ── 12. Chromium policies ───────────────────────────────────────────────────
 echo "Configuring Chromium..."
-CHROMIUM_POLICIES=/etc/chromium/policies/managed
-mkdir -p "$CHROMIUM_POLICIES"
-cat >"$CHROMIUM_POLICIES/pixelplein.json" <<'EOF'
-{
+POLICY_JSON='{
   "AutoplayAllowed": true,
-  "AutoplayAllowlist": ["*"]
-}
-EOF
+  "AutoplayAllowlist": ["*"],
+  "BuiltInDnsClientEnabled": false,
+  "InsecurePrivateNetworkRequestsAllowed": true
+}'
+# chromium package uses /etc/chromium, google-chrome-stable uses /etc/opt/chrome
+for CHROMIUM_POLICIES in /etc/chromium/policies/managed /etc/opt/chrome/policies/managed; do
+  mkdir -p "$CHROMIUM_POLICIES"
+  echo "$POLICY_JSON" >"$CHROMIUM_POLICIES/pixelplein.json"
+done
 
 # ── 13. Optional: SSH hardening ─────────────────────────────────────────────
 if [[ -f /etc/ssh/sshd_config ]]; then

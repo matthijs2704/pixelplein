@@ -9,8 +9,12 @@ User=pixelplein
 PAMName=login
 TTYPath=/dev/tty1
 StandardInput=tty
+StandardOutput=journal+console
+StandardError=journal+console
 TTYReset=yes
 TTYVHangup=yes
+TimeoutStopSec=5
+KillMode=control-group
 Environment=PIXELPLEIN_KIOSK_BACKEND=wayland
 Environment=XDG_SESSION_TYPE=wayland
 ExecStart=/opt/pixelplein/tools/pixelplein-kiosk.sh

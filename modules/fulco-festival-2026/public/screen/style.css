@@ -1,8 +1,8 @@
-/* ── Expedition — paper journey map ───────────────────────────────────────── */
+/* ── Fulco Festival 2026 — paper journey map ──────────────────────────────── */
 
 @import url('https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,700;12..96,800&family=Inter:wght@400;500;600&family=Saira+Condensed:wght@600;700&display=swap');
 
-.layout-expedition {
+.layout-fulco-festival-2026 {
   --xp-paper: #e7d4a8;
   --xp-paper-2: #dfc892;
   --xp-cream: #f8f1de;
@@ -17,7 +17,7 @@
   --xp-side-inset: max(42px, 3.4vw);
   --xp-header-top: max(20px, 2.2vh);
   --xp-waarom-top: max(140px, 16.2vh);
-  --xp-content-top: max(220px, 26vh);
+  --xp-content-top: max(210px, 24vh);
   --xp-content-bottom: max(34px, 4vh);
 
   position: relative;
@@ -30,13 +30,13 @@
   font-family: "Inter", system-ui, sans-serif;
 }
 
-.layout-expedition *,
-.layout-expedition *::before,
-.layout-expedition *::after {
+.layout-fulco-festival-2026 *,
+.layout-fulco-festival-2026 *::before,
+.layout-fulco-festival-2026 *::after {
   box-sizing: border-box;
 }
 
-.layout-expedition::before {
+.layout-fulco-festival-2026::before {
   content: '';
   position: absolute;
   inset: 0;
@@ -51,7 +51,7 @@
   background-size: 300px 300px;
 }
 
-.layout-expedition::after {
+.layout-fulco-festival-2026::after {
   content: '';
   position: absolute;
   inset: 0;
@@ -65,7 +65,7 @@
 .xp-journey-mode {
   background:
     radial-gradient(130% 130% at 10% 92%, #d4bb72 0%, #c4a44e 45%, #a8893a 100%),
-    url('/modules/expedition/screen/topography.svg') top / 50vh auto repeat;
+    url('/modules/fulco-festival-2026/screen/topography.svg') top / 50vh auto repeat;
     background-blend-mode: multiply;
 overflow: hidden;
 
@@ -91,7 +91,14 @@ overflow: hidden;
   opacity: 1;
 }
 
-.layout-expedition.xp-closing-to-map .xp-map-stage {
+.layout-fulco-festival-2026.xp-closing-to-map {
+  background:
+    radial-gradient(130% 130% at 10% 92%, #d4bb72 0%, #c4a44e 45%, #a8893a 100%),
+    url('/modules/fulco-festival-2026/screen/topography.svg') top / 50vh auto repeat;
+  background-blend-mode: multiply;
+}
+
+.layout-fulco-festival-2026.xp-closing-to-map .xp-map-stage {
   opacity: 1;
   pointer-events: none;
 }
@@ -481,7 +488,7 @@ overflow: hidden;
 /* ── Photo station page ───────────────────────────────────────────────────── */
 
 .xp-page {
-  /* ponytail: vars + inherited props repeated here so the outgoing-circle clone stays styled outside .layout-expedition */
+  /* ponytail: vars + inherited props repeated here so the outgoing-circle clone stays styled outside .layout-fulco-festival-2026 */
   color: #1c2b33;
   font-family: "Inter", system-ui, sans-serif;
   --xp-paper: #e7d4a8;
@@ -498,7 +505,7 @@ overflow: hidden;
   --xp-side-inset: max(42px, 3.4vw);
   --xp-header-top: max(20px, 2.2vh);
   --xp-waarom-top: max(140px, 16.2vh);
-  --xp-content-top: max(220px, 26vh);
+  --xp-content-top: max(210px, 24vh);
   --xp-content-bottom: max(34px, 4vh);
 
   position: absolute;
@@ -517,7 +524,7 @@ overflow: hidden;
   inset: 0;
   pointer-events: none;
   z-index: 0;
-  background: url('/modules/expedition/screen/topography.svg') top / 50vh auto repeat;
+  background: url('/modules/fulco-festival-2026/screen/topography.svg') top / 50vh auto repeat;
   opacity: 1;
   mix-blend-mode: multiply;
 }
@@ -1150,6 +1157,10 @@ overflow: hidden;
   font-size: max(16px, 2.2vh);
   font-weight: 600;
   line-height: 1.32;
+  overflow: hidden;
+  display: -webkit-box;
+  -webkit-line-clamp: 4;
+  -webkit-box-orient: vertical;
 }
 
 .xp-question-label {
@@ -1219,11 +1230,11 @@ overflow: hidden;
 }
 
 @media (max-height: 1200px) {
-  .layout-expedition {
+  .layout-fulco-festival-2026 {
     --xp-side-inset: clamp(34px, 3vw, 72px);
     --xp-header-top: clamp(18px, 1.8vh, 28px);
     --xp-waarom-top: clamp(124px, 14.6vh, 158px);
-    --xp-content-top: clamp(200px, 23.4vh, 248px);
+    --xp-content-top: clamp(190px, 21.8vh, 235px);
     --xp-content-bottom: clamp(28px, 3.2vh, 48px);
   }
 
@@ -1302,7 +1313,7 @@ overflow: hidden;
 
 /* ponytail: 4K block only handles border/shadow density and logo scale — font/spacing handled by max(min, vh) in base */
 @media (min-width: 3000px) and (min-height: 1700px) {
-  .layout-expedition::after {
+  .layout-fulco-festival-2026::after {
     box-shadow: inset 0 0 340px rgba(60, 40, 15, .28);
   }
   .xp-map-stage::after {

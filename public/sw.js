@@ -5,7 +5,7 @@
 // IMPORTANT: bump SHELL_VERSION whenever screen JS or CSS files change so
 // that all NUC clients pick up the new app shell on their next load.
 
-const SHELL_VERSION = 25;
+const SHELL_VERSION = 26;
 const SHELL_CACHE   = `pixelplein-shell-v${SHELL_VERSION}`;
 const MEDIA_CACHE   = 'pixelplein-media';
 
@@ -142,8 +142,10 @@ self.addEventListener('fetch', event => {
   const { request } = event;
   const url = new URL(request.url);
 
-  // Only handle same-origin GET requests
+  // Only handle same-origin GET requests; let navigations go straight to network
+  // (navigation requests have redirect:'manual' which causes opaque redirect errors)
   if (request.method !== 'GET' || url.origin !== self.location.origin) return;
+  if (request.mode === 'navigate') return;
 
   const p = url.pathname;
 
