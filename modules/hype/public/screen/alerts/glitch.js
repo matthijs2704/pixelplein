@@ -37,6 +37,9 @@ export function renderGlitchAlert(alert) {
   root.innerHTML = `
     <div class="hype-glitch-noise"   aria-hidden="true"></div>
     <div class="hype-glitch-scan"    aria-hidden="true"></div>
+    <div class="hype-glitch-tears"   aria-hidden="true">
+      <span></span><span></span><span></span><span></span>
+    </div>
     <div class="hype-glitch-rgb"     aria-hidden="true"></div>
     <div class="hype-glitch-flash"   aria-hidden="true"></div>
     <div class="hype-glitch-blackout" aria-hidden="true"></div>
@@ -46,9 +49,20 @@ export function renderGlitchAlert(alert) {
   document.body.classList.add('hype-glitching', cfg.bodyClass);
 
   const durationMs = Math.round((Number(alert.payload?.durationSec) || cfg.durationSec) * 1000);
-  setTimeout(() => {
+  const cleanup = () => {
     document.body.classList.remove('hype-glitching', cfg.bodyClass);
-  }, durationMs);
+  };
+  setTimeout(cleanup, durationMs);
+
+  const observer = new MutationObserver(() => {
+    if (!root.isConnected) {
+      observer.disconnect();
+      cleanup();
+    }
+  });
+  queueMicrotask(() => {
+    if (root.parentNode) observer.observe(root.parentNode, { childList: true });
+  });
 
   return root;
 }

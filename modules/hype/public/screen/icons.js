@@ -36,6 +36,11 @@ export const icon = {
   sparkles:   (s) => _wrap(`<path d="M12 3l1.6 4.6L18 9l-4.4 1.4L12 15l-1.6-4.6L6 9l4.4-1.4Z"/><path d="M19 14l.8 2.2L22 17l-2.2.8L19 20l-.8-2.2L16 17l2.2-.8Z"/><path d="M5 14l.6 1.6L7 16l-1.4.4L5 18l-.6-1.6L3 16l1.4-.4Z"/>`, s),
   lock:       (s) => _wrap(`<rect x="4" y="11" width="16" height="10" rx="2"/><path d="M8 11V7a4 4 0 1 1 8 0v4"/>`, s),
   key:        (s) => _wrap(`<circle cx="8" cy="15" r="4"/><path d="m21 2-9.6 9.6"/><path d="m15.5 7.5 3 3L22 7l-3-3"/>`, s),
+  paw:        (s) => _wrap(`<circle cx="11" cy="15" r="4"/><circle cx="5" cy="9" r="2"/><circle cx="9" cy="5" r="2"/><circle cx="15" cy="5" r="2"/><circle cx="19" cy="9" r="2"/>`, s),
+  chefHat:    (s) => _wrap(`<path d="M6 18h12"/><path d="M7 18v-7.2A4 4 0 0 1 10.6 3a4.4 4.4 0 0 1 6.8 2.2A3.6 3.6 0 0 1 18 12v6"/><path d="M9 18v-5"/><path d="M15 18v-5"/>`, s),
+  gamepad:    (s) => _wrap(`<rect x="3" y="9" width="18" height="10" rx="5"/><path d="M8 14h3M9.5 12.5v3"/><circle cx="16" cy="13.5" r=".8"/><circle cx="18.5" cy="15.5" r=".8"/>`, s),
+  dumbbell:   (s) => _wrap(`<path d="M7 7v10M17 7v10M3 9v6M21 9v6M7 12h10"/>`, s),
+  compass:    (s) => _wrap(`<circle cx="12" cy="12" r="9"/><path d="m15.2 8.8-2.1 5.7-5.7 2.1 2.1-5.7Z"/>`, s),
 };
 
 /** Render a circular monogram avatar (Twitter/X default style) with the

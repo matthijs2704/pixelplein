@@ -36,15 +36,17 @@ function _showUnlockBanner() {
   if (document.getElementById('hype-audio-unlock')) return;
   const bar = document.createElement('div');
   bar.id = 'hype-audio-unlock';
-  bar.textContent = '🔊 Tik op het scherm om geluid aan te zetten';
+  bar.textContent = 'Tik op het scherm om geluid aan te zetten';
   Object.assign(bar.style, {
     position: 'fixed', left: '50%', bottom: '20px', transform: 'translateX(-50%)',
-    background: 'rgba(20,20,30,0.92)', color: '#fff',
-    padding: '12px 22px', borderRadius: '999px',
-    fontSize: '16px', fontFamily: 'Inter, system-ui, sans-serif',
-    border: '1px solid rgba(255,255,255,0.15)',
-    boxShadow: '0 10px 40px rgba(0,0,0,0.45)',
+    background: '#f5d904', color: '#0b0d12',
+    padding: '10px 22px 8px', borderRadius: '4px',
+    fontSize: '22px', fontFamily: 'Bebas Neue, system-ui, sans-serif',
+    border: '0',
+    boxShadow: '7px 7px 0 rgba(0,0,0,0.38), 0 10px 40px rgba(0,0,0,0.45)',
     zIndex: 99999, cursor: 'pointer',
+    textTransform: 'uppercase',
+    clipPath: 'polygon(1% 10%, 100% 0, 97% 88%, 0 100%)',
   });
   document.body.appendChild(bar);
 

@@ -5,7 +5,9 @@
 import { el, photoUrl } from '/shared/utils.js';
 import { applySmartFit } from '/screen/fit.js';
 import { startKenBurns } from '/screen/transitions.js';
-import { getPhotoChannel, getChannel, getGeneralAccount } from '../state-client.js';
+import { getPhotoChannel, getChannel, getGeneralAccount, getPhotoLikes } from '../state-client.js';
+import { icon } from '../icons.js';
+import { fmtCount } from '../format.js';
 
 export const layout = {
   id:        'hype:story',
@@ -29,6 +31,10 @@ function _build(photo) {
 
   const chId = getPhotoChannel(photo.id);
   const ch = (chId && getChannel(chId)) || getGeneralAccount();
+
+  // Legibility scrims top + bottom
+  root.appendChild(el('div', { cls: 'hype-story-scrim-top' }));
+  root.appendChild(el('div', { cls: 'hype-story-scrim-bottom' }));
 
   // Progress bar (decorative — animates with layout duration via CSS var)
   const progressBar = el('div', { cls: 'hype-story-progress' });
@@ -59,6 +65,15 @@ function _build(photo) {
   applySmartFit(img, photo, false);
   wrap.appendChild(img);
   root.appendChild(wrap);
+
+  // Footer: brand caption + live like count
+  const foot = el('div', { cls: 'hype-story-foot' });
+  foot.appendChild(el('div', { cls: 'hype-story-caption', text: 'live op De Hype' }));
+  const like = el('div', { cls: 'hype-story-like' });
+  like.innerHTML = icon.heartFill(22);
+  like.appendChild(el('span', { text: fmtCount(getPhotoLikes(photo.id)) }));
+  foot.appendChild(like);
+  root.appendChild(foot);
 
   return {
     el: root,

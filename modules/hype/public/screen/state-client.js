@@ -15,8 +15,10 @@ const _state = {
   recentComments: [],            // [{ photoId, channelId, author, text, ts }] (rolling 30)
   settings: {
     mode: 'normal',
+    harryHeat: 0,
+    spotlightDay: 1,
     launchActive: false,
-    generalAccount: { name: 'Kamp Live', handle: '@kamp_live', color: '#2bc1ff', avatarUrl: '' },
+    generalAccount: { name: 'Scouting Ridder Fulco', handle: '@scoutingridderfulco', color: '#00b2ff', avatarUrl: '' },
     streamStats: { viewers: 247, online: 88, updatedAt: 0 },
   },
   activity: [],

@@ -4,6 +4,7 @@ import {
   getActivity,
   getAllFollowers,
   getChannels,
+  getFollowerCount,
   getGeneralAccount,
   getPhotoChannel,
   getPhotoLikes,
@@ -26,9 +27,21 @@ function _avatar(account, size = 44) {
   if (account && (account.avatarUrl || account.avatar_url)) {
     node.appendChild(el('img', { src: account.avatarUrl || account.avatar_url, alt: '' }));
   } else {
-    node.textContent = _initial(account && (account.name || account.handle));
+    const iconName = _channelIcon(account && account.id);
+    if (iconName && icon[iconName]) node.innerHTML = icon[iconName](Math.round(size * 0.58));
+    else node.innerHTML = icon.compass(Math.round(size * 0.58));
   }
   return node;
+}
+
+function _channelIcon(channelId) {
+  if (channelId === 'chnl_manager') return 'radio';
+  if (channelId === 'chnl_natuur') return 'paw';
+  if (channelId === 'chnl_kook') return 'chefHat';
+  if (channelId === 'chnl_game') return 'gamepad';
+  if (channelId === 'chnl_beauty') return 'sparkles';
+  if (channelId === 'chnl_fit') return 'dumbbell';
+  return 'compass';
 }
 
 function _photoList() {
@@ -79,6 +92,7 @@ function _svg(name) {
 function _rankPanel() {
   const followers = getAllFollowers();
   const channels = getChannels()
+    .filter(_isRaceChannel)
     .slice()
     .sort((a, b) => (followers[b.id] | 0) - (followers[a.id] | 0));
   const panel = el('section', { cls: 'hype-social-panel hype-social-race' },
@@ -149,20 +163,161 @@ function _render(root) {
     root.appendChild(_fullscreenStream(settings));
     return;
   }
-  root.appendChild(_statusBar());
+  root.appendChild(_dashboardStage(settings));
+}
 
-  const shell = el('div', { cls: 'hype-social-grid' });
-  const feed = el('main', { cls: 'hype-social-feed' });
-  const ordered = _balancedPhotos(photos).slice(0, 10);
-  for (const photo of ordered) feed.appendChild(_postCard(photo));
+function _dashboardStage(settings) {
+  const followers = getAllFollowers();
+  const channels = getChannels();
+  const ranked = channels
+    .filter(_isRaceChannel)
+    .slice()
+    .sort((a, b) => (followers[b.id] | 0) - (followers[a.id] | 0));
+  const spotlight = _spotlightChannels(settings, channels);
+  const top = ranked[0] || null;
+  const heat = Math.max(0, Math.min(5, Number(settings.harryHeat) || 0));
 
-  const side = el('aside', { cls: 'hype-social-side' });
-  side.appendChild(photos.length ? _rankPanel() : _dayIntroPanel(settings));
-  side.appendChild(_streamPanel());
-  side.appendChild(_activityPanel());
-  shell.appendChild(feed);
-  shell.appendChild(side);
-  root.appendChild(shell);
+  const stage = el('section', { cls: 'hype-dash-stage' });
+  stage.appendChild(_dashDoodles());
+  stage.appendChild(el('header', { cls: 'hype-dash-hero' },
+    el('div', { cls: 'hype-dash-logo-wrap' },
+      el('img', { cls: 'hype-dash-logo', src: '/themes/hype/assets/logo.svg', alt: 'de HYPE!' }),
+      el('div', { cls: 'hype-dash-tagline', text: 'jouw kamp. jouw momenten. altijd hype.' }),
+    ),
+    el('div', { cls: 'hype-dash-now' },
+      _paintLabel('live dashboard', 'yellow'),
+      el('strong', { text: top ? `${top.name} staat bovenaan` : 'kanalen warmen op' }),
+      el('span', { text: `Harry heat ${heat}/5` }),
+    ),
+  ));
+
+  const body = el('div', { cls: 'hype-dash-body' });
+  body.appendChild(el('section', { cls: 'hype-dash-spotlight' },
+    _sectionLabel('in de spotlight'),
+    el('div', { cls: 'hype-dash-spotlight-grid' },
+      ...spotlight.map(ch => _spotlightCard(ch, followers[ch.id] | 0)),
+    ),
+  ));
+  body.appendChild(_racePanel(ranked, followers));
+  body.appendChild(_buzzPanel(settings));
+  stage.appendChild(body);
+  stage.appendChild(_channelRibbon(channels, followers));
+  return stage;
+}
+
+function _spotlightChannels(settings, channels) {
+  const day = Math.max(1, Math.min(6, Number(settings.spotlightDay) || 1));
+  const raceChannels = channels.filter(_isRaceChannel);
+  const featured = raceChannels.filter(ch => Array.isArray(ch.featured_days) && ch.featured_days.includes(day));
+  if (featured.length) return featured.slice(0, 2);
+  return raceChannels.slice().sort((a, b) => (getFollowerCount(b.id) | 0) - (getFollowerCount(a.id) | 0)).slice(0, 2);
+}
+
+function _isRaceChannel(ch) {
+  return ch && ch.race_participant !== false;
+}
+
+function _spotlightCard(ch, followers) {
+  const card = el('article', { cls: 'hype-dash-spot-card' });
+  card.style.setProperty('--ch-color', ch.color || '#00b2ff');
+  card.appendChild(_avatar(ch, 86));
+  card.appendChild(el('div', { cls: 'hype-dash-spot-copy' },
+    el('strong', { text: ch.name }),
+    el('span', { text: ch.handle }),
+  ));
+  card.appendChild(el('div', { cls: 'hype-dash-spot-count' },
+    el('strong', { text: fmtCount(followers) }),
+    el('span', { text: 'volgers' }),
+  ));
+  card.appendChild(el('div', { cls: 'hype-dash-spot-sticker', text: 'in de spotlight' }));
+  return card;
+}
+
+function _racePanel(ranked, followers) {
+  const max = Math.max(1, ...ranked.map(ch => followers[ch.id] | 0));
+  const panel = el('section', { cls: 'hype-dash-race' }, _sectionLabel('follower race'));
+  ranked.forEach((ch, index) => {
+    const count = followers[ch.id] | 0;
+    const row = el('div', { cls: `hype-dash-race-row rank-${index + 1}` });
+    row.style.setProperty('--ch-color', ch.color || '#00b2ff');
+    row.style.setProperty('--pct', `${Math.max(8, Math.round(count / max * 100))}%`);
+    row.append(
+      el('span', { cls: 'hype-dash-rank', text: String(index + 1) }),
+      _avatar(ch, 48),
+      el('div', { cls: 'hype-dash-race-name' },
+        el('strong', { text: ch.name }),
+        el('span', { text: ch.handle }),
+      ),
+      el('div', { cls: 'hype-dash-race-bar' }, el('span', {})),
+      el('strong', { cls: 'hype-dash-race-count', text: fmtCount(count) }),
+    );
+    panel.appendChild(row);
+  });
+  return panel;
+}
+
+function _buzzPanel(settings) {
+  const panel = el('aside', { cls: 'hype-dash-buzz' }, _sectionLabel('live buzz'));
+  const activity = getActivity(8);
+  const stats = settings.streamStats || {};
+  panel.appendChild(el('div', { cls: 'hype-dash-stats' },
+    _stat('online', fmtCount(stats.online || 247)),
+    _stat('kijkt mee', fmtCount(stats.viewers || 88)),
+    _stat('heat', `${Number(settings.harryHeat) || 0}/5`),
+  ));
+  const list = el('div', { cls: 'hype-dash-buzz-list' });
+  for (const item of activity) {
+    list.appendChild(el('div', { cls: `hype-dash-buzz-row ${item.actor_type || ''}` },
+      el('span', { cls: 'hype-dash-buzz-kind', text: item.actor_type === 'harry' ? 'harry' : item.kind || 'live' }),
+      el('span', { cls: 'hype-dash-buzz-text', text: item.text || '' }),
+    ));
+  }
+  if (!activity.length) {
+    list.appendChild(el('div', { cls: 'hype-dash-buzz-row' },
+      el('span', { cls: 'hype-dash-buzz-kind', text: 'live' }),
+      el('span', { cls: 'hype-dash-buzz-text', text: 'De Hype warmt op...' }),
+    ));
+  }
+  panel.appendChild(list);
+  return panel;
+}
+
+function _channelRibbon(channels, followers) {
+  const ribbon = el('footer', { cls: 'hype-dash-channel-ribbon' });
+  for (const ch of channels) {
+    const item = el('div', { cls: 'hype-dash-channel-pill' });
+    item.style.setProperty('--ch-color', ch.color || '#00b2ff');
+    item.append(_avatar(ch, 42), el('div', {}, el('strong', { text: ch.name }), el('span', { text: fmtCount(followers[ch.id] | 0) })));
+    ribbon.appendChild(item);
+  }
+  return ribbon;
+}
+
+function _stat(label, value) {
+  return el('div', { cls: 'hype-dash-stat' }, el('strong', { text: value }), el('span', { text: label }));
+}
+
+function _sectionLabel(text) {
+  return _paintLabel(text, 'yellow');
+}
+
+function _paintLabel(text, tone) {
+  return el('div', { cls: `hype-dash-label ${tone || ''}`, text });
+}
+
+function _dashDoodles() {
+  return el('div', { cls: 'hype-dash-doodles', attrs: { 'aria-hidden': 'true' } },
+    _doodle('flame', 'b1'),
+    _doodle('sparkles', 'c1'),
+    _doodle('trendingUp', 'a1'),
+    _doodle('heart', 's1'),
+  );
+}
+
+function _doodle(iconName, cls) {
+  const node = el('span', { cls: `doodle ${cls}` });
+  node.innerHTML = icon[iconName] ? icon[iconName](92) : '';
+  return node;
 }
 
 function _fullscreenStream(settings) {
@@ -429,7 +584,8 @@ function _balancedPhotos(photos) {
 export const takeover = {
   id: 'hype:social-only',
   active() {
-    return getSettings().mode === 'social-only';
+    const mode = getSettings().mode;
+    return mode === 'dashboard' || mode === 'social-only';
   },
   async build() {
     const root = el('div', { cls: 'hype-social-root' });

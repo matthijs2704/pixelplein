@@ -5,7 +5,7 @@
 // IMPORTANT: bump SHELL_VERSION whenever screen JS or CSS files change so
 // that all NUC clients pick up the new app shell on their next load.
 
-const SHELL_VERSION = 26;
+const SHELL_VERSION = 28;
 const SHELL_CACHE   = `pixelplein-shell-v${SHELL_VERSION}`;
 const MEDIA_CACHE   = 'pixelplein-media';
 
@@ -79,6 +79,43 @@ const SHELL_URLS = [
   '/styles/screen-layouts.css',
   '/styles/screen-overlays.css',
   '/styles/screen-slides.css',
+
+  // Hype theme assets
+  '/themes/hype/style.css',
+  '/themes/hype/frame.html',
+  '/themes/hype/assets/logo.svg',
+  '/themes/hype/assets/bands/PinkBand.svg',
+  '/themes/hype/assets/bands/WhiteBand.svg',
+  '/themes/hype/assets/bands/YellowBand.svg',
+  '/themes/hype/assets/fonts/BebasNeue-Regular.ttf',
+  '/themes/hype/assets/fonts/DMSans-Regular.ttf',
+  '/themes/hype/assets/fonts/DMSans-Medium.ttf',
+  '/themes/hype/assets/fonts/DMSans-Bold.ttf',
+  '/themes/hype/assets/fonts/DMSans-Black.ttf',
+
+  // Hype module screen assets
+  '/modules/hype/screen/index.js',
+  '/modules/hype/screen/style.css',
+  '/modules/hype/screen/audio-unlock.js',
+  '/modules/hype/screen/format.js',
+  '/modules/hype/screen/icons.js',
+  '/modules/hype/screen/overlay-chrome.js',
+  '/modules/hype/screen/social-dashboard.js',
+  '/modules/hype/screen/state-client.js',
+  '/modules/hype/screen/alerts/glitch.js',
+  '/modules/hype/screen/alerts/hacker.js',
+  '/modules/hype/screen/alerts/launch.js',
+  '/modules/hype/screen/alerts/offline.js',
+  '/modules/hype/screen/alerts/prelaunch.js',
+  '/modules/hype/screen/alerts/restart.js',
+  '/modules/hype/screen/layouts/post-card.js',
+  '/modules/hype/screen/layouts/reels-vertical.js',
+  '/modules/hype/screen/layouts/story.js',
+  '/modules/hype/screen/slides/feed.js',
+  '/modules/hype/screen/slides/followers.js',
+  '/modules/hype/screen/slides/trending.js',
+  '/modules/hype/audio/launch.wav',
+  '/modules/hype/audio/prelaunch.wav',
 ];
 
 // ---------------------------------------------------------------------------
@@ -162,9 +199,9 @@ self.addEventListener('fetch', event => {
     return;
   }
 
-  // Theme files are dynamically loaded after config arrives. Cache-first lets
-  // a previously-used theme survive an offline cold start.
-  if (p.startsWith('/themes/')) {
+  // Theme and Hype module files are dynamically loaded after config arrives.
+  // Cache-first lets a previously-used Hype setup survive an offline cold start.
+  if (p.startsWith('/themes/') || p.startsWith('/modules/hype/')) {
     event.respondWith(_cacheFirst(request, SHELL_CACHE));
     return;
   }

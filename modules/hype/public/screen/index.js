@@ -18,9 +18,9 @@ import { buildFollowersSlide } from './slides/followers.js';
 import { buildFeedSlide      } from './slides/feed.js';
 import { buildTrendingSlide  } from './slides/trending.js';
 
-import { layout as postGridLayout      } from './layouts/post-grid.js';
 import { layout as storyLayout         } from './layouts/story.js';
 import { layout as reelsVerticalLayout } from './layouts/reels-vertical.js';
+import { layout as postCardLayout      } from './layouts/post-card.js';
 
 import { overlay as chromeOverlay } from './overlay-chrome.js';
 import { takeover as socialOnlyTakeover } from './social-dashboard.js';
@@ -54,7 +54,7 @@ export async function register() {
   registerSlideBuilder('hype-trending',  buildTrendingSlide);
 
   // Layouts (auto-included when module is enabled)
-  registerLayout(postGridLayout);
+  registerLayout(postCardLayout);
   registerLayout(storyLayout);
   registerLayout(reelsVerticalLayout);
 

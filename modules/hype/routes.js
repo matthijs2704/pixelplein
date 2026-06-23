@@ -166,7 +166,8 @@ function createAdminRouter(ctx, engine) {
       color:          String(body.color || '#888888').slice(0, 16),
       avatar_url:     String(body.avatar_url || body.avatarUrl || '').slice(0, 500),
       follower_base:  Math.max(0, Number(body.follower_base) | 0),
-      featured_days:  [],
+      featured_days:  Array.isArray(body.featured_days) ? body.featured_days : [],
+      race_participant: body.race_participant !== false,
     };
     if (!channel.name || !channel.handle) return res.status(400).json({ error: 'name and handle required' });
     try {

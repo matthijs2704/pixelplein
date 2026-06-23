@@ -1,104 +1,142 @@
-/* ─── DeHype theme ─────────────────────────────────────────────────────────
-   Designed to feel like an actual social-media app (IG/TikTok DNA) rather
-   than a generic neon poster: clean near-black surface, restrained type,
-   gradient reserved for the brand wordmark + accents. Visual only — the
-   hype module overlay paints live data on top.
+/* ─── De Hype theme ────────────────────────────────────────────────────────
+   Makes the base PixelPlein photo display read like the De Hype social
+   platform: app chrome (top nav + bottom tab bar), brand palette
+   (yellow #F5D904 + hot-pink #F52368 on near-black), Bebas Neue display +
+   DM Sans UI, photos presented as rounded feed cards. Visual only.
+   Pairs with the hype module, which paints live handles/likes on top.
 ──────────────────────────────────────────────────────────────────────────── */
 
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap');
-
-:root {
-  /* ── Brand palette (IG-style gradient: warm → cool) ───────────────── */
-  --hype-grad-1:  #ffc24a;
-  --hype-grad-2:  #ff2d87;
-  --hype-grad-3:  #a23bff;
-  --hype-grad-4:  #2bc1ff;
-  --hype-gradient: linear-gradient(120deg,
-    var(--hype-grad-1) 0%,
-    var(--hype-grad-2) 35%,
-    var(--hype-grad-3) 70%,
-    var(--hype-grad-4) 100%);
-
-  /* ── Surface palette (near-black, restrained) ─────────────────────── */
-  --hype-bg-0:    #000;
-  --hype-bg-1:    #0a0a0c;
-  --hype-bg-2:    #131316;
-  --hype-surface: #18181b;
-  --hype-border:  rgba(255, 255, 255, 0.08);
-  --hype-text:    #f5f5f7;
-  --hype-muted:   rgba(245, 245, 247, 0.55);
-  --hype-accent:  #ff2d87;
-
-  /* ── Shell metrics ────────────────────────────────────────────────── */
-  --hype-nav-h:    clamp(52px, 5.0vh, 76px);
-  --hype-tab-h:    clamp(48px, 4.6vh, 70px);
-
-  /* ── Screen padding: the Hype module owns its own chrome ───────────── */
-  --rsw-frame-inset-x:     clamp(8px, 0.5vw, 18px);
-  --rsw-frame-inset-y:     clamp(8px, 0.6vh, 18px);
-  --screen-padding-top:    clamp(16px, 1.2vh, 28px);
-  --screen-padding-right:  clamp(16px, 1vw, 32px);
-  --screen-padding-bottom: clamp(16px, 1.2vh, 28px);
-  --screen-padding-left:   clamp(16px, 1vw, 32px);
-
-  --screen-bg: var(--hype-bg-1);
-
-  /* ── Tiles / polaroid ─────────────────────────────────────────────── */
-  --tile-gap:     clamp(6px, 0.45vw, 12px);
-  --tile-radius:  12px;
-  --tile-shadow:  0 1px 0 rgba(255,255,255,0.04) inset,
-                  0 12px 28px rgba(0, 0, 0, 0.5);
-  --tile-border:  1px solid var(--hype-border);
-
-  --polaroid-bg:           transparent;
-  --polaroid-card-bg:      var(--hype-surface);
-  --polaroid-card-radius:  12px;
-  --polaroid-card-shadow:  0 14px 32px rgba(0, 0, 0, 0.55);
-
-  /* ── Text slides ─────────────────────────────────────────────────── */
-  --textcard-bg:           linear-gradient(180deg, var(--hype-bg-2), #0d0d10);
-  --textcard-color:        var(--hype-text);
-  --textcard-accent:       var(--hype-accent);
-  --textcard-font:         'Inter', -apple-system, 'SF Pro Display', system-ui, sans-serif;
-  --textcard-title-size:   clamp(2.4rem, 4.6vw, 5.6rem);
-  --textcard-body-size:    clamp(1rem, 1.6vw, 2rem);
-
-  --qr-bg:                 #fff;
-  --qr-color:              #0a0a0c;
-  --qr-muted-color:        #6b6b73;
-
-  /* ── Ticker / infobar — re-skinned to feel like an IG notif strip ── */
-  --ticker-bg:             rgba(20, 20, 22, 0.85);
-  --ticker-height:         clamp(28px, 2.2vh, 42px);
-  --ticker-color:          var(--hype-text);
-  --ticker-font-size:      clamp(15px, 1vw, 22px);
-  --ticker-font-weight:    600;
-  --ticker-font-family:    'Inter', system-ui, sans-serif;
-  --ticker-letter-spacing: 0.01em;
-  --ticker-radius:         10px;
-
-  --infobar-bg:                   rgba(10, 10, 12, 0.92);
-  --infobar-color:                var(--hype-text);
-  --infobar-height:               var(--hype-tab-h);
-  --infobar-border-top:           1px solid var(--hype-border);
-  --infobar-clock-color:          var(--hype-muted);
-  --infobar-event-color:          var(--hype-text);
-  --infobar-countdown-color:      var(--hype-accent);
-  --infobar-divider-color:        rgba(255,255,255,0.08);
-
-  --bug-bg:                rgba(20, 20, 22, 0.78);
-  --bug-radius:            999px;
-  --bug-padding:           5px 11px;
-  --bug-color:             var(--hype-text);
-  --bug-font-size:         clamp(13px, 0.85vw, 19px);
-  --bug-font-weight:       700;
+@font-face {
+  font-family: 'Bebas Neue';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url('/themes/hype/assets/fonts/BebasNeue-Regular.ttf') format('truetype');
 }
 
-/* Global type — system sans, slightly tightened */
+@font-face {
+  font-family: 'DM Sans';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url('/themes/hype/assets/fonts/DMSans-Regular.ttf') format('truetype');
+}
+
+@font-face {
+  font-family: 'DM Sans';
+  font-style: normal;
+  font-weight: 500;
+  font-display: swap;
+  src: url('/themes/hype/assets/fonts/DMSans-Medium.ttf') format('truetype');
+}
+
+@font-face {
+  font-family: 'DM Sans';
+  font-style: normal;
+  font-weight: 700;
+  font-display: swap;
+  src: url('/themes/hype/assets/fonts/DMSans-Bold.ttf') format('truetype');
+}
+
+@font-face {
+  font-family: 'DM Sans';
+  font-style: normal;
+  font-weight: 900;
+  font-display: swap;
+  src: url('/themes/hype/assets/fonts/DMSans-Black.ttf') format('truetype');
+}
+
+:root {
+  /* ── Brand palette ────────────────────────────────────────────────── */
+  --hype-yellow:  #f5d904;
+  --hype-pink:    #f52368;
+  --hype-blue:    #00b2ff;
+  --hype-gradient: linear-gradient(100deg, #f5d904 0%, #f52368 100%);
+
+  /* ── Surfaces (near-black) ────────────────────────────────────────── */
+  --hype-bg-0:    #050608;
+  --hype-bg-1:    #0b0d12;
+  --hype-bg-2:    #15181f;
+  --hype-surface: #15181f;
+  --hype-card:    #232750;
+  --hype-border:  rgba(255, 255, 255, 0.08);
+  --hype-border-strong: rgba(255, 255, 255, 0.16);
+  --hype-text:    #ffffff;
+  --hype-muted:   rgba(255, 255, 255, 0.50);
+  --hype-accent:  var(--hype-pink);
+
+  /* ── Fonts ────────────────────────────────────────────────────────── */
+  --hype-font:    'DM Sans', -apple-system, system-ui, sans-serif;
+  --hype-display: 'Bebas Neue', 'DM Sans', system-ui, sans-serif;
+
+  /* ── Shell metrics ────────────────────────────────────────────────── */
+  --hype-nav-h:  clamp(54px, 5.2vh, 82px);
+  --hype-tab-h:  clamp(52px, 5.0vh, 76px);
+
+  /* Reserve room for the chrome so photos never hide behind it */
+  --screen-padding-top:    var(--hype-nav-h);
+  --screen-padding-right:  clamp(14px, 1vw, 30px);
+  --screen-padding-bottom: var(--hype-tab-h);
+  --screen-padding-left:   clamp(14px, 1vw, 30px);
+  --screen-bg: var(--hype-bg-1);
+
+  /* ── Tiles (mosaic / side-by-side / featured-duo / fullscreen) ────── */
+  --tile-gap:     clamp(8px, 0.6vw, 16px);
+  --tile-radius:  8px;
+  --tile-shadow:  0 1px 0 rgba(255,255,255,0.05) inset,
+                  0 18px 40px rgba(0, 0, 0, 0.55);
+  --tile-border:  1px solid var(--hype-border);
+
+  --polaroid-bg:          transparent;
+  --polaroid-card-bg:     var(--hype-surface);
+  --polaroid-card-radius: 8px;
+  --polaroid-card-shadow: 0 18px 40px rgba(0, 0, 0, 0.6);
+
+  /* ── Text-card slide ──────────────────────────────────────────────── */
+  --textcard-bg:         linear-gradient(160deg, var(--hype-bg-2) 0%, var(--hype-bg-0) 100%);
+  --textcard-color:      var(--hype-text);
+  --textcard-accent:     var(--hype-yellow);
+  --textcard-font:       var(--hype-font);
+  --textcard-title-size: clamp(2.6rem, 5vw, 6rem);
+  --textcard-body-size:  clamp(1rem, 1.6vw, 2rem);
+
+  --qr-bg:          #fff;
+  --qr-color:       #0b0d12;
+  --qr-muted-color: #6b6b73;
+
+  /* ── Ticker — notification strip ──────────────────────────────────── */
+  --ticker-bg:             rgba(21, 24, 31, 0.9);
+  --ticker-height:         clamp(28px, 2.2vh, 42px);
+  --ticker-color:          var(--hype-text);
+  --ticker-font-size:      clamp(14px, 1vw, 21px);
+  --ticker-font-weight:    600;
+  --ticker-font-family:    var(--hype-font);
+  --ticker-letter-spacing: 0.01em;
+  --ticker-radius:         6px;
+
+  --infobar-bg:              rgba(11, 13, 18, 0.92);
+  --infobar-color:           var(--hype-text);
+  --infobar-height:          var(--hype-tab-h);
+  --infobar-border-top:      1px solid var(--hype-border);
+  --infobar-clock-color:     var(--hype-muted);
+  --infobar-event-color:     var(--hype-text);
+  --infobar-countdown-color: var(--hype-yellow);
+  --infobar-divider-color:   var(--hype-border);
+
+  /* ── Corner bug — brand pill ──────────────────────────────────────── */
+  --bug-bg:          rgba(21, 24, 31, 0.82);
+  --bug-radius:      6px;
+  --bug-padding:     6px 13px;
+  --bug-color:       var(--hype-text);
+  --bug-font-size:   clamp(13px, 0.85vw, 19px);
+  --bug-font-weight: 700;
+  --bug-font-family: var(--hype-font);
+}
+
+/* Global type */
 body, #screen {
-  font-family: 'Inter', -apple-system, 'SF Pro Display', 'Segoe UI', system-ui, sans-serif;
+  font-family: var(--hype-font);
   color: var(--hype-text);
-  letter-spacing: -0.005em;
   background: var(--hype-bg-1);
 }
 
@@ -112,39 +150,44 @@ body, #screen {
   height: var(--hype-nav-h);
   z-index: 9100;
   display: flex; align-items: center; justify-content: space-between;
-  padding: 0 clamp(18px, 1.6vw, 36px);
-  background: rgba(10, 10, 12, 0.88);
+  padding: 0 clamp(16px, 1.6vw, 36px);
+  background:
+    linear-gradient(90deg, rgba(11,13,18,0.96), rgba(11,13,18,0.78)),
+    rgba(11, 13, 18, 0.86);
   -webkit-backdrop-filter: blur(18px) saturate(140%);
           backdrop-filter: blur(18px) saturate(140%);
-  border-bottom: 1px solid var(--hype-border);
-  pointer-events: none;
+  border-bottom: 3px solid var(--hype-yellow);
+  box-shadow: 0 14px 36px rgba(0,0,0,0.34);
 }
 
-.hype-nav-brand {
-  display: flex; align-items: center; gap: 10px;
+.hype-nav-brand { display: flex; align-items: center; gap: 12px; }
+.hype-brand-logo {
+  height: clamp(52px, 6.1vh, 96px);
+  width: auto; display: block;
+  filter: drop-shadow(0 12px 22px rgba(0,0,0,0.42));
 }
-.hype-brand-mark {
-  display: inline-flex; align-items: center; justify-content: center;
-  width: clamp(28px, 2.6vh, 40px); height: clamp(28px, 2.6vh, 40px);
+.hype-nav-live {
+  display: inline-flex; align-items: center; gap: 6px;
+  background: var(--hype-yellow); color: #0b0d12;
+  font-family: var(--hype-display);
+  font-weight: 400; font-size: clamp(18px, 1.35vw, 30px);
+  letter-spacing: 0; text-transform: uppercase;
+  padding: 5px 16px 3px; border-radius: 4px;
+  transform: rotate(-2deg);
+  box-shadow: 6px 6px 0 rgba(0,0,0,0.34);
+  clip-path: polygon(1% 10%, 100% 0, 97% 88%, 0 100%);
 }
-.hype-brand-mark svg { width: 100%; height: 100%; display: block; }
-.hype-brand-word {
-  font-weight: 800;
-  font-size: clamp(20px, 1.8vw, 30px);
-  letter-spacing: -0.02em;
-  background: var(--hype-gradient);
-  -webkit-background-clip: text;
-          background-clip: text;
-  color: transparent;
-  /* Slight italic lean — playful but legible */
-  font-style: italic;
+.hype-nav-live::before {
+  content: ''; width: 7px; height: 7px; border-radius: 50%;
+  background: #0b0d12; animation: hype-live-blink 1.6s ease-in-out infinite;
 }
+@keyframes hype-live-blink { 0%,100% { opacity: 1; } 50% { opacity: 0.25; } }
 
 .hype-nav-icons {
   display: flex; align-items: center; gap: clamp(14px, 1.2vw, 26px);
   color: var(--hype-text);
 }
-.hype-nav-icons svg { width: clamp(20px, 1.5vw, 26px); height: clamp(20px, 1.5vw, 26px); }
+.hype-nav-icons svg { width: clamp(20px, 1.5vw, 27px); height: clamp(20px, 1.5vw, 27px); }
 
 /* ── Bottom tab bar ─────────────────────────────────────────────────────── */
 
@@ -153,79 +196,105 @@ body, #screen {
   left: 0; right: 0; bottom: 0;
   height: var(--hype-tab-h);
   z-index: 9100;
-  display: flex; align-items: center; justify-content: space-around;
-  background: rgba(10, 10, 12, 0.92);
+  display: flex; align-items: center; justify-content: flex-end;
+  background: rgba(11, 13, 18, 0.96);
   -webkit-backdrop-filter: blur(18px) saturate(140%);
           backdrop-filter: blur(18px) saturate(140%);
-  border-top: 1px solid var(--hype-border);
-  pointer-events: none;
+  border-top: 3px solid var(--hype-pink);
   color: var(--hype-muted);
+}
+#hype-tabbar::before {
+  content: 'nieuwe foto van @scoutingridderfulco   •   nu trending   •   altijd hype';
+  position: absolute;
+  left: clamp(18px, 1.6vw, 36px);
+  top: 50%;
+  transform: translateY(-50%);
+  max-width: 46vw;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  color: #fff;
+  font-family: var(--hype-display);
+  font-size: clamp(17px, 1.2vw, 25px);
+  line-height: 1;
+}
+.hype-tabbar-icons {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: clamp(18px, 1.8vw, 34px);
+  padding-right: clamp(18px, 1.8vw, 42px);
 }
 .hype-tab {
   width:  clamp(24px, 2vw, 32px);
   height: clamp(24px, 2vw, 32px);
-  transition: color 0.2s ease;
 }
 .hype-tab.active { color: var(--hype-text); }
+/* Center "create" button — filled yellow, like a real app */
+.hype-tab.plus {
+  width:  clamp(40px, 3.4vw, 56px);
+  height: clamp(28px, 2.4vw, 38px);
+  color: #0b0d12;
+  background: var(--hype-gradient);
+  border-radius: 6px;
+  padding: 4px;
+  box-shadow: 0 6px 18px rgba(245, 35, 104, 0.4);
+}
 
+/* ── Stream / takeover: the module owns the full screen, hide chrome ─────── */
 body.hype-stream-mode {
   --screen-padding-top: 0px;
   --screen-padding-right: 0px;
   --screen-padding-bottom: 0px;
   --screen-padding-left: 0px;
-  --rsw-frame-inset-x: 0px;
-  --rsw-frame-inset-y: 0px;
 }
+body.hype-stream-mode #overlay-infobar,
+body:has(.hype-social-root) #hype-shell,
+body:has(.hype-stream-live) #hype-shell { display: none !important; }
 
-body.hype-stream-mode #hype-nav,
-body.hype-stream-mode #hype-tabbar,
-body.hype-stream-mode #overlay-infobar {
-  display: none !important;
-}
-
-/* ── Hide the base infobar (we have our own tab bar) ─────────────────── */
+/* Hide the base infobar — the tab bar replaces it */
 #overlay-infobar { display: none !important; }
 
-/* The Hype module renders its own platform chrome. Keep the theme frame out
-   of the live display so takeovers and streams own the full screen. */
-#hype-nav,
-#hype-tabbar {
-  display: none !important;
+/* ── Tiles ──────────────────────────────────────────────────────────────── */
+.tile, .photo-tile {
+  border-radius: var(--tile-radius);
+  overflow: hidden;
+  border: 2px solid rgba(255,255,255,0.12);
+  box-shadow: var(--tile-shadow);
 }
 
-/* ── Tiles ──────────────────────────────────────────────────────────────── */
-.tile, .photo-tile { border-radius: var(--tile-radius); overflow: hidden; }
-
-/* ── Hype chrome overlay — IG-style story-ring badge ─────────────────── */
+/* ── Hype chrome overlay — brand the handle / like / viral badges ───────── */
 
 .hype-chrome-badge {
-  /* gradient story-ring framing the avatar/handle */
   background:
-    linear-gradient(rgba(10,10,12,0.78), rgba(10,10,12,0.78)) padding-box,
+    linear-gradient(rgba(11,13,18,0.82), rgba(11,13,18,0.82)) padding-box,
     var(--hype-gradient) border-box !important;
   border: 2px solid transparent !important;
   border-radius: 999px !important;
-  padding: 4px 12px 4px 6px !important;
+  padding: 5px 14px 5px 7px !important;
   box-shadow: 0 6px 18px rgba(0,0,0,0.55) !important;
   -webkit-backdrop-filter: blur(8px);
           backdrop-filter: blur(8px);
   gap: 8px !important;
+  font-family: var(--hype-font) !important;
 }
 .hype-chrome-likes {
-  background: rgba(0, 0, 0, 0.55) !important;
+  background: rgba(11, 13, 18, 0.6) !important;
   -webkit-backdrop-filter: blur(10px);
           backdrop-filter: blur(10px);
   border-radius: 999px !important;
-  padding: 5px 12px !important;
+  padding: 6px 14px !important;
+  font-family: var(--hype-font) !important;
 }
-.hype-chrome-heart { color: var(--hype-accent) !important; }
+.hype-chrome-heart { color: var(--hype-pink) !important; }
 
 .hype-chrome-viral {
   background: var(--hype-gradient) !important;
-  color: #fff !important;
-  text-shadow: 0 1px 2px rgba(0,0,0,0.4) !important;
-  border-radius: 6px !important;
-  padding: 3px 8px !important;
-  font-weight: 800 !important;
-  letter-spacing: 0.02em;
+  color: #0b0d12 !important;
+  border-radius: 999px !important;
+  padding: 4px 11px !important;
+  font-weight: 900 !important;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
 }

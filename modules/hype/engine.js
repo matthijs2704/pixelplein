@@ -294,7 +294,7 @@ async function launchPlatform() {
   state.clearActivity();
 
   const saved = await hypeDb.updateSettings(_ctx.db, {
-    mode: 'social-only',
+    mode: 'dashboard',
     platformOff: false,
     preLaunch: false,
     launchActive: true,
@@ -467,22 +467,27 @@ async function restartPlatform() {
  * without encoding a camp-day or story-day schedule into the tool.
  */
 async function morningCheck({ featuredBump = 1800, ambientBump = 220, jitter = 0.4 } = {}) {
-  const channels = state.getChannels();
+  const channels = state.getChannels().filter(ch => ch.race_participant !== false);
+  const settings = state.getSettings();
+  const spotlightDay = Math.max(1, Math.min(6, Number(settings.spotlightDay) || 1));
   const results = {};
   for (const ch of channels) {
-    const base = ambientBump + Math.random() * Math.max(0, featuredBump - ambientBump);
+    const featuredDays = Array.isArray(ch.featured_days) ? ch.featured_days : [];
+    const featured = featuredDays.includes(spotlightDay);
+    const target = featured ? featuredBump : ambientBump;
+    const base = target * (0.78 + Math.random() * 0.44);
     const jitterMul = 1 + (Math.random() * 2 - 1) * jitter;
     const delta = Math.max(0, Math.round(base * jitterMul));
     if (delta > 0) state.bumpFollowerCount(ch.id, delta);
     const count = state.getFollowerCount(ch.id);
     await hypeDb.recordFollowerCount(_ctx.db, ch.id, count).catch(() => {});
-    results[ch.id] = { delta, count };
+    results[ch.id] = { delta, count, featured };
   }
   _ctx.broadcast({ type: `${NS}:followers_update`, counts: state.getAllFollowerCounts() });
   await _recordActivity({
     kind: 'platform',
     actorType: 'system',
-    text: 'Follower pulse: de kanalen hebben nieuwe volgers gekregen',
+    text: `Follower pulse dag ${spotlightDay}: spotlight-kanalen stijgen harder`,
     source: 'system',
   });
   return { results };

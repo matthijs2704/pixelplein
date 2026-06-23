@@ -1,233 +1,337 @@
 // Alert renderer: hype-launch
-// Cinematic Day-1 takeover. 21.96s, synced to "Launch Parade" audio.
-// BPM 123, first downbeat at 0.766s. Onsets confirmed via librosa.
+// Day-1 De Hype launch takeover synced to the 21.96s launch.wav.
 //
-// Visual beats → audio anchors:
-//   0.00s   heartbeat starts (intro)
-//   1.77s   shockwave (first strong onset)
-//   3.51s   bg gradient + boot lines (kick enters)
-//   6.62s   SVG brand mark draws (bar 4 downbeat)
-//  10.52s   mark glides aside (bar 6 downbeat)
-//  11.42s   "DeHype" wordmark slams letter by letter (strong hit)
-//  12.66s   tagline fades in
-//  14.14s   channel chips rocket in (strong hit)
-//  16.14s   CLIMAX — strobe + bloom + small confetti (RMS peak)
-//  17.6s    quiet break (visuals settle)
-//  18.11s   DROP — LIVE slam + big confetti burst
-//  19.85s   final crescendo (sustained until 20.4s)
-//  20.4s    fade out
+// Updated timing from /private/tmp/audioanalysis/launch.analysis.json:
+//   0.000→4.736  intro buildup: platform standby wakes up
+//   4.736→7.616  main: official account + logo reveal around 6.2s
+//   7.616→9.472  release: creator network loads in
+//   9.472→11.573 buildup: creator cards accelerate onto screen
+//  11.573→13.611 climax: all channels lock and follower counters race
+//  13.611→16.587 release: dashboard preview becomes credible
+//  16.587→19.029 quiet release: calm live state, less motion
+//  19.029→21.960 ending: final "let's get started" hit around 20s
+//  21.960→30.000 tail: hold the live state before fading to dashboard
 
 import { getChannels } from '../state-client.js';
+import { icon } from '../icons.js';
+
+const LAUNCH_SYNC = {
+  systemSnap:     747,
+  stepConnect:    1259,
+  stepAccount:    2251,
+  stepSecurity:   3243,
+  appOpen:        4736,
+  logoPrep:       5216,
+  pinkLine:       5717,
+  logoReveal:     6219,
+  logoSettle:     7445,
+  creatorsWake:   8192,
+  creatorsRun:    9472,
+  creatorHitA:   10048,
+  creatorHitB:   10656,
+  creatorHitC:   11157,
+  climax:        11573,
+  climaxHit:     11648,
+  dashboardOpen: 13611,
+  quietSettle:   15000,
+  emphasis:      16587,
+  finalBuild:    19029,
+  finalHit:      20000,
+  tailHold:      21960,
+  handoff:       28000,
+};
+
+const CREATOR_BEATS = [8.192, 8.683, 9.184, 9.675, 10.165, 10.656];
+const TAIL_REACTIONS = ['start op 0', 'post als eerste', 'pak volgers', 'word trending'];
 
 export function renderLaunchAlert(alert) {
-  const account = alert.payload?.account || {};
-  const handle = account.handle || '@kamp_live';
   const channels = getChannels();
+  const manager = channels.find(ch => ch.id === 'chnl_manager' || ch.race_participant === false) || null;
+  const raceChannels = channels.filter(_isRaceChannel);
+  const introChannels = manager
+    ? [manager, ...raceChannels].slice(0, 6)
+    : channels.slice(0, 6);
+  const creatorCount = raceChannels.length || 5;
 
   const root = document.createElement('div');
-  root.className = 'hype-alert hype-alert-launch hype-launch-v2';
+  root.className = 'hype-alert hype-alert-launch hype-launch-platform';
   root.dataset.alertId = alert.id;
 
   root.innerHTML = `
-    <div class="hl-bg" aria-hidden="true">
-      <div class="hl-bg-gradient"></div>
-      <div class="hl-bg-grid"></div>
-      <div class="hl-vignette"></div>
-      <div class="hl-scanlines"></div>
-      <div class="hl-particles"></div>
+    <canvas class="hlp-confetti" aria-hidden="true"></canvas>
+    <div class="hlp-flash" aria-hidden="true"></div>
+    <div class="hlp-color-flashes" aria-hidden="true">
+      <span style="--flash-color:#F5D904"></span>
+      <span style="--flash-color:#F52368"></span>
+      <span style="--flash-color:#32d74b"></span>
+      <span style="--flash-color:#7c4dff"></span>
+      <span style="--flash-color:#27d6c6"></span>
+      <span style="--flash-color:#00b2ff"></span>
     </div>
 
-    <div class="hl-heartbeat" aria-hidden="true"><span></span></div>
-    <div class="hl-shockwave" aria-hidden="true"><span></span><span></span><span></span></div>
-
-    <div class="hl-beams" aria-hidden="true">
-      <span style="--beam-rot:0deg"></span>
-      <span style="--beam-rot:60deg"></span>
-      <span style="--beam-rot:120deg"></span>
-      <span style="--beam-rot:180deg"></span>
-      <span style="--beam-rot:240deg"></span>
-      <span style="--beam-rot:300deg"></span>
+    <div class="hlp-bg" aria-hidden="true">
+      <div class="hlp-grid"></div>
+      <div class="hlp-scan"></div>
+      <div class="hlp-vignette"></div>
+      <div class="hlp-paint hlp-paint-yellow"></div>
+      <div class="hlp-paint hlp-paint-pink"></div>
     </div>
 
-    <div class="hl-pulse-rings" aria-hidden="true">
-      <span style="--pr-delay:6.619s"></span>
-      <span style="--pr-delay:8.570s"></span>
-      <span style="--pr-delay:10.521s"></span>
-      <span style="--pr-delay:12.472s"></span>
-      <span style="--pr-delay:14.423s"></span>
-      <span style="--pr-delay:16.374s"></span>
+    <div class="hlp-doodles" aria-hidden="true">
+      ${_doodle('radio', 'd1')}
+      ${_doodle('sparkles', 'd2')}
+      ${_doodle('heartFill', 'd3')}
+      ${_doodle('trendingUp', 'd4')}
     </div>
 
-    <div class="hl-countdown" aria-hidden="true">
-      <span style="--cd-delay:4.668s">5</span>
-      <span style="--cd-delay:5.156s">4</span>
-      <span style="--cd-delay:5.644s">3</span>
-      <span style="--cd-delay:6.131s">2</span>
-      <span style="--cd-delay:6.619s" class="hl-cd-go">LAUNCH</span>
-    </div>
+    <header class="hlp-topbar" aria-hidden="true">
+      <span class="hlp-network">dehype.live</span>
+      <strong><i></i>live</strong>
+    </header>
 
-    <div class="hl-boot" aria-hidden="true">
-      <div class="hl-boot-line"><span class="hl-boot-tick">›</span> verbinding maken<span class="hl-boot-ok">✓</span></div>
-      <div class="hl-boot-line"><span class="hl-boot-tick">›</span> ${channels.length} kanalen gevonden<span class="hl-boot-ok">✓</span></div>
-      <div class="hl-boot-line"><span class="hl-boot-tick">›</span> feed openen<span class="hl-boot-ok">✓</span></div>
-      <div class="hl-boot-line"><span class="hl-boot-tick">›</span> ${escape(handle)} aan het opstarten<span class="hl-boot-ok">✓</span></div>
-    </div>
-
-    <div class="hl-mark-wrap" aria-hidden="true">
-      <svg class="hl-mark" viewBox="0 0 120 120">
-        <defs>
-          <linearGradient id="hl2-grad" x1="0" y1="0" x2="120" y2="120" gradientUnits="userSpaceOnUse">
-            <stop offset="0%"  stop-color="#ffc24a"/>
-            <stop offset="35%" stop-color="#ff2d87"/>
-            <stop offset="70%" stop-color="#a23bff"/>
-            <stop offset="100%" stop-color="#2bc1ff"/>
-          </linearGradient>
-        </defs>
-        <rect class="hl-mark-rect" x="14" y="14" width="92" height="92" rx="22"
-              fill="none" stroke="url(#hl2-grad)" stroke-width="4"
-              pathLength="100" stroke-dasharray="100" stroke-dashoffset="100"/>
-        <rect class="hl-mark-fill" x="14" y="14" width="92" height="92" rx="22"
-              fill="url(#hl2-grad)" opacity="0"/>
-        <circle class="hl-mark-ring" cx="60" cy="60" r="22"
-                fill="none" stroke="#fff" stroke-width="6"
-                pathLength="100" stroke-dasharray="100" stroke-dashoffset="100"/>
-        <circle class="hl-mark-dot" cx="84" cy="34" r="6" fill="#fff" opacity="0"/>
-      </svg>
-    </div>
-
-    <div class="hl-wordmark-wrap">
-      <h1 class="hl-wordmark"><span>D</span><span>e</span><span>H</span><span>y</span><span>p</span><span>e</span></h1>
-      <div class="hl-tagline">het sociale platform van het kamp</div>
-    </div>
-
-    <div class="hl-channels" aria-hidden="true">
-      ${channels.map((c, i) => `
-        <div class="hl-ch" data-i="${i}" style="--ch-color:${escape(c.color || '#7c5cff')}">
-          <div class="hl-ch-ring">
-            <div class="hl-ch-avatar">${escape(String(c.name || '?').charAt(0).toUpperCase())}</div>
-            <div class="hl-ch-online"></div>
-          </div>
-          <div class="hl-ch-handle">${escape(c.handle || '@?')}</div>
+    <main class="hlp-stage">
+      <section class="hlp-boot-panel" aria-label="platform start">
+        <div class="hlp-boot-kicker">lancering gestart</div>
+        <div class="hlp-boot-title">De Hype gaat open</div>
+        <div class="hlp-boot-meter"><span></span></div>
+        <div class="hlp-boot-steps">
+          ${_bootStep('netwerk verbonden', 'connect')}
+          ${_bootStep('profielen klaar', 'account')}
+          ${_bootStep('reactions actief', 'security')}
+          ${_bootStep('dashboard open', 'feed')}
         </div>
-      `).join('')}
-    </div>
+      </section>
 
-    <div class="hl-climax" aria-hidden="true">
-      <canvas class="hl-confetti"></canvas>
-      <div class="hl-strobe"></div>
-      <svg class="hl-lightning" viewBox="0 0 1920 1080" preserveAspectRatio="none" aria-hidden="true">
-        <path class="hl-bolt hl-bolt-1" d="M960 0 L900 360 L1020 360 L860 720 L1000 720 L820 1080" fill="none" stroke="#fff" stroke-width="6"/>
-        <path class="hl-bolt hl-bolt-2" d="M520 0 L470 280 L590 280 L420 620 L560 620 L380 1080" fill="none" stroke="#a23bff" stroke-width="4"/>
-        <path class="hl-bolt hl-bolt-3" d="M1420 0 L1360 320 L1480 320 L1320 700 L1460 700 L1280 1080" fill="none" stroke="#2bc1ff" stroke-width="4"/>
-      </svg>
-      <div class="hl-door hl-door-l"></div>
-      <div class="hl-door hl-door-r"></div>
-      <div class="hl-bloom">DeHype</div>
-      <div class="hl-live-slam">
-        <span class="hl-live-dot"></span>
-        <span class="hl-live-text">LIVE</span>
-        <span class="hl-live-sub">${escape(handle)} is online</span>
-      </div>
-    </div>
+      <section class="hlp-hero" aria-label="De Hype">
+        <div class="hlp-logo-frame">
+          <img class="hlp-logo" src="/themes/hype/assets/logo.svg" alt="de HYPE!" />
+        </div>
+      </section>
+
+      <section class="hlp-creator-wall" aria-label="creator kanalen">
+        ${introChannels.map((c, i) => _channelCard(c, i)).join('')}
+      </section>
+
+      <section class="hlp-dashboard-preview" aria-label="live dashboard">
+        <div class="hlp-preview-card hlp-preview-race">
+          <span>kanalen online</span>
+          ${raceChannels.slice(0, 4).map((c, i) => _raceRow(c, i)).join('')}
+        </div>
+        <div class="hlp-preview-card hlp-preview-feed">
+          <span>platform leeg en klaar</span>
+          ${_feedLine('Nieuwe posts verschijnen vanaf nu', 'posts')}
+          ${_feedLine('Likes en reacties starten op nul', 'hype')}
+          ${_feedLine('Creator-kanalen zijn gekoppeld', 'live')}
+        </div>
+        <div class="hlp-preview-card hlp-preview-spark">
+          <span>vandaag op De Hype</span>
+          <strong>${creatorCount} creators live</strong>
+          <em>posts, stories en lives kunnen beginnen</em>
+        </div>
+      </section>
+
+      <section class="hlp-final-card" aria-label="start">
+        <img src="/themes/hype/assets/logo.svg" alt="de HYPE!" />
+        <strong>De Hype is live</strong>
+        <span>Laat de strijd om de volgers beginnen!</span>
+        <div class="hlp-tail-reactions">
+          ${TAIL_REACTIONS.map(text => `<b>${escape(text)}</b>`).join('')}
+        </div>
+      </section>
+    </main>
   `;
 
-  // Stagger channel chip animations from edges.
-  const chips = root.querySelectorAll('.hl-ch');
-  chips.forEach((el, i) => {
-    el.style.setProperty('--from-x', i % 2 === 0 ? '-110vw' : '110vw');
-    el.style.setProperty('--from-y', `${(i - chips.length / 2) * 8}vh`);
-    el.style.animationDelay = `${14.14 + i * 0.244}s`;
+  root.querySelectorAll('.hlp-channel-card').forEach((el, i) => {
+    el.style.setProperty('--launch-delay', `${CREATOR_BEATS[Math.min(i, CREATOR_BEATS.length - 1)]}s`);
   });
 
-  // Soundtrack — "Launch Parade" instrumental. Synced visuals (heartbeat,
-  // shockwave, boot, draw, climax) were timed to this file.
   _playLaunchAudio(root);
-
-  // Drift particles — light decorative dots that float across the screen.
-  const particleHost = root.querySelector('.hl-particles');
-  if (particleHost) _spawnParticles(particleHost, 22);
-
-  // Camera shake at each major impact. Class auto-clears after the keyframe.
-  const _shake = (delayMs, level = 'shake') => setTimeout(() => {
-    root.classList.add(`hl-${level}`);
-    setTimeout(() => root.classList.remove(`hl-${level}`), 700);
-  }, delayMs);
-  _shake(1765, 'shake-s');     // first shockwave
-  _shake(6619, 'shake-s');     // LAUNCH word lands / mark draws
-  _shake(11420, 'shake');      // wordmark slam
-  _shake(14140, 'shake-s');    // channels rocket in
-  _shake(16140, 'shake-l');    // climax
-  _shake(18110, 'shake-l');    // drop
-
-  // Climax at 16.14s — RMS peak of the track. Strobe + bloom + lightning + small puff.
-  setTimeout(() => {
-    root.classList.add('hl-climaxing');
-    const canvas = root.querySelector('.hl-confetti');
-    if (canvas) _confettiBurst(canvas, 1500);
-  }, 16140);
-
-  // The track goes near-silent ~17.6–18.0s, then SLAMS back at 18.11s.
-  // Doors split apart, LIVE slams in, big confetti + ribbon burst.
-  setTimeout(() => {
-    root.classList.add('hl-dropped');
-    const canvas = root.querySelector('.hl-confetti');
-    if (canvas) _confettiBurst(canvas, 2800);
-  }, 18110);
+  _runLaunchTimeline(root);
 
   return root;
+}
+
+function _runLaunchTimeline(root) {
+  const canvas = root.querySelector('.hlp-confetti');
+  const flash = () => _pulse(root.querySelector('.hlp-flash'), 'pop');
+  const colorFlash = (index) => _pulse(root.querySelector(`.hlp-color-flashes span:nth-child(${index})`), 'pop');
+  const add = (className) => root.classList.add(className);
+  const shake = (delayMs, level = 'shake') => _at(root, delayMs, () => {
+    root.classList.add(`hl-${level}`);
+    setTimeout(() => root.classList.remove(`hl-${level}`), 680);
+  });
+
+  _at(root, LAUNCH_SYNC.systemSnap, () => {
+    add('hlp-system-online');
+    flash();
+  });
+  _at(root, LAUNCH_SYNC.stepConnect, () => add('hlp-step-connect'));
+  _at(root, LAUNCH_SYNC.stepAccount, () => add('hlp-step-account'));
+  _at(root, LAUNCH_SYNC.stepSecurity, () => add('hlp-step-security'));
+  _at(root, LAUNCH_SYNC.appOpen, () => {
+    add('hlp-app-open');
+    colorFlash(1);
+  });
+  _at(root, LAUNCH_SYNC.logoPrep, () => {
+    add('hlp-logo-prep');
+    flash();
+  });
+  _at(root, LAUNCH_SYNC.pinkLine, () => add('hlp-pink-line'));
+  _at(root, LAUNCH_SYNC.logoReveal, () => {
+    add('hlp-logo-live');
+    flash();
+    if (canvas) _confettiBurst(canvas, 720, { count: 42, originY: 0.46, spread: 1.05 });
+  });
+  _at(root, LAUNCH_SYNC.logoSettle, () => add('hlp-logo-settle'));
+  _at(root, LAUNCH_SYNC.creatorsWake, () => {
+    add('hlp-creators-wake');
+    colorFlash(2);
+  });
+  _at(root, LAUNCH_SYNC.creatorsRun, () => add('hlp-creators-run'));
+  _at(root, LAUNCH_SYNC.creatorHitA, () => colorFlash(3));
+  _at(root, LAUNCH_SYNC.creatorHitB, () => colorFlash(4));
+  _at(root, LAUNCH_SYNC.creatorHitC, () => colorFlash(5));
+  _at(root, LAUNCH_SYNC.climax, () => add('hlp-climax'));
+  _at(root, LAUNCH_SYNC.climaxHit, () => {
+    add('hlp-channel-lock');
+    flash();
+    if (canvas) _confettiBurst(canvas, 1400, { count: 270, originY: 0.54, spread: 1.75 });
+  });
+  _at(root, LAUNCH_SYNC.dashboardOpen, () => add('hlp-dashboard-open'));
+  _at(root, LAUNCH_SYNC.quietSettle, () => add('hlp-quiet-settle'));
+  _at(root, LAUNCH_SYNC.emphasis, () => {
+    add('hlp-platform-live');
+    colorFlash(6);
+  });
+  _at(root, LAUNCH_SYNC.finalBuild, () => add('hlp-final-build'));
+  _at(root, LAUNCH_SYNC.finalHit, () => {
+    add('hlp-final-live');
+    flash();
+    if (canvas) _confettiBurst(canvas, 1900, { count: 420, originY: 0.5, spread: 1.95 });
+  });
+  _at(root, LAUNCH_SYNC.tailHold, () => add('hlp-tail-hold'));
+  _at(root, LAUNCH_SYNC.handoff, () => add('hlp-dashboard-handoff'));
+
+  shake(LAUNCH_SYNC.logoReveal, 'shake-l');
+  shake(LAUNCH_SYNC.logoSettle, 'shake-s');
+  shake(LAUNCH_SYNC.creatorHitA, 'shake-s');
+  shake(LAUNCH_SYNC.creatorHitB, 'shake');
+  shake(LAUNCH_SYNC.creatorHitC, 'shake-s');
+  shake(LAUNCH_SYNC.climaxHit, 'shake-l');
+  shake(LAUNCH_SYNC.emphasis, 'shake');
+  shake(LAUNCH_SYNC.finalHit, 'shake-l');
+}
+
+function _at(root, delayMs, fn) {
+  setTimeout(() => {
+    if (!root.isConnected) return;
+    fn();
+  }, delayMs);
+}
+
+function _pulse(el, className) {
+  if (!el) return;
+  el.classList.remove(className);
+  void el.offsetWidth;
+  el.classList.add(className);
+}
+
+function _bootStep(label, key) {
+  return `
+    <div class="hlp-boot-step" data-step="${escape(key)}">
+      <i></i><span>${escape(label)}</span>
+    </div>
+  `;
+}
+
+function _channelCard(c, index) {
+  const iconName = _channelIcon(c.id);
+  return `
+    <article class="hlp-channel-card" style="--ch-color:${escape(c.color || '#00b2ff')}">
+      <div class="hlp-channel-ring">
+        <div class="hlp-channel-icon">${icon[iconName] ? icon[iconName](44) : icon.compass(44)}</div>
+      </div>
+      <div class="hlp-channel-copy">
+        <strong>${escape(c.name || 'Kanaal')}</strong>
+        <span>${escape(c.handle || '@kanaal')}</span>
+      </div>
+      <div class="hlp-channel-count">
+        <strong>0</strong>
+        <span>posts live</span>
+      </div>
+    </article>
+  `;
+}
+
+function _raceRow(c, index) {
+  return `
+    <div class="hlp-race-row" style="--ch-color:${escape(c.color || '#00b2ff')};--rank:${index + 1}">
+      <i></i>
+      <strong>${escape(c.name || c.handle || 'Kanaal')}</strong>
+      <span>klaar</span>
+    </div>
+  `;
+}
+
+function _feedLine(text, tag) {
+  return `
+    <div class="hlp-feed-line">
+      <b>${escape(tag)}</b>
+      <span>${escape(text)}</span>
+    </div>
+  `;
+}
+
+function _channelIcon(channelId) {
+  if (channelId === 'chnl_manager') return 'radio';
+  if (channelId === 'chnl_natuur') return 'paw';
+  if (channelId === 'chnl_kook')   return 'chefHat';
+  if (channelId === 'chnl_game')   return 'gamepad';
+  if (channelId === 'chnl_beauty') return 'sparkles';
+  if (channelId === 'chnl_fit')    return 'dumbbell';
+  return 'compass';
+}
+
+function _isRaceChannel(ch) {
+  return ch && ch.race_participant !== false;
+}
+
+function _doodle(iconName, cls) {
+  return `<span class="hlp-doodle ${cls}">${icon[iconName] ? icon[iconName](86) : ''}</span>`;
 }
 
 function _playLaunchAudio(root) {
   const audio = new Audio('/modules/hype/audio/launch.wav');
   audio.preload = 'auto';
   audio.volume = 0.9;
-  // Browsers may block autoplay until user has interacted. The screen page is
-  // typically left running so this usually works; if it rejects we silently
-  // skip — the visuals still play.
   const play = audio.play();
   if (play && typeof play.catch === 'function') play.catch(() => {});
 
-  // Stop + free the audio when the alert element is removed from the DOM.
-  const stop = () => {
-    try { audio.pause(); audio.src = ''; } catch {}
-  };
+  const stop = () => { try { audio.pause(); audio.src = ''; } catch {} };
   const observer = new MutationObserver(() => {
     if (!root.isConnected) { observer.disconnect(); stop(); }
   });
-  // Observe once mounted; document.body is a safe upstream target.
   queueMicrotask(() => {
     if (root.parentNode) observer.observe(root.parentNode, { childList: true });
   });
 }
 
-function _spawnParticles(host, n) {
-  for (let i = 0; i < n; i++) {
-    const p = document.createElement('span');
-    p.className = 'hl-particle';
-    p.style.left = `${Math.random() * 100}%`;
-    p.style.animationDelay = `${3 + Math.random() * 14}s`;
-    p.style.animationDuration = `${10 + Math.random() * 10}s`;
-    p.style.setProperty('--p-size', `${4 + Math.random() * 6}px`);
-    p.style.setProperty('--p-hue', String(Math.floor(Math.random() * 360)));
-    host.appendChild(p);
-  }
-}
-
-function _confettiBurst(canvas, durationMs) {
+function _confettiBurst(canvas, durationMs, opts = {}) {
   const ctx = canvas.getContext('2d');
   const dpr = Math.min(2, window.devicePixelRatio || 1);
   canvas.width  = canvas.clientWidth  * dpr;
   canvas.height = canvas.clientHeight * dpr;
 
-  const colors = ['#ffc24a', '#ff2d87', '#a23bff', '#2bc1ff', '#4ec9b0', '#ffffff'];
-  const N = 320;
+  const colors = ['#f5d904', '#f52368', '#32d74b', '#ff8a00', '#7c4dff', '#27d6c6', '#00b2ff', '#ffffff'];
+  const N = Number(opts.count) || 320;
+  const spread = Number(opts.spread) || 1.6;
   const cx = canvas.width / 2;
-  const cy = canvas.height * 0.55;
+  const cy = canvas.height * (Number(opts.originY) || 0.55);
   const parts = [];
   for (let i = 0; i < N; i++) {
-    const angle = (-Math.PI / 2) + (Math.random() - 0.5) * Math.PI * 1.6;
+    const angle = (-Math.PI / 2) + (Math.random() - 0.5) * Math.PI * spread;
     const speed = (6 + Math.random() * 14) * dpr;
-    const ribbon = Math.random() < 0.25;
+    const ribbon = Math.random() < 0.28;
     parts.push({
       x: cx, y: cy,
       vx: Math.cos(angle) * speed,

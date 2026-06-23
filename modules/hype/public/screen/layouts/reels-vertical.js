@@ -36,6 +36,10 @@ function _build(photo) {
   if (!photo) return { el: root, visibleIds: [], startMotion: () => {} };
 
   const stage = el('div', { cls: 'hype-reels-stage' });
+  // Blurred fill behind the portrait so the widescreen sides aren't dead black.
+  const bg = el('div', { cls: 'hype-reels-bg' });
+  bg.style.backgroundImage = `url("${photoUrl(photo)}")`;
+  stage.appendChild(bg);
   const img   = el('img', { cls: 'hype-reels-img', src: photoUrl(photo), alt: photo.name });
   img.dataset.photoId = photo.id;
   applySmartFit(img, photo, false);
@@ -48,7 +52,7 @@ function _build(photo) {
     const info = el('div', { cls: 'hype-reels-info' });
     info.style.setProperty('--ch-color', ch.color || '#7c5cff');
     info.appendChild(el('div', { cls: 'hype-reels-handle', text: ch.handle }));
-    info.appendChild(el('div', { cls: 'hype-reels-caption', text: photo.name || '' }));
+    info.appendChild(el('div', { cls: 'hype-reels-caption', text: chId ? 'creator update vanaf het kamp' : 'live vanaf het kamp' }));
     stage.appendChild(info);
   }
 

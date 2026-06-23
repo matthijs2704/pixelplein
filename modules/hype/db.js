@@ -20,11 +20,13 @@ async function migrate(db) {
       follower_base INTEGER NOT NULL DEFAULT 0,
       growth_rate   REAL    NOT NULL DEFAULT 1.0,
       featured_days TEXT NOT NULL DEFAULT '[]',
+      race_participant INTEGER NOT NULL DEFAULT 1,
       sort_order    INTEGER NOT NULL DEFAULT 0
     )
   `);
   try { await run(`ALTER TABLE hype_channels ADD COLUMN avatar_url TEXT NOT NULL DEFAULT ''`); } catch {}
   try { await run(`ALTER TABLE hype_channels ADD COLUMN featured_days TEXT NOT NULL DEFAULT '[]'`); } catch {}
+  try { await run(`ALTER TABLE hype_channels ADD COLUMN race_participant INTEGER NOT NULL DEFAULT 1`); } catch {}
 
   await run(`
     CREATE TABLE IF NOT EXISTS hype_comments_pool (
@@ -100,9 +102,9 @@ async function migrate(db) {
     for (let i = 0; i < DEFAULT_CHANNELS.length; i++) {
       const c = DEFAULT_CHANNELS[i];
       await run(
-        `INSERT INTO hype_channels (id, name, handle, color, avatar_url, follower_base, growth_rate, featured_days, sort_order)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-        [c.id, c.name, c.handle, c.color, c.avatar_url || '', c.follower_base, 1.0, JSON.stringify(c.featured_days || []), i],
+        `INSERT INTO hype_channels (id, name, handle, color, avatar_url, follower_base, growth_rate, featured_days, race_participant, sort_order)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        [c.id, c.name, c.handle, c.color, c.avatar_url || '', c.follower_base, 1.0, JSON.stringify(c.featured_days || []), c.race_participant === false ? 0 : 1, i],
       );
       const pool = DEFAULT_COMMENT_POOLS[c.id] || [];
       for (const p of pool) {
@@ -111,6 +113,24 @@ async function migrate(db) {
           [c.id, p.text, p.weight | 0 || 1],
         );
       }
+    }
+  }
+  for (let i = 0; i < DEFAULT_CHANNELS.length; i++) {
+    const c = DEFAULT_CHANNELS[i];
+    const row = await get(`SELECT id FROM hype_channels WHERE id = ?`, [c.id]);
+    if (row) continue;
+    const last = await get(`SELECT COALESCE(MAX(sort_order), -1) AS m FROM hype_channels`);
+    await run(
+      `INSERT INTO hype_channels (id, name, handle, color, avatar_url, follower_base, growth_rate, featured_days, race_participant, sort_order)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      [c.id, c.name, c.handle, c.color, c.avatar_url || '', c.follower_base, 1.0, JSON.stringify(c.featured_days || []), c.race_participant === false ? 0 : 1, (last?.m | 0) + 1],
+    );
+    const pool = DEFAULT_COMMENT_POOLS[c.id] || [];
+    for (const p of pool) {
+      await run(
+        `INSERT INTO hype_comments_pool (channel_id, text, weight) VALUES (?, ?, ?)`,
+        [c.id, p.text, p.weight | 0 || 1],
+      );
     }
   }
 
@@ -129,7 +149,7 @@ function _normalizeChannel(row) {
       featured = parsed.map(n => Math.max(1, Math.min(6, Number(n) | 0))).filter(Boolean);
     }
   } catch {}
-  return { ...row, featured_days: featured };
+  return { ...row, featured_days: featured, race_participant: row.race_participant !== 0 };
 }
 
 async function listChannels(db) {
@@ -239,16 +259,16 @@ async function upsertChannel(db, c) {
   const existing = await db.get(`SELECT id FROM hype_channels WHERE id = ?`, [c.id]);
   if (existing) {
     await db.run(
-      `UPDATE hype_channels SET name=?, handle=?, color=?, avatar_url=?, follower_base=?, featured_days=?
+      `UPDATE hype_channels SET name=?, handle=?, color=?, avatar_url=?, follower_base=?, featured_days=?, race_participant=?
        WHERE id=?`,
-      [c.name, c.handle, c.color, c.avatar_url || '', c.follower_base | 0, featured, c.id],
+      [c.name, c.handle, c.color, c.avatar_url || '', c.follower_base | 0, featured, c.race_participant === false ? 0 : 1, c.id],
     );
   } else {
     const last = await db.get(`SELECT COALESCE(MAX(sort_order), -1) AS m FROM hype_channels`);
     await db.run(
-      `INSERT INTO hype_channels (id, name, handle, color, avatar_url, follower_base, growth_rate, featured_days, sort_order)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-      [c.id, c.name, c.handle, c.color, c.avatar_url || '', c.follower_base | 0, 1.0, featured, (last?.m | 0) + 1],
+      `INSERT INTO hype_channels (id, name, handle, color, avatar_url, follower_base, growth_rate, featured_days, race_participant, sort_order)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      [c.id, c.name, c.handle, c.color, c.avatar_url || '', c.follower_base | 0, 1.0, featured, c.race_participant === false ? 0 : 1, (last?.m | 0) + 1],
     );
   }
   return getChannel(db, c.id);
@@ -341,7 +361,9 @@ function _mergeSettings(raw) {
   const stream = src.stream && typeof src.stream === 'object' ? src.stream : {};
   return {
     ...DEFAULT_SETTINGS,
-    mode: src.mode === 'social-only' ? 'social-only' : 'normal',
+    mode: ['dashboard', 'social-only'].includes(src.mode) ? src.mode : 'normal',
+    harryHeat: Math.max(0, Math.min(5, Number(src.harryHeat) | 0)),
+    spotlightDay: Math.max(1, Math.min(6, Number(src.spotlightDay || DEFAULT_SETTINGS.spotlightDay) | 0)),
     platformOff: Boolean(src.platformOff),
     preLaunch: src.preLaunch === undefined ? true : Boolean(src.preLaunch),
     launchActive: Boolean(src.launchActive),

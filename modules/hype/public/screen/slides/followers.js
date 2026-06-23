@@ -45,7 +45,7 @@ export function buildFollowersSlide(slide) {
   const cards = new Map(); // channelId -> { card, count }
 
   function render() {
-    const channels = getChannels();
+    const channels = getChannels().filter(ch => ch.race_participant !== false);
     const counts = getAllFollowers();
 
     // Add cards for new channels

@@ -218,9 +218,15 @@ function _renderPlatformSection() {
       <div class="hype-settings-grid">
         <label>Mode
           <select data-hype-setting="mode">
-            <option value="normal"${settings.mode !== 'social-only' ? ' selected' : ''}>Normal PixelPlein</option>
-            <option value="social-only"${settings.mode === 'social-only' ? ' selected' : ''}>Social-only dashboard</option>
+            <option value="normal"${settings.mode !== 'dashboard' && settings.mode !== 'social-only' ? ' selected' : ''}>Photo feed</option>
+            <option value="dashboard"${settings.mode === 'dashboard' || settings.mode === 'social-only' ? ' selected' : ''}>Summon dashboard</option>
           </select>
+        </label>
+        <label>Spotlight day
+          <input data-hype-setting="spotlightDay" type="number" min="1" max="6" value="${Number(settings.spotlightDay) || 1}" />
+        </label>
+        <label>Harry heat
+          <input data-hype-setting="harryHeat" type="range" min="0" max="5" step="1" value="${Number(settings.harryHeat) || 0}" />
         </label>
         <label>General account name
           <input data-hype-account="name" value="${esc(account.name || 'Kamp Live')}" />
@@ -257,6 +263,10 @@ function _bindPlatform(root) {
     const body = { generalAccount: {} };
     const modeEl = root.querySelector('[data-hype-setting="mode"]');
     if (modeEl) body.mode = modeEl.value;
+    const heatEl = root.querySelector('[data-hype-setting="harryHeat"]');
+    if (heatEl) body.harryHeat = Number(heatEl.value) || 0;
+    const dayEl = root.querySelector('[data-hype-setting="spotlightDay"]');
+    if (dayEl) body.spotlightDay = Number(dayEl.value) || 1;
     for (const el of root.querySelectorAll('[data-hype-account]')) {
       body.generalAccount[el.dataset.hypeAccount] = el.value;
     }
@@ -398,6 +408,13 @@ function _channelCardHtml(ch, items, followers) {
       <label class="cc-row">Base followers
         <input data-f="follower_base" type="number" min="0" value="${ch.follower_base | 0}" />
       </label>
+      <label class="cc-row">Spotlight days
+        <input data-f="featured_days" value="${esc((ch.featured_days || []).join(','))}" placeholder="1,3,5" />
+      </label>
+      <label class="cc-row">
+        <span>Follower race</span>
+        <input data-f="race_participant" type="checkbox"${ch.race_participant !== false ? ' checked' : ''} />
+      </label>
       <div class="cc-row foll-row">
         <span>Followers nu: <strong class="hype-foll-cur" data-foll-cur="${esc(ch.id)}">${cur.toLocaleString()}</strong></span>
         <input type="number" placeholder="set" data-foll-set />
@@ -423,7 +440,11 @@ function _bindChannels(root) {
     card.querySelector('[data-save-channel]')?.addEventListener('click', async () => {
       const body = {};
       for (const inp of card.querySelectorAll('input[data-f]')) {
-        body[inp.dataset.f] = inp.value;
+        body[inp.dataset.f] = inp.type === 'checkbox'
+          ? inp.checked
+          : inp.dataset.f === 'featured_days'
+          ? inp.value.split(',').map(v => Number(v.trim()) || 0).filter(Boolean)
+          : inp.value;
       }
       try {
         await _fetchJson(`${API}/channels/${encodeURIComponent(id)}`, {
