@@ -821,7 +821,14 @@ function renderHandshake(catches, turn) {
   t.className = turn;
   t.textContent = (turn === 'y' ? 'GEEL' : 'ROOD') + ', VANG!';
   document.getElementById('hs-track').className = 'turn-' + turn;
+  // anchor: a turn change means the packet just bounced (catch) or fizzled (drop)
+  // at the end opposite the new receiver — snap the dot there so the ~150ms of
+  // streaming lag can't make a drop look like it happened mid-flight
+  snapPacket(turn === 'y' ? 100 : 0);
   if (catches > 0) { colorFlash(3); }
+}
+function snapPacket(pct) {
+  document.getElementById('hs-packet').style.left = pct + '%';
 }
 // live mirror of the packet on the LED strip (streamed ~12Hz by the Arduino)
 function updatePacket(p, flying) {
