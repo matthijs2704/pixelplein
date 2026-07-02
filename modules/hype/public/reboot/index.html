@@ -241,6 +241,15 @@ html,body { width:100%; height:100%; overflow:hidden; background:var(--bg); colo
 
 .ck-game { display: none; flex-direction: column; align-items: center; gap: 14px; }
 .ck-game.active { display: flex; }
+
+/* gate: the server asks for confirmation before each check starts */
+#ck-gate { display: none; flex-direction: column; align-items: center; gap: 16px; }
+#ck-gate.show { display: flex; }
+#ck-gate-name { font-family: var(--display); font-size: clamp(30px,5vw,56px); letter-spacing: 3px; color: #fff; }
+#ck-gate-instr { display: flex; align-items: center; gap: 14px; font-family: var(--display); font-size: clamp(22px,3.6vw,42px); letter-spacing: 2px; color: rgba(255,255,255,0.75); }
+#ck-gate-instr .instr-dot { width: 30px; height: 30px; }
+#ck-gate-count { font-family: var(--display); font-size: clamp(90px,16vw,190px); line-height: 1; color: var(--y); text-shadow: 0 0 60px rgba(245,217,4,0.6); }
+#ck-gate-count.pop { animation: slam 0.35s cubic-bezier(.2,1.25,.2,1); }
 .ck-title { font-family: var(--display); font-size: clamp(32px,5.5vw,62px); letter-spacing: 3px; }
 .ck-sub   { font-size: clamp(13px,1.6vw,17px); color: var(--muted); letter-spacing: 1.5px; line-height: 1.6; max-width: 640px; }
 
@@ -562,6 +571,17 @@ body.s-idle #bg-grid { opacity:0.32; }
           <div class="ck-item" data-ck="simon"><i></i>BOOT-CODE</div>
         </div>
 
+        <!-- gate: press both together to start the current check -->
+        <div id="ck-gate">
+          <div id="ck-gate-name">SYSTEEMCHECK</div>
+          <div id="ck-gate-instr">
+            <span class="instr-dot y"></span>
+            <span>DRUK SAMEN OP GEEL + ROOD OM TE STARTEN</span>
+            <span class="instr-dot r"></span>
+          </div>
+          <div id="ck-gate-count"></div>
+        </div>
+
         <!-- check: fans -->
         <div class="ck-game" id="ck-fans">
           <div class="ck-title" style="color:var(--o)"><span id="fan-rotor">✻</span> VENTILATOREN</div>
@@ -707,11 +727,10 @@ function setPhase(p) {
   if (CHECK_ORDER.includes(p)) showCheck(p);
 }
 
-// swap the visible check game + tick the checklist
+// swap the visible check game + tick the checklist; opens on the start gate
+const CHECK_NAMES = { fans: 'SYSTEEMCHECK: VENTILATOREN', handshake: 'SYSTEEMCHECK: NETWERK', simon: 'SYSTEEMCHECK: BOOT-CODE' };
 function showCheck(p) {
   const idx = CHECK_ORDER.indexOf(p);
-  document.querySelectorAll('.ck-game').forEach(el => el.classList.remove('active'));
-  document.getElementById('ck-' + p)?.classList.add('active');
   document.querySelectorAll('#ck-list .ck-item').forEach(el => {
     const ck = el.dataset.ck;
     if (ck === 'power') return; // recharge already done by definition here
@@ -722,6 +741,28 @@ function showCheck(p) {
   if (p === 'fans') updateFans(0);
   if (p === 'handshake') { renderHandshake(0, 'r'); document.getElementById('hs-feedback').textContent = ''; }
   if (p === 'simon') resetSimon();
+  gateState('wait', 0); // every check opens on its start gate
+}
+
+// ── START GATE (server asks for confirmation; both buttons together = go) ─────
+function gateState(state, n) {
+  const gate = document.getElementById('ck-gate');
+  const count = document.getElementById('ck-gate-count');
+  document.getElementById('ck-gate-name').textContent = CHECK_NAMES[phase] || 'SYSTEEMCHECK';
+  if (state === 'run') {
+    gate.classList.remove('show');
+    document.getElementById('ck-' + phase)?.classList.add('active');
+    doFlash();
+    return;
+  }
+  document.querySelectorAll('.ck-game').forEach(el => el.classList.remove('active'));
+  gate.classList.add('show');
+  if (state === 'count') {
+    count.textContent = n;
+    count.classList.remove('pop'); void count.offsetWidth; count.classList.add('pop');
+  } else {
+    count.textContent = '';
+  }
 }
 
 // ── FANS readout ──────────────────────────────────────────────────────────────
@@ -1039,6 +1080,7 @@ function connectWS() {
         else if (d.event === 'simon_seq')   simonSeq(String(d.seq || ''), d.round | 0);
         else if (d.event === 'simon')       simonState(d);
         else if (d.event === 'simon_fail')  simonFail();
+        else if (d.event === 'gate')        gateState(d.state, d.n | 0);
       } catch {}
     };
   } catch {}
@@ -1054,17 +1096,25 @@ let simA = 0, simB = 0, simN = 0;
 function simCharged() {
   if (simA >= 100 && simB >= 100) {
     setPhase('sync');
-    setTimeout(() => { simN = 0; setPhase('fans'); }, 700);
+    setTimeout(() => { simN = 0; simGated = false; setPhase('fans'); }, 700);
   }
 }
-// 'b' advances whichever check is active (rpm pump / catch / simon step)
+// 'b' advances whichever check is active (rpm pump / catch / simon step);
+// the first press on a check runs its start gate countdown
+let simGated = false;
 function simAdvance() {
+  if (CHECK_ORDER.includes(phase) && !simGated) {
+    simGated = true;
+    [3, 2, 1].forEach((n, i) => setTimeout(() => gateState('count', n), i * 700));
+    setTimeout(() => { gateState('run', 0); if (phase === 'simon') { simonSeq('YR', 1); simonState({len:2,pos:0,show:true}); } }, 2100);
+    return;
+  }
   if (phase === 'fans') {
     simN = Math.min(100, simN + 20); updateFans(simN);
-    if (simN >= 100) setTimeout(() => { simN = 0; setPhase('handshake'); }, 700);
+    if (simN >= 100) setTimeout(() => { simN = 0; simGated = false; setPhase('handshake'); }, 700);
   } else if (phase === 'handshake') {
     renderHandshake(++simN, simN % 2 ? 'y' : 'r');
-    if (simN >= 4) setTimeout(() => { simN = 0; setPhase('simon'); simonSeq('YR', 1); simonState({len:2,pos:0,show:true}); }, 700);
+    if (simN >= 4) setTimeout(() => { simN = 0; simGated = false; setPhase('simon'); }, 700);
   } else if (phase === 'simon') {
     simonState({ len: 2, pos: ++simN, show: false });
     if (simN >= 2) setTimeout(startBoot, 800);
