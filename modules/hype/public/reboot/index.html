@@ -747,6 +747,7 @@ function setPhase(p) {
   document.body.classList.add(PHASE_CLASS[p]);
   // doodles on online
   document.getElementById('doodles').classList.toggle('show', p === 'online');
+  clearCheckPassed();
   // reset the recharge readout on entry; drop any stale surge prompt otherwise
   if (p === 'recharge') updateCharge(0, 0); else clearSurge();
   if (p === 'ignite') resetIgnite();
@@ -772,12 +773,15 @@ function showCheck(p) {
 
 // ── CHECK PASSED (green splash while the strip runs its victory sweep) ────────
 function checkPassed() {
-  const c = document.getElementById('checks');
-  c.classList.add('passing');
-  const el = document.getElementById('ck-pass');
-  el.classList.add('show');
+  // shown until the next phase event arrives (setPhase clears it) — a timer here
+  // races the strip's 1.5s sweep + WS latency and lets the old game peek through
+  document.getElementById('checks').classList.add('passing');
+  document.getElementById('ck-pass').classList.add('show');
   colorFlash(2); shake('l'); doFlash();
-  setTimeout(() => { el.classList.remove('show'); c.classList.remove('passing'); }, 1400);
+}
+function clearCheckPassed() {
+  document.getElementById('checks').classList.remove('passing');
+  document.getElementById('ck-pass').classList.remove('show');
 }
 
 // ── START GATE (server asks for confirmation; both buttons together = go) ─────
