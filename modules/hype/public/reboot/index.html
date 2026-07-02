@@ -454,8 +454,7 @@ body.s-booting     #bg-glow { background:radial-gradient(ellipse 90% 55% at 50% 
 body.s-online      #bg-glow { background:radial-gradient(ellipse 90% 65% at 50% 38%, rgba(245,217,4,0.2),  transparent 65%); }
 @keyframes both-pulse { 0%,100%{background:radial-gradient(ellipse 90% 55% at 50% 22%, rgba(255,120,0,0.18), transparent 60%)} 50%{background:radial-gradient(ellipse 90% 55% at 50% 22%, rgba(255,60,0,0.26), transparent 60%)} }
 
-body.s-idle #bg-grid { opacity:0.32; animation: grid-drift 14s linear infinite; }
-@keyframes grid-drift { from { background-position: 0 0, 0 0; } to { background-position: 0 64px, 64px 0; } }
+body.s-idle #bg-grid { opacity:0.32; }
 
 /* paint stripes slide in when the key turns (armed) and drift through the ritual */
 body.s-keyin #bg-paint-y, body.s-both #bg-paint-y, body.s-booting #bg-paint-y {
