@@ -196,6 +196,16 @@ html,body { width:100%; height:100%; overflow:hidden; background:var(--bg); colo
 .instr-post { font-family: var(--display); font-size: clamp(32px,5.5vw,58px); color: rgba(255,255,255,0.55); letter-spacing: 3px; line-height: 1.1; }
 .instr-hint { font-size: 13px; color: rgba(255,255,255,0.24); margin-top: 16px; }
 
+/* ── armed (power-on splash) ── */
+#armed { display:flex; flex-direction:column; align-items:center; gap:14px; text-align:center; }
+#ar-key { font-size:clamp(44px,7vw,84px); animation:slam 0.5s cubic-bezier(.2,1.25,.2,1) both; }
+#ar-title { font-family:var(--display); font-size:clamp(40px,7vw,80px); letter-spacing:3px; color:var(--y); text-shadow:0 0 40px rgba(245,217,4,0.6); animation:slam 0.55s cubic-bezier(.2,1.25,.2,1) 0.12s both; }
+#ar-sub { font-size:clamp(13px,1.6vw,17px); color:var(--muted); letter-spacing:2px; animation:reveal 0.4s ease 0.3s both; }
+#ar-bar { width:min(460px,76vw); height:10px; border-radius:999px; background:rgba(255,255,255,0.07); border:1px solid var(--border); overflow:hidden; }
+#ar-bar span { display:block; height:100%; width:0; border-radius:999px; background:linear-gradient(90deg,var(--y),var(--o)); box-shadow:0 0 18px rgba(245,180,0,0.8); }
+body.s-keyin #ar-bar span { animation:ar-fill 1.6s cubic-bezier(.3,.7,.4,1) forwards; }
+@keyframes ar-fill { to { width:100%; } }
+
 /* ── recharge (two-stream mini-game) ── */
 #recharge { display: flex; flex-direction: column; align-items: center; gap: 14px; text-align: center; animation: reveal 0.35s cubic-bezier(.2,1,.2,1) both; }
 #rc-title { font-family: var(--display); font-size: clamp(34px,6vw,68px); color: var(--y); letter-spacing: 3px; text-shadow: 0 0 28px rgba(245,217,4,0.55); }
@@ -241,6 +251,15 @@ html,body { width:100%; height:100%; overflow:hidden; background:var(--bg); colo
 
 .ck-game { display: none; flex-direction: column; align-items: center; gap: 14px; }
 .ck-game.active { display: flex; }
+
+/* check passed splash */
+#ck-pass {
+  display:none; font-family:var(--display); font-size:clamp(44px,8vw,96px); letter-spacing:3px;
+  color:#fff; background:var(--g); padding:8px 42px; border-radius:14px;
+  box-shadow:0 0 80px rgba(50,215,75,0.9);
+}
+#ck-pass.show { display:block; animation:slam 0.45s cubic-bezier(.2,1.25,.2,1); }
+#checks.passing .ck-game, #checks.passing #ck-gate { display:none !important; }
 
 /* gate: the server asks for confirmation before each check starts */
 #ck-gate { display: none; flex-direction: column; align-items: center; gap: 16px; }
@@ -442,7 +461,14 @@ body.s-booting #bg-paint-y { transform:rotate(-2deg) translateX(0); opacity:0.9;
 body.s-both   #bg-paint-r,
 body.s-booting #bg-paint-r { transform:rotate(2deg) translateX(0); opacity:0.85; }
 
-body.s-idle #bg-grid { opacity:0.32; }
+body.s-idle #bg-grid { opacity:0.32; animation: grid-drift 14s linear infinite; }
+@keyframes grid-drift { from { background-position: 0 0, 0 0; } to { background-position: 0 64px, 64px 0; } }
+
+/* paint stripes live on the idle screen too, with a slow drift so it breathes */
+body.s-idle #bg-paint-y { transform: rotate(-2deg) translateX(0); opacity: 0.75; animation: paint-drift-y 7s ease-in-out infinite; }
+body.s-idle #bg-paint-r { transform: rotate(2deg) translateX(0);  opacity: 0.7;  animation: paint-drift-r 8.5s ease-in-out 0.8s infinite; }
+@keyframes paint-drift-y { 0%,100% { transform: rotate(-2deg) translateX(0); } 50% { transform: rotate(-2.6deg) translateX(-2.5%); } }
+@keyframes paint-drift-r { 0%,100% { transform: rotate(2deg) translateX(0); }  50% { transform: rotate(2.6deg) translateX(2.5%); } }
 
 #gm-hint { position:fixed; bottom:4px; right:8px; font-family:'Courier New',monospace; font-size:8px; color:rgba(255,255,255,0.08); z-index:200; user-select:none; letter-spacing:1px; }
 </style>
@@ -517,37 +543,13 @@ body.s-idle #bg-grid { opacity:0.32; }
       </div>
     </div>
 
-    <!-- key in -->
-    <div class="panel" id="panel-keyin">
-      <div class="instr-box" style="border-left:4px solid var(--y)">
-        <div class="instr-confirm">
-          <div class="instr-confirm-dot" style="background:var(--y);box-shadow:0 0 12px var(--y);animation:blink 0.9s ease infinite"></div>
-          <span class="instr-confirm-text" style="color:var(--y)">SLEUTEL HERKEND — SYSTEEM GEREED</span>
-          <div class="instr-confirm-dot" style="background:var(--y);box-shadow:0 0 12px var(--y);animation:blink 0.9s ease 0.32s infinite"></div>
-        </div>
-        <div class="instr-pre">HOUD DE</div>
-        <div class="instr-row">
-          <div class="instr-dot y"></div>
-          <div class="instr-name y">GELE KNOP</div>
-        </div>
-        <div class="instr-post">INGEDRUKT</div>
-      </div>
-    </div>
-
-    <!-- yellow held -->
-    <div class="panel" id="panel-yellow">
-      <div class="instr-box" style="border-left:4px solid var(--y)">
-        <div class="instr-confirm">
-          <span style="font-size:20px;color:var(--y)">✓</span>
-          <span class="instr-confirm-text" style="color:var(--y)">GEEL ACTIEF — BLIJF VASTHOUDEN!</span>
-        </div>
-        <div class="instr-pre">HOUD NU OOK DE</div>
-        <div class="instr-row">
-          <div class="instr-dot r"></div>
-          <div class="instr-name r">RODE KNOP</div>
-        </div>
-        <div class="instr-post">INGEDRUKT</div>
-        <div class="instr-hint">Houd de gele knop ingedrukt terwijl je de rode indruk</div>
+    <!-- armed: key accepted, emergency power spins up (auto-advances) -->
+    <div class="panel" id="panel-armed">
+      <div id="armed">
+        <div id="ar-key">🔑</div>
+        <div id="ar-title">SLEUTEL GEACCEPTEERD</div>
+        <div id="ar-sub">NOODSTROOM WORDT INGESCHAKELD…</div>
+        <div id="ar-bar"><span></span></div>
       </div>
     </div>
 
@@ -588,6 +590,8 @@ body.s-idle #bg-grid { opacity:0.32; }
           <div class="ck-item" data-ck="handshake"><i></i>NETWERK</div>
           <div class="ck-item" data-ck="simon"><i></i>BOOT-CODE</div>
         </div>
+
+        <div id="ck-pass">✓ CHECK GESLAAGD!</div>
 
         <!-- gate: press both together to start the current check -->
         <div id="ck-gate">
@@ -725,7 +729,7 @@ const PHASE_CLASS = { idle:'s-idle', armed:'s-keyin', recharge:'s-both', sync:'s
   fans:'s-both', handshake:'s-both', simon:'s-both', ignite:'s-both', booting:'s-booting', online:'s-online' };
 
 const panels = {
-  idle:'panel-idle', armed:'panel-keyin', recharge:'panel-recharge', sync:'panel-recharge',
+  idle:'panel-idle', armed:'panel-armed', recharge:'panel-recharge', sync:'panel-recharge',
   fans:'panel-checks', handshake:'panel-checks', simon:'panel-checks',
   ignite:'panel-ignite', booting:'panel-boot', online:'panel-online',
 };
@@ -765,6 +769,16 @@ function showCheck(p) {
   if (p === 'handshake') { renderHandshake(0, 'r'); document.getElementById('hs-feedback').textContent = ''; }
   if (p === 'simon') resetSimon();
   gateState('key', 0); // every check opens on its gate: key first, then buttons
+}
+
+// ── CHECK PASSED (green splash while the strip runs its victory sweep) ────────
+function checkPassed() {
+  const c = document.getElementById('checks');
+  c.classList.add('passing');
+  const el = document.getElementById('ck-pass');
+  el.classList.add('show');
+  colorFlash(2); shake('l'); doFlash();
+  setTimeout(() => { el.classList.remove('show'); c.classList.remove('passing'); }, 1400);
 }
 
 // ── START GATE (server asks for confirmation; both buttons together = go) ─────
@@ -1113,6 +1127,7 @@ function connectWS() {
         else if (d.event === 'simon')       simonState(d);
         else if (d.event === 'simon_fail')  simonFail();
         else if (d.event === 'gate')        gateState(d.state, d.n | 0);
+        else if (d.event === 'check_passed') checkPassed();
       } catch {}
     };
   } catch {}
@@ -1159,7 +1174,7 @@ function simAdvance() {
 document.addEventListener('keydown', e => {
   if (e.repeat) return;
   const k = e.key.toLowerCase();
-  if (k === 'k')      { simA = simB = 0; setPhase('armed'); setTimeout(() => setPhase('recharge'), 900); }
+  if (k === 'k')      { simA = simB = 0; setPhase('armed'); setTimeout(() => setPhase('recharge'), 1800); }
   else if (k === 'y') { simA = Math.min(100, simA + 25); updateCharge(simA, simB); simCharged(); }
   else if (k === 'r') { simB = Math.min(100, simB + 25); updateCharge(simA, simB); simCharged(); }
   else if (k === 's') { showSurge(); setTimeout(clearSurge, 900); }
