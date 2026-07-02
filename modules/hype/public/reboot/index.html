@@ -224,6 +224,55 @@ html,body { width:100%; height:100%; overflow:hidden; background:var(--bg); colo
 @keyframes surge-pulse { 0%,100%{transform:scale(1)} 50%{transform:scale(1.09)} }
 @keyframes surge-shake { 0%,100%{transform:translateX(0)} 25%{transform:translateX(-5px)} 75%{transform:translateX(5px)} }
 
+/* ── startup checks (fans / handshake / simon chain) ── */
+#checks { display: flex; flex-direction: column; align-items: center; gap: 18px; text-align: center; animation: reveal 0.35s cubic-bezier(.2,1,.2,1) both; width: min(860px, 92vw); }
+#ck-list { display: flex; gap: clamp(8px,1.5vw,18px); justify-content: center; flex-wrap: wrap; }
+.ck-item {
+  display: inline-flex; align-items: center; gap: 8px;
+  padding: 7px 16px; border-radius: 999px; border: 1px solid var(--border);
+  font-family: 'Courier New',monospace; font-size: clamp(11px,1.3vw,14px); letter-spacing: 1px;
+  color: rgba(255,255,255,0.35); background: rgba(255,255,255,0.03);
+}
+.ck-item i { width: 9px; height: 9px; border-radius: 50%; background: rgba(255,255,255,0.15); }
+.ck-item.done   { color: var(--g); border-color: rgba(50,215,75,0.4); }
+.ck-item.done i { background: var(--g); box-shadow: 0 0 8px var(--g); }
+.ck-item.active   { color: #fff; border-color: var(--y); animation: pulse 0.9s ease infinite; }
+.ck-item.active i { background: var(--y); box-shadow: 0 0 8px var(--y); }
+
+.ck-game { display: none; flex-direction: column; align-items: center; gap: 14px; }
+.ck-game.active { display: flex; }
+.ck-title { font-family: var(--display); font-size: clamp(32px,5.5vw,62px); letter-spacing: 3px; }
+.ck-sub   { font-size: clamp(13px,1.6vw,17px); color: var(--muted); letter-spacing: 1.5px; line-height: 1.6; max-width: 640px; }
+
+/* fans */
+#fan-bar-bg { width: min(520px,80vw); height: 30px; border-radius: 999px; background: rgba(255,255,255,0.06); border: 1px solid var(--border); overflow: hidden; }
+#fan-bar { height: 100%; width: 0%; border-radius: 999px; background: linear-gradient(90deg, var(--y), var(--r)); box-shadow: 0 0 18px rgba(245,120,60,0.7); transition: width 0.12s linear; }
+#fan-pct { font-family: var(--display); font-size: clamp(30px,4.5vw,48px); color: var(--o); }
+#fan-rotor { font-size: clamp(34px,5vw,54px); display: inline-block; animation: rotor-spin 1.2s linear infinite; }
+@keyframes rotor-spin { to { transform: rotate(360deg); } }
+
+/* handshake */
+#hs-turn { font-family: var(--display); font-size: clamp(40px,7vw,84px); letter-spacing: 4px; }
+#hs-turn.y { color: var(--y); text-shadow: 0 0 40px rgba(245,217,4,0.6); }
+#hs-turn.r { color: var(--r); text-shadow: 0 0 40px rgba(245,35,104,0.6); }
+#hs-lamps { display: flex; gap: clamp(14px,2.4vw,26px); }
+.hs-lamp { width: clamp(34px,4.5vw,52px); height: clamp(34px,4.5vw,52px); border-radius: 50%; border: 3px solid rgba(255,255,255,0.16); background: rgba(255,255,255,0.04); transition: all 0.2s ease; }
+.hs-lamp.lit { background: var(--t); border-color: var(--t); box-shadow: 0 0 30px rgba(39,214,198,0.8); animation: slam 0.4s cubic-bezier(.2,1.25,.2,1); }
+#hs-feedback { min-height: 1.3em; font-family: var(--display); font-size: clamp(20px,3vw,34px); letter-spacing: 2px; color: var(--r); }
+
+/* simon */
+#sm-stage { display: flex; flex-direction: column; align-items: center; gap: 12px; }
+#sm-round { font-family: 'Courier New',monospace; font-size: clamp(12px,1.4vw,15px); color: var(--muted); letter-spacing: 2px; }
+#sm-flash { width: clamp(90px,13vw,150px); height: clamp(90px,13vw,150px); border-radius: 18px; background: rgba(255,255,255,0.05); border: 2px solid var(--border); transition: background 0.08s ease, box-shadow 0.08s ease; }
+#sm-flash.y { background: var(--y); box-shadow: 0 0 70px rgba(245,217,4,0.9); }
+#sm-flash.r { background: var(--r); box-shadow: 0 0 70px rgba(245,35,104,0.9); }
+#sm-dots { display: flex; gap: clamp(10px,1.8vw,20px); }
+.sm-dot { width: clamp(24px,3.2vw,38px); height: clamp(24px,3.2vw,38px); border-radius: 50%; border: 3px solid rgba(255,255,255,0.16); background: rgba(255,255,255,0.04); transition: all 0.15s ease; }
+.sm-dot.ok { background: var(--g); border-color: var(--g); box-shadow: 0 0 22px rgba(50,215,75,0.8); }
+#sm-msg { min-height: 1.3em; font-family: var(--display); font-size: clamp(22px,3.4vw,40px); letter-spacing: 3px; }
+#sm-msg.good { color: var(--g); }
+#sm-msg.bad  { color: var(--r); animation: surge-shake 0.2s linear 2; }
+
 /* ── ignite (spark timing mini-game) ── */
 #ignite { display: flex; flex-direction: column; align-items: center; gap: 16px; text-align: center; animation: reveal 0.35s cubic-bezier(.2,1,.2,1) both; }
 #ig-title { font-family: var(--display); font-size: clamp(34px,6vw,68px); color: var(--g); letter-spacing: 3px; text-shadow: 0 0 28px rgba(50,215,75,0.55); }
@@ -503,6 +552,49 @@ body.s-idle #bg-grid { opacity:0.32; }
       </div>
     </div>
 
+    <!-- startup checks: fans → handshake → simon (server boot checklist) -->
+    <div class="panel" id="panel-checks">
+      <div id="checks">
+        <div id="ck-list">
+          <div class="ck-item done" data-ck="power"><i></i>STROOM</div>
+          <div class="ck-item" data-ck="fans"><i></i>VENTILATOREN</div>
+          <div class="ck-item" data-ck="handshake"><i></i>NETWERK</div>
+          <div class="ck-item" data-ck="simon"><i></i>BOOT-CODE</div>
+        </div>
+
+        <!-- check: fans -->
+        <div class="ck-game" id="ck-fans">
+          <div class="ck-title" style="color:var(--o)"><span id="fan-rotor">✻</span> VENTILATOREN</div>
+          <div class="ck-sub">TIK OM DE BEURT: <b style="color:var(--y)">GEEL</b> — <b style="color:var(--r)">ROOD</b> — <b style="color:var(--y)">GEEL</b> — <b style="color:var(--r)">ROOD</b>!<br>HOU HET RITME VAST TOT DE METER VOL IS!</div>
+          <div id="fan-bar-bg"><div id="fan-bar"></div></div>
+          <div id="fan-pct">0%</div>
+        </div>
+
+        <!-- check: handshake -->
+        <div class="ck-game" id="ck-handshake">
+          <div class="ck-title" style="color:var(--t)">📡 NETWERK</div>
+          <div class="ck-sub">HET DATAPAKKETJE VLIEGT HEEN EN WEER —<br>DRUK OP <b>JOUW</b> KNOP ALS HET IN <b>JOUW</b> VAK KOMT!</div>
+          <div id="hs-turn" class="r">ROOD, VANG!</div>
+          <div id="hs-lamps">
+            <div class="hs-lamp"></div><div class="hs-lamp"></div><div class="hs-lamp"></div><div class="hs-lamp"></div>
+          </div>
+          <div id="hs-feedback"></div>
+        </div>
+
+        <!-- check: simon -->
+        <div class="ck-game" id="ck-simon">
+          <div class="ck-title" style="color:var(--b)">🔐 BOOT-CODE</div>
+          <div class="ck-sub" id="sm-sub">KIJK GOED NAAR DE KLEUREN…</div>
+          <div id="sm-stage">
+            <div id="sm-round">RONDE 1</div>
+            <div id="sm-flash"></div>
+            <div id="sm-dots"></div>
+            <div id="sm-msg"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
     <!-- ignite (spark timing mini-game — watch the LED strip, slam together) -->
     <div class="panel" id="panel-ignite">
       <div id="ignite">
@@ -553,7 +645,7 @@ body.s-idle #bg-grid { opacity:0.32; }
   </main>
 </div>
 
-<div id="gm-hint">K sleutel · Y/R laad · S surge · O storing · B raak · M mis · X reset</div>
+<div id="gm-hint">K sleutel · Y/R laad · S surge · O storing · B stap · M mis · X reset</div>
 
 <script>
 // ── CONFIG ─────────────────────────────────────────────────────────────────────
@@ -586,12 +678,17 @@ let phase = 'idle', ws = null, wsOn = false;
 // start reboot.wav's choreography together. Tune by ear alongside that constant.
 const TABLET_BOOT_DELAY_MS = 450;
 
-const PHASE_CLASS = { idle:'s-idle', armed:'s-keyin', recharge:'s-both', sync:'s-both', ignite:'s-both', booting:'s-booting', online:'s-online' };
+const PHASE_CLASS = { idle:'s-idle', armed:'s-keyin', recharge:'s-both', sync:'s-both',
+  fans:'s-both', handshake:'s-both', simon:'s-both', ignite:'s-both', booting:'s-booting', online:'s-online' };
 
 const panels = {
   idle:'panel-idle', armed:'panel-keyin', recharge:'panel-recharge', sync:'panel-recharge',
+  fans:'panel-checks', handshake:'panel-checks', simon:'panel-checks',
   ignite:'panel-ignite', booting:'panel-boot', online:'panel-online',
 };
+
+// startup-check phases in order, for the checklist ticks
+const CHECK_ORDER = ['fans', 'handshake', 'simon'];
 
 // ── RENDER ────────────────────────────────────────────────────────────────────
 function setPhase(p) {
@@ -607,6 +704,84 @@ function setPhase(p) {
   // reset the recharge readout on entry; drop any stale surge prompt otherwise
   if (p === 'recharge') updateCharge(0, 0); else clearSurge();
   if (p === 'ignite') resetIgnite();
+  if (CHECK_ORDER.includes(p)) showCheck(p);
+}
+
+// swap the visible check game + tick the checklist
+function showCheck(p) {
+  const idx = CHECK_ORDER.indexOf(p);
+  document.querySelectorAll('.ck-game').forEach(el => el.classList.remove('active'));
+  document.getElementById('ck-' + p)?.classList.add('active');
+  document.querySelectorAll('#ck-list .ck-item').forEach(el => {
+    const ck = el.dataset.ck;
+    if (ck === 'power') return; // recharge already done by definition here
+    const ckIdx = CHECK_ORDER.indexOf(ck);
+    el.classList.toggle('done', ckIdx > -1 && ckIdx < idx);
+    el.classList.toggle('active', ck === p);
+  });
+  if (p === 'fans') updateFans(0);
+  if (p === 'handshake') { renderHandshake(0, 'r'); document.getElementById('hs-feedback').textContent = ''; }
+  if (p === 'simon') resetSimon();
+}
+
+// ── FANS readout ──────────────────────────────────────────────────────────────
+function updateFans(rpm) {
+  document.getElementById('fan-bar').style.width = rpm + '%';
+  document.getElementById('fan-pct').textContent = rpm + '%';
+  // rotor spins faster as rpm climbs (2.5s at rest → 0.25s at full)
+  document.getElementById('fan-rotor').style.animationDuration = (2.5 - rpm * 0.0225) + 's';
+}
+
+// ── HANDSHAKE readout ─────────────────────────────────────────────────────────
+function renderHandshake(catches, turn) {
+  document.querySelectorAll('#hs-lamps .hs-lamp').forEach((el, i) => el.classList.toggle('lit', i < catches));
+  const t = document.getElementById('hs-turn');
+  t.className = turn;
+  t.textContent = (turn === 'y' ? 'GEEL' : 'ROOD') + ', VANG!';
+  if (catches > 0) { colorFlash(3); }
+}
+function handshakeDrop() {
+  const fb = document.getElementById('hs-feedback');
+  fb.textContent = 'GEMIST — DAAR KOMT-IE WEER!';
+  setTimeout(() => { if (fb.textContent.startsWith('GEMIST')) fb.textContent = ''; }, 1400);
+}
+
+// ── SIMON readout ─────────────────────────────────────────────────────────────
+// The Arduino flashes the code on the strip; we mirror it here with the same
+// cadence (550ms flash / 260ms gap) from the moment the sequence arrives.
+let smTimers = [];
+function resetSimon() {
+  smTimers.forEach(clearTimeout); smTimers = [];
+  document.getElementById('sm-flash').className = '';
+  document.getElementById('sm-dots').innerHTML = '';
+  document.getElementById('sm-msg').textContent = '';
+  document.getElementById('sm-msg').className = '';
+  document.getElementById('sm-sub').textContent = 'KIJK GOED NAAR DE KLEUREN…';
+}
+function simonSeq(seq, round) {
+  resetSimon();
+  document.getElementById('sm-round').textContent = 'RONDE ' + round;
+  const flash = document.getElementById('sm-flash');
+  [...seq].forEach((ch, i) => {
+    const t0 = 900 + i * (550 + 260); // matches the Arduino's breather + cadence
+    smTimers.push(setTimeout(() => { flash.className = ch === 'Y' ? 'y' : 'r'; }, t0));
+    smTimers.push(setTimeout(() => { flash.className = ''; }, t0 + 550));
+  });
+}
+function simonState(d) {
+  const dots = document.getElementById('sm-dots');
+  if (dots.children.length !== d.len) {
+    dots.innerHTML = '';
+    for (let i = 0; i < d.len; i++) { const el = document.createElement('div'); el.className = 'sm-dot'; dots.appendChild(el); }
+  }
+  [...dots.children].forEach((el, i) => el.classList.toggle('ok', i < d.pos));
+  document.getElementById('sm-sub').textContent = d.show ? 'KIJK GOED NAAR DE KLEUREN…' : 'JULLIE BEURT — DRUK DE CODE NA!';
+  if (!d.show && d.pos > 0) { const m = document.getElementById('sm-msg'); m.textContent = 'GOED!'; m.className = 'good'; }
+}
+function simonFail() {
+  const m = document.getElementById('sm-msg');
+  m.textContent = 'FOUT — KIJK NOG EEN KEER!';
+  m.className = ''; void m.offsetWidth; m.className = 'bad';
 }
 
 function renderWS() {
@@ -858,6 +1033,12 @@ function connectWS() {
         else if (d.event === 'surge_end')   clearSurge();
         else if (d.event === 'ignite')      renderIgnite(d.hits | 0);
         else if (d.event === 'ignite_miss') igniteMiss();
+        else if (d.event === 'fans')        updateFans(d.rpm | 0);
+        else if (d.event === 'handshake')   renderHandshake(d.catches | 0, d.turn);
+        else if (d.event === 'handshake_drop') handshakeDrop();
+        else if (d.event === 'simon_seq')   simonSeq(String(d.seq || ''), d.round | 0);
+        else if (d.event === 'simon')       simonState(d);
+        else if (d.event === 'simon_fail')  simonFail();
       } catch {}
     };
   } catch {}
@@ -869,11 +1050,27 @@ function connectWS() {
 //   k = insert key (armed → recharge)   y/r = pump the yellow/pink stream +25%
 //   s = surge prompt   o = overload prompt   b = ignition hit   m = ignition miss
 //   x = reset to idle (also nudges a real rig)
-let simA = 0, simB = 0, simHits = 0;
+let simA = 0, simB = 0, simN = 0;
 function simCharged() {
   if (simA >= 100 && simB >= 100) {
     setPhase('sync');
-    setTimeout(() => { simHits = 0; setPhase('ignite'); }, 700);
+    setTimeout(() => { simN = 0; setPhase('fans'); }, 700);
+  }
+}
+// 'b' advances whichever check is active (rpm pump / catch / simon step)
+function simAdvance() {
+  if (phase === 'fans') {
+    simN = Math.min(100, simN + 20); updateFans(simN);
+    if (simN >= 100) setTimeout(() => { simN = 0; setPhase('handshake'); }, 700);
+  } else if (phase === 'handshake') {
+    renderHandshake(++simN, simN % 2 ? 'y' : 'r');
+    if (simN >= 4) setTimeout(() => { simN = 0; setPhase('simon'); simonSeq('YR', 1); simonState({len:2,pos:0,show:true}); }, 700);
+  } else if (phase === 'simon') {
+    simonState({ len: 2, pos: ++simN, show: false });
+    if (simN >= 2) setTimeout(startBoot, 800);
+  } else if (phase === 'ignite') {
+    renderIgnite(++simN);
+    if (simN >= 3) setTimeout(startBoot, 600);
   }
 }
 document.addEventListener('keydown', e => {
@@ -884,9 +1081,9 @@ document.addEventListener('keydown', e => {
   else if (k === 'r') { simB = Math.min(100, simB + 25); updateCharge(simA, simB); simCharged(); }
   else if (k === 's') { showSurge(); setTimeout(clearSurge, 900); }
   else if (k === 'o') { showOverload(); setTimeout(clearSurge, 1400); }
-  else if (k === 'b') { if (phase === 'ignite') { renderIgnite(++simHits); if (simHits >= 3) setTimeout(startBoot, 600); } }
-  else if (k === 'm') { if (phase === 'ignite') igniteMiss(); }
-  else if (k === 'x') { simA = simB = 0; simHits = 0; setPhase('idle'); if (ws && ws.readyState === 1) ws.send(JSON.stringify({ cmd:'reset' })); }
+  else if (k === 'b') { simAdvance(); }
+  else if (k === 'm') { if (phase === 'ignite') igniteMiss(); else if (phase === 'handshake') handshakeDrop(); else if (phase === 'simon') simonFail(); }
+  else if (k === 'x') { simA = simB = 0; simN = 0; setPhase('idle'); if (ws && ws.readyState === 1) ws.send(JSON.stringify({ cmd:'reset' })); }
 });
 
 // ── IDLE DIAGNOSTICS (crash log ticker, uptime, glitch blips) ────────────────
