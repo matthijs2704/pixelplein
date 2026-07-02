@@ -217,10 +217,27 @@ html,body { width:100%; height:100%; overflow:hidden; background:var(--bg); colo
 #count-display  { font-family: var(--display); font-size: clamp(38px,5vw,58px); color: var(--b); line-height: 1; }
 
 #rc-surge { margin-top: 6px; font-family: var(--display); font-size: clamp(38px,7vw,86px); letter-spacing: 4px; color: #fff; background: var(--r); padding: 4px 34px; border-radius: 10px; box-shadow: 0 0 60px rgba(245,35,104,0.85); opacity: 0; transform: scale(0.8); transition: opacity 0.1s ease; }
-#recharge.surging #rc-surge { opacity: 1; animation: surge-pulse 0.3s ease infinite; }
+#recharge.surging #rc-surge, #recharge.overload #rc-surge { opacity: 1; animation: surge-pulse 0.3s ease infinite; }
 #recharge.surging { animation: surge-shake 0.24s linear infinite; }
+#recharge.overload { animation: surge-shake 0.13s linear infinite; }
+#recharge.overload #rc-surge { background: #b00000; box-shadow: 0 0 80px rgba(255,0,0,0.95); }
 @keyframes surge-pulse { 0%,100%{transform:scale(1)} 50%{transform:scale(1.09)} }
 @keyframes surge-shake { 0%,100%{transform:translateX(0)} 25%{transform:translateX(-5px)} 75%{transform:translateX(5px)} }
+
+/* ── ignite (spark timing mini-game) ── */
+#ignite { display: flex; flex-direction: column; align-items: center; gap: 16px; text-align: center; animation: reveal 0.35s cubic-bezier(.2,1,.2,1) both; }
+#ig-title { font-family: var(--display); font-size: clamp(34px,6vw,68px); color: var(--g); letter-spacing: 3px; text-shadow: 0 0 28px rgba(50,215,75,0.55); }
+#ig-sub   { font-size: clamp(13px,1.6vw,17px); color: var(--muted); letter-spacing: 1.5px; max-width: 640px; line-height: 1.6; }
+#ig-lamps { display: flex; gap: clamp(18px,3vw,34px); margin-top: 8px; }
+.ig-lamp {
+  width: clamp(44px,6vw,72px); height: clamp(44px,6vw,72px); border-radius: 50%;
+  border: 3px solid rgba(255,255,255,0.16); background: rgba(255,255,255,0.04);
+  transition: background 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
+}
+.ig-lamp.lit { background: var(--g); border-color: var(--g); box-shadow: 0 0 34px rgba(50,215,75,0.85); animation: slam 0.4s cubic-bezier(.2,1.25,.2,1); }
+#ig-feedback { min-height: 1.4em; font-family: var(--display); font-size: clamp(22px,3.4vw,40px); letter-spacing: 3px; }
+#ig-feedback.hit  { color: var(--g); animation: slam 0.4s cubic-bezier(.2,1.25,.2,1); }
+#ig-feedback.miss { color: var(--r); animation: surge-shake 0.2s linear 2; }
 
 /* ── color-flash + shake layers (boot-beat energy, à la the launch takeover) ── */
 #color-flashes { position: fixed; inset: 0; z-index: 88; pointer-events: none; }
@@ -486,6 +503,18 @@ body.s-idle #bg-grid { opacity:0.32; }
       </div>
     </div>
 
+    <!-- ignite (spark timing mini-game — watch the LED strip, slam together) -->
+    <div class="panel" id="panel-ignite">
+      <div id="ignite">
+        <div id="ig-title">🔥 START DE SERVER</div>
+        <div id="ig-sub">KIJK NAAR DE LICHTBAAN — DRUK <b>SAMEN</b> OP BEIDE KNOPPEN<br>ALS DE VONK IN HET GROENE VAK KOMT!</div>
+        <div id="ig-lamps">
+          <div class="ig-lamp"></div><div class="ig-lamp"></div><div class="ig-lamp"></div>
+        </div>
+        <div id="ig-feedback"></div>
+      </div>
+    </div>
+
     <!-- booting (mirrors the hype-restart terminal on the big screens) -->
     <div class="panel" id="panel-boot">
       <div id="boot-wrap">
@@ -524,7 +553,7 @@ body.s-idle #bg-grid { opacity:0.32; }
   </main>
 </div>
 
-<div id="gm-hint">K sleutel · Y/R laad · S surge · X reset</div>
+<div id="gm-hint">K sleutel · Y/R laad · S surge · O storing · B raak · M mis · X reset</div>
 
 <script>
 // ── CONFIG ─────────────────────────────────────────────────────────────────────
@@ -547,14 +576,21 @@ const BOOT_LINES = [
 
 // ── STATE ─────────────────────────────────────────────────────────────────────
 // The Arduino owns the ritual and pushes its authoritative phase over WebSocket;
-// this console is a reflector. Phases: idle → armed → recharge → sync → booting → online.
+// this console is a reflector.
+// Phases: idle → armed → recharge → sync → ignite → booting → online.
 let phase = 'idle', ws = null, wsOn = false;
 
-const PHASE_CLASS = { idle:'s-idle', armed:'s-keyin', recharge:'s-both', sync:'s-both', booting:'s-booting', online:'s-online' };
+// Delay between receiving "booting" (and firing the big-screen trigger) and
+// starting this console's own boot visuals — matches the Arduino's
+// BOOT_AUDIO_LEAD_MS minus the WS hop, so tablet + strip + big screens all
+// start reboot.wav's choreography together. Tune by ear alongside that constant.
+const TABLET_BOOT_DELAY_MS = 450;
+
+const PHASE_CLASS = { idle:'s-idle', armed:'s-keyin', recharge:'s-both', sync:'s-both', ignite:'s-both', booting:'s-booting', online:'s-online' };
 
 const panels = {
   idle:'panel-idle', armed:'panel-keyin', recharge:'panel-recharge', sync:'panel-recharge',
-  booting:'panel-boot', online:'panel-online',
+  ignite:'panel-ignite', booting:'panel-boot', online:'panel-online',
 };
 
 // ── RENDER ────────────────────────────────────────────────────────────────────
@@ -570,6 +606,7 @@ function setPhase(p) {
   document.getElementById('doodles').classList.toggle('show', p === 'online');
   // reset the recharge readout on entry; drop any stale surge prompt otherwise
   if (p === 'recharge') updateCharge(0, 0); else clearSurge();
+  if (p === 'ignite') resetIgnite();
 }
 
 function renderWS() {
@@ -624,8 +661,41 @@ function updateCharge(a, b) {
   document.getElementById('count-display').textContent = combined + '%';
   document.getElementById('countdown-ring').style.strokeDashoffset = Math.round(RING_CIRC * (1 - combined / 100));
 }
-function showSurge()  { document.getElementById('recharge').classList.add('surging'); doFlash(); }
-function clearSurge() { document.getElementById('recharge')?.classList.remove('surging'); }
+function showSurge() { // warning: LOS LATEN!
+  const rc = document.getElementById('recharge');
+  rc.classList.remove('overload'); rc.classList.add('surging');
+  document.getElementById('rc-surge').textContent = '⚡ LOS LATEN!';
+  doFlash();
+}
+function showOverload() { // still held past the warning — error mode, charge drains
+  const rc = document.getElementById('recharge');
+  rc.classList.remove('surging'); rc.classList.add('overload');
+  document.getElementById('rc-surge').textContent = '🔥 STORING! LAAT ALLES LOS!';
+  shake('l');
+}
+function clearSurge() {
+  document.getElementById('recharge')?.classList.remove('surging', 'overload');
+}
+
+// ── IGNITE READOUT (hits/misses pushed by the Arduino spark game) ──────────────
+function renderIgnite(hits) {
+  document.querySelectorAll('#ig-lamps .ig-lamp').forEach((el, i) => el.classList.toggle('lit', i < hits));
+  const fb = document.getElementById('ig-feedback');
+  if (hits > 0) {
+    fb.textContent = hits >= 3 ? 'SERVER START!' : 'RAAK! NOG ' + (3 - hits) + '…';
+    fb.className = 'hit'; colorFlash(2); shake();
+  }
+}
+function igniteMiss() {
+  const fb = document.getElementById('ig-feedback');
+  fb.textContent = 'NET NIET — WACHT OP DE VONK!';
+  fb.className = ''; void fb.offsetWidth; fb.className = 'miss';
+}
+function resetIgnite() {
+  document.querySelectorAll('#ig-lamps .ig-lamp').forEach(el => el.classList.remove('lit'));
+  const fb = document.getElementById('ig-feedback');
+  fb.textContent = ''; fb.className = '';
+}
 
 // ── FLASH / COLOUR-FLASH / SHAKE (boot-beat energy, à la the launch takeover) ──
 function doFlash() {
@@ -653,7 +723,15 @@ function _bootPulse() {
 }
 
 function startBoot() {
-  triggerScreen(); // fires display sequence in sync — both start at T=0
+  // Fire the big screens FIRST (network hop), then hold our own visuals for
+  // TABLET_BOOT_DELAY_MS — together with the Arduino's BOOT_AUDIO_LEAD_MS this
+  // lines up reboot.wav on strip, tablet and pixelplein.
+  triggerScreen();
+  setPhase('booting');
+  setTimeout(_runBootTimeline, TABLET_BOOT_DELAY_MS);
+}
+
+function _runBootTimeline() {
   const sub = document.getElementById('boot-sub');
   sub.textContent = 'systeem herstart gedetecteerd — verbinding herstellen…';
   sub.classList.remove('found');
@@ -662,7 +740,7 @@ function startBoot() {
   document.getElementById('boot-pct').textContent = '0%';
   const chips = document.getElementById('boot-chips');
   chips.innerHTML = ''; chips.classList.remove('visible');
-  setPhase('booting'); doFlash();
+  doFlash();
   if (!channels.length) fetchChannels();
 
   // Same strong-onset beat punches as the big-screen terminal
@@ -751,7 +829,7 @@ async function triggerScreen() {
   if (!base) return;
   const el = document.getElementById('trigger-label');
   try {
-    const r = await fetch(`${base}/api/modules/hype/reboot-trigger`, { method:'POST', headers:{'Content-Type':'application/json'} });
+    const r = await fetch(`${base}/api/modules/hype/reboot-trigger`, { method:'POST' });
     renderServer(r.ok);
     el.className = r.ok ? 'ok' : 'err';
     el.textContent = r.ok ? '✓ schermsequentie geactiveerd' : '✗ server gaf fout terug';
@@ -773,30 +851,42 @@ function connectWS() {
     ws.onmessage = e => {
       try {
         const d = JSON.parse(e.data);
-        if (d.event === 'phase')      { if (d.phase === 'booting') startBoot(); else setPhase(d.phase); }
-        else if (d.event === 'charge')    updateCharge(d.a, d.b);
-        else if (d.event === 'surge')     showSurge();
-        else if (d.event === 'surge_end') clearSurge();
+        if (d.event === 'phase')          { if (d.phase === 'booting') startBoot(); else setPhase(d.phase); }
+        else if (d.event === 'charge')      updateCharge(d.a, d.b);
+        else if (d.event === 'surge')       showSurge();
+        else if (d.event === 'overload')    showOverload();
+        else if (d.event === 'surge_end')   clearSurge();
+        else if (d.event === 'ignite')      renderIgnite(d.hits | 0);
+        else if (d.event === 'ignite_miss') igniteMiss();
       } catch {}
     };
   } catch {}
 }
 
 // ── KEYBOARD SIM (laptop rehearsal ONLY) ────────────────────────────────────────
-// On-site the Arduino owns the sequence and pushes phase/charge/surge; there is no
-// Arduino when previewing on a computer, so these keys fake it locally:
-//   k = insert key (armed → recharge)   y/r = pump the yellow/red stream +25%
-//   s = trigger a surge prompt          x = reset to idle (also nudges a real rig)
-let simA = 0, simB = 0;
-function simDone() { if (simA >= 100 && simB >= 100) { setPhase('sync'); setTimeout(startBoot, 500); } }
+// On-site the Arduino owns the sequence and pushes phase/charge/surge/ignite;
+// there is no Arduino when previewing on a computer, so these keys fake it:
+//   k = insert key (armed → recharge)   y/r = pump the yellow/pink stream +25%
+//   s = surge prompt   o = overload prompt   b = ignition hit   m = ignition miss
+//   x = reset to idle (also nudges a real rig)
+let simA = 0, simB = 0, simHits = 0;
+function simCharged() {
+  if (simA >= 100 && simB >= 100) {
+    setPhase('sync');
+    setTimeout(() => { simHits = 0; setPhase('ignite'); }, 700);
+  }
+}
 document.addEventListener('keydown', e => {
   if (e.repeat) return;
   const k = e.key.toLowerCase();
   if (k === 'k')      { simA = simB = 0; setPhase('armed'); setTimeout(() => setPhase('recharge'), 900); }
-  else if (k === 'y') { simA = Math.min(100, simA + 25); updateCharge(simA, simB); simDone(); }
-  else if (k === 'r') { simB = Math.min(100, simB + 25); updateCharge(simA, simB); simDone(); }
-  else if (k === 's') { showSurge(); setTimeout(clearSurge, 800); }
-  else if (k === 'x') { simA = simB = 0; setPhase('idle'); if (ws && ws.readyState === 1) ws.send(JSON.stringify({ cmd:'reset' })); }
+  else if (k === 'y') { simA = Math.min(100, simA + 25); updateCharge(simA, simB); simCharged(); }
+  else if (k === 'r') { simB = Math.min(100, simB + 25); updateCharge(simA, simB); simCharged(); }
+  else if (k === 's') { showSurge(); setTimeout(clearSurge, 900); }
+  else if (k === 'o') { showOverload(); setTimeout(clearSurge, 1400); }
+  else if (k === 'b') { if (phase === 'ignite') { renderIgnite(++simHits); if (simHits >= 3) setTimeout(startBoot, 600); } }
+  else if (k === 'm') { if (phase === 'ignite') igniteMiss(); }
+  else if (k === 'x') { simA = simB = 0; simHits = 0; setPhase('idle'); if (ws && ws.readyState === 1) ws.send(JSON.stringify({ cmd:'reset' })); }
 });
 
 // ── IDLE DIAGNOSTICS (crash log ticker, uptime, glitch blips) ────────────────
