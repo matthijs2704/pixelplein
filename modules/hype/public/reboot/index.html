@@ -248,6 +248,9 @@ html,body { width:100%; height:100%; overflow:hidden; background:var(--bg); colo
 #ck-gate-name { font-family: var(--display); font-size: clamp(30px,5vw,56px); letter-spacing: 3px; color: #fff; }
 #ck-gate-instr { display: flex; align-items: center; gap: 14px; font-family: var(--display); font-size: clamp(22px,3.6vw,42px); letter-spacing: 2px; color: rgba(255,255,255,0.75); }
 #ck-gate-instr .instr-dot { width: 30px; height: 30px; }
+#ck-gate-key { display: none; font-family: var(--display); font-size: clamp(24px,4vw,46px); letter-spacing: 2px; color: var(--b); text-shadow: 0 0 30px rgba(0,178,255,0.5); animation: pulse 0.9s ease infinite; }
+#ck-gate.stage-key #ck-gate-key { display: block; }
+#ck-gate.stage-key #ck-gate-instr { display: none; }
 #ck-gate-count { font-family: var(--display); font-size: clamp(90px,16vw,190px); line-height: 1; color: var(--y); text-shadow: 0 0 60px rgba(245,217,4,0.6); }
 #ck-gate-count.pop { animation: slam 0.35s cubic-bezier(.2,1.25,.2,1); }
 .ck-title { font-family: var(--display); font-size: clamp(32px,5.5vw,62px); letter-spacing: 3px; }
@@ -268,6 +271,21 @@ html,body { width:100%; height:100%; overflow:hidden; background:var(--bg); colo
 .hs-lamp { width: clamp(34px,4.5vw,52px); height: clamp(34px,4.5vw,52px); border-radius: 50%; border: 3px solid rgba(255,255,255,0.16); background: rgba(255,255,255,0.04); transition: all 0.2s ease; }
 .hs-lamp.lit { background: var(--t); border-color: var(--t); box-shadow: 0 0 30px rgba(39,214,198,0.8); animation: slam 0.4s cubic-bezier(.2,1.25,.2,1); }
 #hs-feedback { min-height: 1.3em; font-family: var(--display); font-size: clamp(20px,3vw,34px); letter-spacing: 2px; color: var(--r); }
+#hs-track {
+  position: relative; width: min(700px, 86vw); height: 34px; border-radius: 999px;
+  background: rgba(255,255,255,0.05); border: 1px solid var(--border); overflow: hidden;
+}
+.hs-zone { position: absolute; top: 0; bottom: 0; width: 19%; opacity: 0.25; transition: opacity 0.25s ease; }
+.hs-zone.y { left: 0;  background: linear-gradient(90deg, var(--y), transparent); }
+.hs-zone.r { right: 0; background: linear-gradient(270deg, var(--r), transparent); }
+#hs-track.turn-y .hs-zone.y, #hs-track.turn-r .hs-zone.r { opacity: 0.9; animation: pulse 0.8s ease infinite; }
+#hs-packet {
+  position: absolute; top: 50%; left: 0; width: 22px; height: 22px; margin: -11px 0 0 -11px;
+  border-radius: 50%; background: #fff;
+  box-shadow: 0 0 18px var(--b), 0 0 34px var(--b);
+  transition: left 0.09s linear;
+}
+#hs-packet.waiting { animation: blink 0.36s step-end infinite; }
 
 /* simon */
 #sm-stage { display: flex; flex-direction: column; align-items: center; gap: 12px; }
@@ -494,7 +512,7 @@ body.s-idle #bg-grid { opacity:0.32; }
 
         <div class="i-log" id="i-log"></div>
 
-        <div class="i-sub">Harry heeft het platform gecrasht.<br>Steek de sleutel in om het herstartsysteem te activeren.</div>
+        <div class="i-sub">Harry heeft het platform gecrasht.<br>Draai de sleutel om het herstartsysteem te activeren.</div>
         <div class="i-callout">↓ NOODSLEUTEL VEREIST BIJ POORT A1</div>
       </div>
     </div>
@@ -574,6 +592,7 @@ body.s-idle #bg-grid { opacity:0.32; }
         <!-- gate: press both together to start the current check -->
         <div id="ck-gate">
           <div id="ck-gate-name">SYSTEEMCHECK</div>
+          <div id="ck-gate-key">🔑 DRAAI DE SLEUTEL OM TE BEVESTIGEN</div>
           <div id="ck-gate-instr">
             <span class="instr-dot y"></span>
             <span>DRUK SAMEN OP GEEL + ROOD OM TE STARTEN</span>
@@ -595,6 +614,10 @@ body.s-idle #bg-grid { opacity:0.32; }
           <div class="ck-title" style="color:var(--t)">📡 NETWERK</div>
           <div class="ck-sub">HET DATAPAKKETJE VLIEGT HEEN EN WEER —<br>DRUK OP <b>JOUW</b> KNOP ALS HET IN <b>JOUW</b> VAK KOMT!</div>
           <div id="hs-turn" class="r">ROOD, VANG!</div>
+          <div id="hs-track">
+            <div class="hs-zone y"></div><div class="hs-zone r"></div>
+            <div id="hs-packet"></div>
+          </div>
           <div id="hs-lamps">
             <div class="hs-lamp"></div><div class="hs-lamp"></div><div class="hs-lamp"></div><div class="hs-lamp"></div>
           </div>
@@ -741,7 +764,7 @@ function showCheck(p) {
   if (p === 'fans') updateFans(0);
   if (p === 'handshake') { renderHandshake(0, 'r'); document.getElementById('hs-feedback').textContent = ''; }
   if (p === 'simon') resetSimon();
-  gateState('wait', 0); // every check opens on its start gate
+  gateState('key', 0); // every check opens on its gate: key first, then buttons
 }
 
 // ── START GATE (server asks for confirmation; both buttons together = go) ─────
@@ -757,6 +780,7 @@ function gateState(state, n) {
   }
   document.querySelectorAll('.ck-game').forEach(el => el.classList.remove('active'));
   gate.classList.add('show');
+  gate.classList.toggle('stage-key', state === 'key');
   if (state === 'count') {
     count.textContent = n;
     count.classList.remove('pop'); void count.offsetWidth; count.classList.add('pop');
@@ -779,7 +803,14 @@ function renderHandshake(catches, turn) {
   const t = document.getElementById('hs-turn');
   t.className = turn;
   t.textContent = (turn === 'y' ? 'GEEL' : 'ROOD') + ', VANG!';
+  document.getElementById('hs-track').className = 'turn-' + turn;
   if (catches > 0) { colorFlash(3); }
+}
+// live mirror of the packet on the LED strip (streamed ~12Hz by the Arduino)
+function updatePacket(p, flying) {
+  const el = document.getElementById('hs-packet');
+  el.style.left = Math.max(0, Math.min(100, p)) + '%';
+  el.classList.toggle('waiting', !flying);
 }
 function handshakeDrop() {
   const fb = document.getElementById('hs-feedback');
@@ -1077,6 +1108,7 @@ function connectWS() {
         else if (d.event === 'fans')        updateFans(d.rpm | 0);
         else if (d.event === 'handshake')   renderHandshake(d.catches | 0, d.turn);
         else if (d.event === 'handshake_drop') handshakeDrop();
+        else if (d.event === 'packet')      updatePacket(d.p | 0, !!d.f);
         else if (d.event === 'simon_seq')   simonSeq(String(d.seq || ''), d.round | 0);
         else if (d.event === 'simon')       simonState(d);
         else if (d.event === 'simon_fail')  simonFail();
@@ -1096,13 +1128,14 @@ let simA = 0, simB = 0, simN = 0;
 function simCharged() {
   if (simA >= 100 && simB >= 100) {
     setPhase('sync');
-    setTimeout(() => { simN = 0; simGated = false; setPhase('fans'); }, 700);
+    setTimeout(() => { simN = 0; simGated = false; simKeyed = false; setPhase('fans'); }, 700);
   }
 }
 // 'b' advances whichever check is active (rpm pump / catch / simon step);
 // the first press on a check runs its start gate countdown
-let simGated = false;
+let simGated = false, simKeyed = false;
 function simAdvance() {
+  if (CHECK_ORDER.includes(phase) && !simKeyed) { simKeyed = true; gateState('wait', 0); return; } // key turned
   if (CHECK_ORDER.includes(phase) && !simGated) {
     simGated = true;
     [3, 2, 1].forEach((n, i) => setTimeout(() => gateState('count', n), i * 700));
@@ -1111,10 +1144,10 @@ function simAdvance() {
   }
   if (phase === 'fans') {
     simN = Math.min(100, simN + 20); updateFans(simN);
-    if (simN >= 100) setTimeout(() => { simN = 0; simGated = false; setPhase('handshake'); }, 700);
+    if (simN >= 100) setTimeout(() => { simN = 0; simGated = false; simKeyed = false; setPhase('handshake'); }, 700);
   } else if (phase === 'handshake') {
     renderHandshake(++simN, simN % 2 ? 'y' : 'r');
-    if (simN >= 4) setTimeout(() => { simN = 0; simGated = false; setPhase('simon'); }, 700);
+    if (simN >= 4) setTimeout(() => { simN = 0; simGated = false; simKeyed = false; setPhase('simon'); }, 700);
   } else if (phase === 'simon') {
     simonState({ len: 2, pos: ++simN, show: false });
     if (simN >= 2) setTimeout(startBoot, 800);
