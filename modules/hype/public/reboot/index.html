@@ -464,9 +464,15 @@ body.s-booting #bg-paint-r { transform:rotate(2deg) translateX(0); opacity:0.85;
 body.s-idle #bg-grid { opacity:0.32; animation: grid-drift 14s linear infinite; }
 @keyframes grid-drift { from { background-position: 0 0, 0 0; } to { background-position: 0 64px, 64px 0; } }
 
-/* paint stripes live on the idle screen too, with a slow drift so it breathes */
-body.s-idle #bg-paint-y { transform: rotate(-2deg) translateX(0); opacity: 0.75; animation: paint-drift-y 7s ease-in-out infinite; }
-body.s-idle #bg-paint-r { transform: rotate(2deg) translateX(0);  opacity: 0.7;  animation: paint-drift-r 8.5s ease-in-out 0.8s infinite; }
+/* paint stripes slide in when the key turns (armed) and drift through the ritual */
+body.s-keyin #bg-paint-y, body.s-both #bg-paint-y, body.s-booting #bg-paint-y {
+  transform: rotate(-2deg) translateX(0); opacity: 0.85;
+  animation: paint-drift-y 7s ease-in-out 0.5s infinite;
+}
+body.s-keyin #bg-paint-r, body.s-both #bg-paint-r, body.s-booting #bg-paint-r {
+  transform: rotate(2deg) translateX(0); opacity: 0.8;
+  animation: paint-drift-r 8.5s ease-in-out 1s infinite;
+}
 @keyframes paint-drift-y { 0%,100% { transform: rotate(-2deg) translateX(0); } 50% { transform: rotate(-2.6deg) translateX(-2.5%); } }
 @keyframes paint-drift-r { 0%,100% { transform: rotate(2deg) translateX(0); }  50% { transform: rotate(2.6deg) translateX(2.5%); } }
 
