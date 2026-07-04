@@ -896,11 +896,9 @@ function handshakeDrop() {
 }
 
 // ── SIMON readout ─────────────────────────────────────────────────────────────
-// The Arduino flashes the code on the strip; we mirror it here with the same
-// cadence (550ms flash / 260ms gap) from the moment the sequence arrives.
-let smTimers = [];
+// The Arduino streams the flash it is showing RIGHT NOW (simon_flash events),
+// so tablet and strip blink in lockstep — no client-side timing to drift.
 function resetSimon() {
-  smTimers.forEach(clearTimeout); smTimers = [];
   document.getElementById('sm-flash').className = '';
   document.getElementById('sm-dots').innerHTML = '';
   document.getElementById('sm-msg').textContent = '';
@@ -910,12 +908,9 @@ function resetSimon() {
 function simonSeq(seq, round) {
   resetSimon();
   document.getElementById('sm-round').textContent = 'RONDE ' + round;
-  const flash = document.getElementById('sm-flash');
-  [...seq].forEach((ch, i) => {
-    const t0 = 900 + i * (550 + 260); // matches the Arduino's breather + cadence
-    smTimers.push(setTimeout(() => { flash.className = ch === 'Y' ? 'y' : 'r'; }, t0));
-    smTimers.push(setTimeout(() => { flash.className = ''; }, t0 + 550));
-  });
+}
+function simonFlash(c) {
+  document.getElementById('sm-flash').className = c === 'Y' ? 'y' : c === 'R' ? 'r' : '';
 }
 function simonState(d) {
   const dots = document.getElementById('sm-dots');
@@ -1187,6 +1182,7 @@ function connectWS() {
         else if (d.event === 'handshake_drop') handshakeDrop();
         else if (d.event === 'packet')      updatePacket(d.p | 0, !!d.f);
         else if (d.event === 'simon_seq')   simonSeq(String(d.seq || ''), d.round | 0);
+        else if (d.event === 'simon_flash') simonFlash(d.c);
         else if (d.event === 'simon')       simonState(d);
         else if (d.event === 'simon_fail')  simonFail();
         else if (d.event === 'gate')        gateState(d.state, d.n | 0);
