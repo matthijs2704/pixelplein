@@ -209,7 +209,7 @@ body.s-keyin #ar-bar span { animation:ar-fill 1.6s cubic-bezier(.3,.7,.4,1) forw
 /* ── recharge (two-stream mini-game) ── */
 #recharge { display: flex; flex-direction: column; align-items: center; gap: 14px; text-align: center; animation: reveal 0.35s cubic-bezier(.2,1,.2,1) both; }
 #rc-title { font-family: var(--display); font-size: clamp(34px,6vw,68px); color: var(--y); letter-spacing: 3px; text-shadow: 0 0 28px rgba(245,217,4,0.55); }
-#rc-sub   { font-size: clamp(12px,1.5vw,15px); color: var(--muted); letter-spacing: 2px; }
+#rc-sub   { font-size: clamp(19px,2.6vw,27px); color: rgba(255,255,255,0.8); letter-spacing: 1px; }
 #rc-body  { display: flex; align-items: center; gap: clamp(16px,3vw,44px); margin-top: 6px; }
 .rc-side  { display: flex; flex-direction: column; align-items: center; gap: 8px; }
 .rc-lbl   { font-family: var(--display); font-size: clamp(16px,2.4vw,24px); letter-spacing: 3px; }
@@ -234,13 +234,22 @@ body.s-keyin #ar-bar span { animation:ar-fill 1.6s cubic-bezier(.3,.7,.4,1) forw
 @keyframes surge-pulse { 0%,100%{transform:scale(1)} 50%{transform:scale(1.09)} }
 @keyframes surge-shake { 0%,100%{transform:translateX(0)} 25%{transform:translateX(-5px)} 75%{transform:translateX(5px)} }
 
+/* ── game card: dark surface behind game content, readable over the stripes ── */
+.game-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  padding: clamp(26px,4vh,46px) clamp(28px,4.5vw,64px);
+  box-shadow: 0 32px 90px rgba(0,0,0,0.55);
+}
+
 /* ── startup checks (fans / handshake / simon chain) ── */
 #checks { display: flex; flex-direction: column; align-items: center; gap: 18px; text-align: center; animation: reveal 0.35s cubic-bezier(.2,1,.2,1) both; width: min(860px, 92vw); }
 #ck-list { display: flex; gap: clamp(8px,1.5vw,18px); justify-content: center; flex-wrap: wrap; }
 .ck-item {
   display: inline-flex; align-items: center; gap: 8px;
   padding: 7px 16px; border-radius: 999px; border: 1px solid var(--border);
-  font-family: 'Courier New',monospace; font-size: clamp(11px,1.3vw,14px); letter-spacing: 1px;
+  font-family: 'Courier New',monospace; font-size: clamp(13px,1.6vw,17px); letter-spacing: 1px;
   color: rgba(255,255,255,0.35); background: rgba(255,255,255,0.03);
 }
 .ck-item i { width: 9px; height: 9px; border-radius: 50%; background: rgba(255,255,255,0.15); }
@@ -264,7 +273,13 @@ body.s-keyin #ar-bar span { animation:ar-fill 1.6s cubic-bezier(.3,.7,.4,1) forw
 /* gate: the server asks for confirmation before each check starts */
 #ck-gate { display: none; flex-direction: column; align-items: center; gap: 16px; }
 #ck-gate.show { display: flex; }
-#ck-gate-name { font-family: var(--display); font-size: clamp(30px,5vw,56px); letter-spacing: 3px; color: #fff; }
+#ck-gate-name { font-family: var(--display); font-size: clamp(38px,6.5vw,72px); letter-spacing: 3px; color: #fff; }
+#ck-gate-explain {
+  font-size: clamp(20px,3vw,32px); line-height: 1.5; color: rgba(255,255,255,0.9);
+  max-width: 780px; letter-spacing: 0.5px;
+}
+#ck-gate-explain b.y { color: var(--y); } #ck-gate-explain b.r { color: var(--r); }
+#ck-gate.stage-count #ck-gate-explain, #ck-gate.stage-count #ck-gate-key, #ck-gate.stage-count #ck-gate-instr { display: none; }
 #ck-gate-instr { display: flex; align-items: center; gap: 14px; font-family: var(--display); font-size: clamp(22px,3.6vw,42px); letter-spacing: 2px; color: rgba(255,255,255,0.75); }
 #ck-gate-instr .instr-dot { width: 30px; height: 30px; }
 #ck-gate-key { display: none; font-family: var(--display); font-size: clamp(24px,4vw,46px); letter-spacing: 2px; color: var(--b); text-shadow: 0 0 30px rgba(0,178,255,0.5); animation: pulse 0.9s ease infinite; }
@@ -273,7 +288,7 @@ body.s-keyin #ar-bar span { animation:ar-fill 1.6s cubic-bezier(.3,.7,.4,1) forw
 #ck-gate-count { font-family: var(--display); font-size: clamp(90px,16vw,190px); line-height: 1; color: var(--y); text-shadow: 0 0 60px rgba(245,217,4,0.6); }
 #ck-gate-count.pop { animation: slam 0.35s cubic-bezier(.2,1.25,.2,1); }
 .ck-title { font-family: var(--display); font-size: clamp(32px,5.5vw,62px); letter-spacing: 3px; }
-.ck-sub   { font-size: clamp(13px,1.6vw,17px); color: var(--muted); letter-spacing: 1.5px; line-height: 1.6; max-width: 640px; }
+.ck-sub   { font-size: clamp(19px,2.6vw,27px); color: rgba(255,255,255,0.8); letter-spacing: 1px; line-height: 1.55; max-width: 760px; }
 
 /* fans */
 #fan-bar-bg { width: min(520px,80vw); height: 30px; border-radius: 999px; background: rgba(255,255,255,0.06); border: 1px solid var(--border); overflow: hidden; }
@@ -322,7 +337,7 @@ body.s-keyin #ar-bar span { animation:ar-fill 1.6s cubic-bezier(.3,.7,.4,1) forw
 /* ── ignite (spark timing mini-game) ── */
 #ignite { display: flex; flex-direction: column; align-items: center; gap: 16px; text-align: center; animation: reveal 0.35s cubic-bezier(.2,1,.2,1) both; }
 #ig-title { font-family: var(--display); font-size: clamp(34px,6vw,68px); color: var(--g); letter-spacing: 3px; text-shadow: 0 0 28px rgba(50,215,75,0.55); }
-#ig-sub   { font-size: clamp(13px,1.6vw,17px); color: var(--muted); letter-spacing: 1.5px; max-width: 640px; line-height: 1.6; }
+#ig-sub   { font-size: clamp(19px,2.6vw,27px); color: rgba(255,255,255,0.8); letter-spacing: 1px; max-width: 760px; line-height: 1.55; }
 #ig-lamps { display: flex; gap: clamp(18px,3vw,34px); margin-top: 8px; }
 .ig-lamp {
   width: clamp(44px,6vw,72px); height: clamp(44px,6vw,72px); border-radius: 50%;
@@ -553,7 +568,7 @@ body.s-keyin #bg-paint-r, body.s-both #bg-paint-r, body.s-booting #bg-paint-r {
 
     <!-- recharge (two-stream co-op mini-game — mirrors the Arduino LED strip) -->
     <div class="panel" id="panel-recharge">
-      <div id="recharge">
+      <div id="recharge" class="game-card">
         <div id="rc-title">⚡ HERLAAD DE HYPE</div>
         <div id="rc-sub">HOU BEIDE KNOPPEN VAST — STROOM ZOEKT DE VERBINDING</div>
         <div id="rc-body">
@@ -581,7 +596,7 @@ body.s-keyin #bg-paint-r, body.s-both #bg-paint-r, body.s-booting #bg-paint-r {
 
     <!-- startup checks: fans → handshake → simon (server boot checklist) -->
     <div class="panel" id="panel-checks">
-      <div id="checks">
+      <div id="checks" class="game-card">
         <div id="ck-list">
           <div class="ck-item done" data-ck="power"><i></i>STROOM</div>
           <div class="ck-item" data-ck="fans"><i></i>VENTILATOREN</div>
@@ -594,7 +609,8 @@ body.s-keyin #bg-paint-r, body.s-both #bg-paint-r, body.s-booting #bg-paint-r {
         <!-- gate: press both together to start the current check -->
         <div id="ck-gate">
           <div id="ck-gate-name">SYSTEEMCHECK</div>
-          <div id="ck-gate-key">🔑 DRAAI DE SLEUTEL OM TE BEVESTIGEN</div>
+          <div id="ck-gate-explain"></div>
+          <div id="ck-gate-key">🔑 DRAAI DE SLEUTEL ALS JULLIE KLAAR ZIJN</div>
           <div id="ck-gate-instr">
             <span class="instr-dot y"></span>
             <span>DRUK SAMEN OP GEEL + ROOD OM TE STARTEN</span>
@@ -642,7 +658,7 @@ body.s-keyin #bg-paint-r, body.s-both #bg-paint-r, body.s-booting #bg-paint-r {
 
     <!-- ignite (spark timing mini-game — watch the LED strip, slam together) -->
     <div class="panel" id="panel-ignite">
-      <div id="ignite">
+      <div id="ignite" class="game-card">
         <div id="ig-title">🔥 START DE SERVER</div>
         <div id="ig-sub">KIJK NAAR DE LICHTBAAN — DRUK <b>SAMEN</b> OP BEIDE KNOPPEN<br>ALS DE VONK IN HET GROENE VAK KOMT!</div>
         <div id="ig-lamps">
@@ -696,7 +712,7 @@ body.s-keyin #bg-paint-r, body.s-both #bg-paint-r, body.s-booting #bg-paint-r {
 // ── CONFIG ─────────────────────────────────────────────────────────────────────
 // Empty = same origin. Served from photodisplay at /modules/hype/reboot/.
 const SERVER_URL = '';
-const WS_URL = 'ws://192.168.3.138/ws';
+const WS_URL = 'ws://192.168.3.139/ws';
 
 // ── BOOT LOG (audio-locked to reboot.wav, 13.842s, 122 BPM) ──────────────────
 // Identical steps to the display sequence — same text, same audio-locked times.
@@ -755,6 +771,11 @@ function setPhase(p) {
 
 // swap the visible check game + tick the checklist; opens on the start gate
 const CHECK_NAMES = { fans: 'SYSTEEMCHECK: VENTILATOREN', handshake: 'SYSTEEMCHECK: NETWERK', simon: 'SYSTEEMCHECK: BOOT-CODE' };
+const CHECK_EXPLAIN = {
+  fans: 'Tik om de beurt op <b class="y">GEEL</b> en <b class="r">ROOD</b> — steeds om en om, lekker snel — tot de meter vol is!',
+  handshake: 'Er vliegt een lichtpakketje heen en weer. Druk op <b>JOUW</b> knop precies als het licht <b>JOUW</b> kant raakt. Vang het 4 keer!',
+  simon: 'De server laat kleuren knipperen: <b class="y">GEEL</b> = gele knop, <b class="r">ROOD</b> = rode knop. Onthoud de volgorde en druk hem na!',
+};
 function showCheck(p) {
   const idx = CHECK_ORDER.indexOf(p);
   document.querySelectorAll('#ck-list .ck-item').forEach(el => {
@@ -788,6 +809,8 @@ function gateState(state, n) {
   const gate = document.getElementById('ck-gate');
   const count = document.getElementById('ck-gate-count');
   document.getElementById('ck-gate-name').textContent = CHECK_NAMES[phase] || 'SYSTEEMCHECK';
+  document.getElementById('ck-gate-explain').innerHTML = CHECK_EXPLAIN[phase] || '';
+  gate.classList.toggle('stage-count', state === 'count');
   if (state === 'run') {
     gate.classList.remove('show');
     document.getElementById('ck-' + phase)?.classList.add('active');
