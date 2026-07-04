@@ -659,7 +659,7 @@ body.s-keyin #bg-paint-r, body.s-both #bg-paint-r, body.s-booting #bg-paint-r {
         <!-- check: handshake -->
         <div class="ck-game" id="ck-handshake">
           <div class="ck-title" style="color:var(--t)">📡 NETWERK</div>
-          <div class="ck-sub">HET DATAPAKKETJE VLIEGT HEEN EN WEER —<br>DRUK OP <b>JOUW</b> KNOP ALS HET IN <b>JOUW</b> VAK KOMT!</div>
+          <div class="ck-sub">KIJK WAAR HET LICHT HEEN VLIEGT —<br>DRUK OP <b>JOUW</b> KNOP ZODRA HET IN JOUW GEKLEURDE VAK IS!</div>
           <div id="hs-turn" class="r">ROOD, VANG!</div>
           <div id="hs-track">
             <div class="hs-zone y"></div><div class="hs-zone r"></div>
@@ -802,7 +802,7 @@ function setPhase(p) {
 const CHECK_NAMES = { fans: 'SYSTEEMCHECK: VENTILATOREN', handshake: 'SYSTEEMCHECK: NETWERK', simon: 'SYSTEEMCHECK: BOOT-CODE' };
 const CHECK_STEPS = {
   fans: ['TIK <b class="y">GEEL</b>', 'TIK <b class="r">ROOD</b>', 'OM &amp; OM,<br>METER VOL!'],
-  handshake: ['VOLG HET<br><b class="b">LICHTPAKKETJE</b>', 'RAAKT HET JOUW KANT?<br><b>DRUK OP JOUW KNOP!</b>', 'VANG HET<br><b class="b">4 KEER</b>'],
+  handshake: ['HET <b class="b">LICHT</b> STUITERT<br>HEEN EN WEER', '<b class="y">GEEL</b> VANGT LINKS<br><b class="r">ROOD</b> VANGT RECHTS', 'DRUK ALS HET LICHT<br>IN JOUW VAK KOMT — <b class="b">4× RAAK!</b>'],
   simon: ['KIJK NAAR<br>DE KLEUREN', 'ONTHOUD<br>DE VOLGORDE', 'DRUK HEM NA:<br><b class="y">GEEL</b> &amp; <b class="r">ROOD</b>'],
 };
 function showCheck(p) {
