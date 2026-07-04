@@ -8,6 +8,10 @@
 // (phase 'armed') through the startup checks; hides again at 'booting' — the
 // hype-restart alert takeover owns the screens from there.
 //
+// z-index sits ABOVE the alert layer (9500): during the ritual the screens are
+// showing the persistent hype-offline takeover (an alert), and the mirror must
+// cover it. It hides itself at 'booting', handing back to the alert layer.
+//
 // Fully self-contained: own styles, own reconnect loop. If the Arduino is
 // unreachable the overlay simply never shows.
 
@@ -24,7 +28,7 @@ const PHASE_TITLES = {
 };
 
 const CSS = `
-#hype-gm { position: fixed; inset: 0; z-index: 9400; display: none;
+#hype-gm { position: fixed; inset: 0; z-index: 9600; display: none;
   background: rgba(7,8,12,0.94); color: #fff; font-family: var(--hype-font, 'DM Sans', sans-serif);
   flex-direction: column; align-items: center; justify-content: center; gap: 3vh; text-align: center; }
 #hype-gm.show { display: flex; }
