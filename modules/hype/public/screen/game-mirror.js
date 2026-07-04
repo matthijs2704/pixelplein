@@ -9,9 +9,11 @@
 // (phase 'armed') through the startup checks; hides again at 'booting' — the
 // hype-restart alert takeover owns the screens from there.
 //
-// z-index sits ABOVE the alert layer (9500): during the ritual the screens are
-// showing the persistent hype-offline takeover (an alert), and the mirror must
-// cover it. It hides itself at 'booting', handing back to the alert layer.
+// z-index: hype takeover alerts (.hype-alert, incl. the offline takeover)
+// render at 9600 — the mirror sits at 9700 so it covers them, and below the
+// glitch layer at 9800. At 'booting' it holds as a black cover for ~1s and
+// fades out over the restart takeover's own black/static intro, so there is
+// no gap between the last game screen and the reboot animation.
 //
 // Fully self-contained: own styles, own reconnect loop. If the Arduino is
 // unreachable the overlay simply never shows.
@@ -38,11 +40,14 @@ const PHASE_STEPS = {
 const CHECK_ORDER = ['fans', 'handshake', 'simon'];
 
 const CSS = `
-#hype-gm { position: fixed; inset: 0; z-index: 9600; display: none; overflow: hidden;
+#hype-gm { position: fixed; inset: 0; z-index: 9700; display: none; overflow: hidden; opacity: 1; transition: opacity 0.35s ease;
   background: #07080c; color: #fff; font-family: var(--hype-font, 'DM Sans', sans-serif);
   flex-direction: column; align-items: center; justify-content: center; gap: 2.6vh; text-align: center; }
 #hype-gm.show { display: flex; }
 #hype-gm.shake { animation: gm-shake 0.4s cubic-bezier(.36,.07,.19,.97); }
+#hype-gm.handoff { background: #000; }
+#hype-gm.handoff > * { visibility: hidden; }
+#hype-gm.fadeout { opacity: 0; }
 @keyframes gm-shake { 10%,90%{transform:translateX(-3px)} 30%,70%{transform:translateX(6px)} 50%{transform:translateX(-9px)} }
 
 /* ── background stack, same language as the console ── */
@@ -263,9 +268,18 @@ function _checklist(p) {
 
 function _showFor(p) {
   phase = p;
+  // booting: hold a black cover while the restart takeover starts underneath,
+  // then fade — bridges the gap between the last game and the boot animation
+  if (p === 'booting' && root.classList.contains('show')) {
+    root.classList.remove('surging', 'passing');
+    root.classList.add('handoff');
+    setTimeout(() => root.classList.add('fadeout'), 900);
+    setTimeout(() => root.classList.remove('show', 'handoff', 'fadeout'), 1300);
+    return;
+  }
   const active = !!PHASE_TITLES[p];
   root.classList.toggle('show', active);
-  root.classList.remove('surging', 'passing');
+  root.classList.remove('surging', 'passing', 'handoff', 'fadeout');
   if (!active) return;
   $('.gm-title').textContent = PHASE_TITLES[p];
   $('.gm-count').textContent = '';
