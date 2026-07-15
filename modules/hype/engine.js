@@ -18,14 +18,138 @@ const contentProvider = require('./content-provider');
 const NS = 'hype';
 const PHOTO_TAGS_NS = 'hype';
 
+// Fan handles for auto-comments (welpen-vibe usernames).
+const FAN_AUTHORS = [
+  '@welpje_daan', '@kampfan_88', '@scout4life', '@lisa_hyped', '@bosbaas_bram',
+  '@tommie_tent', '@hype_kim', '@welp_niek', '@sterre_kampt', '@juul_2016',
+  '@kampvuurkoning', '@femke_fan', '@mees_online', '@noor_hyper', '@sam_scout',
+];
+
+function _fanAuthor() {
+  return FAN_AUTHORS[Math.floor(Math.random() * FAN_AUTHORS.length)];
+}
+
+// Pseudo-channel id for the general account's fake follower count. It rides
+// the normal followers map/history so it persists and broadcasts like the rest.
+const GENERAL_FOLLOWERS_ID = 'general';
+const GENERAL_FOLLOWER_SEED = 8400;
+
+/* ── Aliveness: baseline likes + background drift ─────────────────────
+ * A photo the platform has never seen gets seeded with a believable like
+ * count based on its age (saturating curve) and the owning account's
+ * followers, so nothing ever shows "0 vindt dit hype". After that, a slow
+ * background drift keeps all known photos creeping upward even when they
+ * are not on screen.
+ */
+
+async function _photoAgeMs(photoId) {
+  try {
+    const row = await _ctx.db.get(
+      `SELECT added_at, captured_at FROM photo_metadata WHERE photo_id = ?`, [photoId]);
+    const ts = Number(row?.captured_at || row?.added_at) || 0;
+    if (ts > 0) return Math.max(0, _now() - ts);
+  } catch {}
+  return 6 * 3.6e6; // unknown — assume a few hours old
+}
+
+function _baselineLikes(ageMs, channelId) {
+  const followers = channelId
+    ? state.getFollowerCount(channelId)
+    : (state.getFollowerCount(GENERAL_FOLLOWERS_ID) || GENERAL_FOLLOWER_SEED);
+  const ageH = ageMs / 3.6e6;
+  const saturation = 1 - Math.exp(-(0.5 + ageH) / 8);   // climbs fast, flattens after ~a day
+  const reach = channelId
+    ? 0.010 + Math.random() * 0.025   // creators: 1–3.5% of followers
+    : 0.005 + Math.random() * 0.012;  // general account: a bit shyer
+  return Math.max(4, Math.round(followers * reach * saturation * (0.8 + Math.random() * 0.4)));
+}
+
+async function _driftOnce() {
+  const settings = state.getSettings();
+  if (settings.platformOff || settings.preLaunch) return;
+
+  // Nudge a couple of random known photos so the whole feed keeps moving.
+  const ids = [...state.getAllPhotoStateIds()];
+  for (let i = 0; i < 2 && ids.length; i++) {
+    const photoId = ids[Math.floor(Math.random() * ids.length)];
+    const updated = await hypeDb.upsertPhotoState(_ctx.db, photoId, {
+      likesDelta: 1 + Math.floor(Math.random() * 3),
+    });
+    state.setPhotoState(photoId, updated);
+    _ctx.broadcast({
+      type: `${NS}:state_update`,
+      photoId,
+      channelId: await _channelForPhoto(photoId),
+      likes: updated.likes,
+      viral: !!updated.viral,
+      newComment: null,
+    });
+  }
+
+  // The general account quietly gains followers in the background.
+  if (Math.random() < 0.3) {
+    const next = state.bumpFollowerCount(GENERAL_FOLLOWERS_ID, 1 + Math.floor(Math.random() * 3));
+    hypeDb.recordFollowerCount(_ctx.db, GENERAL_FOLLOWERS_ID, next).catch(() => {});
+    _ctx.broadcast({ type: `${NS}:followers_update`, counts: state.getAllFollowerCounts() });
+  }
+}
+
 let _ctx       = null;
 let _tickTimer = null;
 let _activityTimer = null;
 let _streamStatsTimer = null;
+let _harryGlitchTimer = null;
 let _opts      = { ...DEFAULT_ENGINE };
 let _chatCount = 0;
 let _launchTimer = null;
 let _streamViewerSeed = 247;
+
+// heat → { avgMs, levels[] } — level picked randomly per glitch
+// levels array: pick one at random, biased toward heavier levels at higher heat
+const HARRY_HEAT_CFG = [
+  null,                                           // 0: dormant
+  { avgMs: 600_000, levels: [1,1,1,1,1] },       // 1: ~10 min, always level 1
+  { avgMs: 300_000, levels: [1,1,1,2,2] },       // 2: ~5 min, mostly level 1
+  { avgMs: 150_000, levels: [1,2,2,2,3] },       // 3: ~2.5 min, mostly level 2
+  { avgMs:  75_000, levels: [2,2,3,3,3] },       // 4: ~75 s, mostly level 3
+  { avgMs:  20_000, levels: [2,3,3,3,3] },       // 5: ~20 s, almost always level 3
+];
+
+function _fireHarryGlitch() {
+  _harryGlitchTimer = null;
+  const settings = state.getSettings();
+  const heat = Math.max(0, Math.min(5, Number(settings.harryHeat) || 0));
+  if (!heat || settings.platformOff || settings.preLaunch) return;
+  const cfg = HARRY_HEAT_CFG[heat];
+  const level = cfg.levels[Math.floor(Math.random() * cfg.levels.length)];
+  const durSec = level === 1 ? 1.2 : level === 2 ? 2.0 : 3.0;
+  _ctx.broadcast({
+    type: 'alert_fire',
+    alert: {
+      id: `hype-glitch-${Date.now()}`,
+      type: 'hype-glitch',
+      style: 'popup',
+      position: 'center',
+      priority: 'normal',
+      active: true,
+      message: 'glitch',
+      payload: { level, durationSec: durSec },
+      durationSec: durSec,
+      firedAt: Date.now(),
+    },
+  });
+  _scheduleHarryGlitch();
+}
+
+function _scheduleHarryGlitch() {
+  if (_harryGlitchTimer) { clearTimeout(_harryGlitchTimer); _harryGlitchTimer = null; }
+  const settings = state.getSettings();
+  const heat = Math.max(0, Math.min(5, Number(settings.harryHeat) || 0));
+  if (!heat || settings.platformOff || settings.preLaunch) return;
+  const cfg = HARRY_HEAT_CFG[heat];
+  const delay = Math.round(cfg.avgMs * (0.6 + Math.random() * 0.8)); // ±40% jitter
+  _harryGlitchTimer = setTimeout(_fireHarryGlitch, delay);
+}
 
 function _now() { return Date.now(); }
 
@@ -63,10 +187,15 @@ async function _tickOnce() {
 
   for (const photoId of visible) {
     const channelId = await _channelForPhoto(photoId);
-    const prev = state.getPhotoState(photoId) || { likes: 0, viral: false };
+    const seen = state.getPhotoState(photoId);
+    const prev = seen || { likes: 0, viral: false };
     const base = (channelId ? _opts.baseLikesPerTick : _opts.generalLikesPerTick) * (0.6 + Math.random() * 0.8);
     const mul  = prev.viral ? _opts.viralMultiplier : 1;
-    const delta = Math.max(1, Math.round(base * mul));
+    // First time this photo is seen: seed a believable age/followers-based
+    // baseline instead of starting from zero.
+    const delta = seen
+      ? Math.max(1, Math.round(base * mul))
+      : _baselineLikes(await _photoAgeMs(photoId), channelId);
 
     const updated = await hypeDb.upsertPhotoState(_ctx.db, photoId, { likesDelta: delta });
     state.setPhotoState(photoId, updated);
@@ -81,7 +210,9 @@ async function _tickOnce() {
           newComment = await hypeDb.insertComment(_ctx.db, {
             photoId,
             channelId,
-            author: channel.handle || channel.name,
+            // Fans comment on posts — the channel commenting on its own
+            // post reads wrong on the post-card layout.
+            author: _fanAuthor(),
             text:   pick.text,
             source: 'auto',
           });
@@ -174,6 +305,8 @@ async function _activityOnce() {
 async function _activityTick() {
   try { await _activityOnce(); }
   catch (err) { console.warn('[hype] activity error:', err && err.message); }
+  try { await _driftOnce(); }
+  catch (err) { console.warn('[hype] drift error:', err && err.message); }
 }
 
 function _connectedScreenCount() {
@@ -187,15 +320,26 @@ function _connectedScreenCount() {
 function _updateStreamStats({ force = false } = {}) {
   const settings = state.getSettings();
   if (!settings.stream?.enabled && !force) return;
+  const cur = state.getStreamStats();
   const screenCount = Math.max(1, _connectedScreenCount());
-  const drift = Math.round((Math.random() * 10) - 3);
   const floor = 90 + screenCount * 55;
   const ceiling = 780 + screenCount * 120;
-  _streamViewerSeed = Math.max(floor, Math.min(ceiling, _streamViewerSeed + drift));
-  const online = Math.max(screenCount, Math.round(_streamViewerSeed * 0.34));
+  if (Number.isFinite(cur.viewers)) {
+    _streamViewerSeed = Math.max(floor, Math.min(ceiling, Number(cur.viewers) | 0));
+  }
+  let drift = Math.floor(Math.random() * 11) - 4;
+  if (drift === 0) drift = 1;
+  let nextViewers = Math.max(floor, Math.min(ceiling, _streamViewerSeed + drift));
+  if (nextViewers === _streamViewerSeed) {
+    nextViewers = Math.max(floor, Math.min(ceiling, _streamViewerSeed - drift));
+  }
+  _streamViewerSeed = nextViewers;
   const stats = {
     viewers: _streamViewerSeed,
-    online,
+    online: _streamViewerSeed,
+    title: cur.title,
+    subtitle: cur.subtitle,
+    source: cur.source,
     updatedAt: Date.now(),
   };
   state.setStreamStats(stats);
@@ -211,6 +355,7 @@ function start(ctx, opts = {}) {
   _streamStatsTimer = setInterval(_updateStreamStats, 5000);
   setTimeout(_activityTick, 2500);
   setTimeout(() => _updateStreamStats({ force: true }), 1200);
+  _scheduleHarryGlitch();
 }
 
 function stop() {
@@ -218,6 +363,7 @@ function stop() {
   if (_activityTimer) { clearInterval(_activityTimer); _activityTimer = null; }
   if (_streamStatsTimer) { clearInterval(_streamStatsTimer); _streamStatsTimer = null; }
   if (_launchTimer) { clearTimeout(_launchTimer); _launchTimer = null; }
+  if (_harryGlitchTimer) { clearTimeout(_harryGlitchTimer); _harryGlitchTimer = null; }
 }
 
 /**
@@ -269,6 +415,7 @@ async function updateSettings(patch) {
   state.setSettings(saved);
   _ctx.broadcast({ type: `${NS}:settings_update`, settings: saved });
   if (saved.stream?.enabled) _updateStreamStats({ force: true });
+  _scheduleHarryGlitch(); // reschedule whenever settings change (heat or platformOff may differ)
   if (saved.launchActive) {
     if (_launchTimer) clearTimeout(_launchTimer);
     _launchTimer = setTimeout(async () => {
@@ -319,7 +466,7 @@ async function launchPlatform() {
   _ctx.broadcast({
     type: 'alert_fire',
     alert: {
-      id: `hype-launch-${Date.now()}`,
+      id: 'hype-launch-active',
       type: 'hype-launch',
       style: 'popup',
       position: 'center',
@@ -327,7 +474,7 @@ async function launchPlatform() {
       active: true,
       message: 'De Hype gaat live',
       payload: { account: saved.generalAccount },
-      durationSec: 30,
+      durationSec: 86400,
       firedAt: Date.now(),
     },
   });
@@ -392,7 +539,7 @@ async function resetPreLaunch() {
  * Power-off: theatrical full-screen takeover that lasts until restart.
  * Sets platformOff=true (persisted) and fires an alert with no auto-dismiss.
  */
-async function powerOff({ message } = {}) {
+async function powerOff({ message, instant } = {}) {
   if (_launchTimer) { clearTimeout(_launchTimer); _launchTimer = null; }
   const saved = await hypeDb.updateSettings(_ctx.db, { platformOff: true, launchActive: false });
   state.setSettings(saved);
@@ -407,7 +554,7 @@ async function powerOff({ message } = {}) {
       priority: 'urgent',
       active: true,
       message: message || 'DeHype is offline',
-      payload: { infinite: true, subtitle: 'het platform ligt eruit — iemand moet DeHype opnieuw opstarten' },
+      payload: { infinite: true, instant: !!instant, subtitle: 'het platform ligt eruit — iemand moet DeHype opnieuw opstarten' },
       // Effectively infinite; only clearable by restartPlatform / alert_dismiss.
       durationSec: 86400,
       firedAt: Date.now(),
@@ -433,7 +580,7 @@ async function restartPlatform() {
   _ctx.broadcast({
     type: 'alert_fire',
     alert: {
-      id: `hype-restart-${Date.now()}`,
+      id: 'hype-restart-active',
       type: 'hype-restart',
       style: 'popup',
       position: 'center',
@@ -443,17 +590,18 @@ async function restartPlatform() {
       payload: {
         channelCount,
         channels: state.getChannels().map(c => ({ id: c.id, name: c.name, handle: c.handle, color: c.color })),
-        // Playful boot lines for the renderer — Dutch, welpen-friendly.
+        // Boot lines for the renderer — Dutch, dramatic, welpen-friendly.
         steps: [
-          'Influencers worden wakker gemaakt…',
-          'Likes worden teruggezet…',
-          'Kanalen worden opnieuw verbonden…',
-          'Comments worden opgehaald…',
-          'Confetti wordt geladen…',
+          'Noodverbinding herstellen…',
+          'Creator-kanalen opnieuw verbinden…',
+          'Volgersdata synchroniseren…',
+          'Beveiligingsprotocol herstellen…',
+          'Beveiliging extra versterkt na lek…',
+          'De Hype opnieuw opstarten…',
         ],
         cheer: 'Het kamp heeft DeHype gered!',
       },
-      durationSec: 16,
+      durationSec: 86400,
       firedAt: Date.now(),
     },
   });

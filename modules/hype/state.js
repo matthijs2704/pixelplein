@@ -17,9 +17,10 @@ const _state = {
   videos: [],
   streamStats: {
     viewers: 247,
-    online: 88,
+    online: 247,
     updatedAt: 0,
   },
+  streamChat: [],                // ring buffer van sidecar-chat (laatste 60)
 };
 
 async function load(db) {
@@ -54,6 +55,7 @@ function getChannels()           { return _state.channels.slice(); }
 function getChannel(id)          { return _state.channelById.get(id) || null; }
 function getCommentPool(id)      { return _state.pools.get(id) || []; }
 function getPhotoState(photoId)  { return _state.photoState.get(photoId) || null; }
+function getAllPhotoStateIds()   { return [..._state.photoState.keys()]; }
 function getAllFollowerCounts()  { return Object.fromEntries(_state.followers); }
 function getFollowerCount(id)    { return _state.followers.get(id) | 0; }
 function getSettings()           { return { ..._state.settings, generalAccount: { ..._state.settings.generalAccount }, feedMix: { ..._state.settings.feedMix } }; }
@@ -113,11 +115,33 @@ function setVideos(videos) {
 }
 
 function setStreamStats(stats) {
-  _state.streamStats = {
-    viewers: Math.max(0, Number(stats?.viewers) | 0),
-    online: Math.max(0, Number(stats?.online) | 0),
+  const viewers = Math.max(0, Number(stats?.viewers) | 0);
+  const next = {
+    viewers,
+    online: viewers,
     updatedAt: Number(stats?.updatedAt) || Date.now(),
   };
+  if (stats?.title)    next.title    = String(stats.title);
+  if (stats?.subtitle) next.subtitle = String(stats.subtitle);
+  if (stats?.source)   next.source   = String(stats.source);
+  _state.streamStats = next;
+}
+
+function addStreamChat(item) {
+  _state.streamChat.push(item);
+  if (_state.streamChat.length > 60) _state.streamChat.shift();
+}
+
+function getStreamChat() {
+  return _state.streamChat.slice();
+}
+
+function markStreamChatDeleted(id) {
+  const item = _state.streamChat.find(m => m.id === id);
+  if (!item) return null;
+  item.deleted = true;
+  item.text = '';
+  return { ...item };
 }
 
 /**
@@ -141,6 +165,7 @@ module.exports = {
   getChannel,
   getCommentPool,
   getPhotoState,
+  getAllPhotoStateIds,
   getAllFollowerCounts,
   getFollowerCount,
   getSettings,
@@ -157,5 +182,8 @@ module.exports = {
   clearActivity,
   setVideos,
   setStreamStats,
+  addStreamChat,
+  getStreamChat,
+  markStreamChatDeleted,
   pickComment,
 };

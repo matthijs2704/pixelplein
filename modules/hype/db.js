@@ -207,6 +207,10 @@ async function updateSettings(db, patch) {
       feedMix: { ...current.feedMix, ...patch.feedMix },
     }).feedMix;
   }
+  if (patch?.stream) {
+    // Deep-merge zodat een save vanuit de admin velden als chatUrl niet wist.
+    next.stream = { ...(current.stream || {}), ...patch.stream };
+  }
   await db.setSettingJson(SETTINGS_KEY, next);
   return next;
 }

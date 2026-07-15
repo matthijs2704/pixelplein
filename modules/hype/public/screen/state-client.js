@@ -5,6 +5,8 @@
 // Other module files import getters from here; the chrome overlay also
 // subscribes to "change" events to re-render.
 
+import { emitScreenEvent } from '/screen/module-registry.js';
+
 const _state = {
   channels: [],                  // [{ id, name, handle, color, avatar_url, ... }]
   channelById: new Map(),
@@ -18,12 +20,13 @@ const _state = {
     harryHeat: 0,
     spotlightDay: 1,
     launchActive: false,
-    generalAccount: { name: 'Scouting Ridder Fulco', handle: '@scoutingridderfulco', color: '#00b2ff', avatarUrl: '' },
-    streamStats: { viewers: 247, online: 88, updatedAt: 0 },
+    generalAccount: { name: 'Kamp Live', handle: '@kamplive', color: '#00b2ff', avatarUrl: '' },
+    streamStats: { viewers: 247, online: 247, updatedAt: 0 },
   },
   activity: [],
   videos: [],
-  streamStats: { viewers: 247, online: 88, updatedAt: 0 },
+  streamStats: { viewers: 247, online: 247, updatedAt: 0 },
+  streamChat: [],                // live chat van de sidecar (rolling 60)
   ready: false,
 };
 
@@ -58,6 +61,7 @@ export function getRecentCommentsAny(limit = 10) {
 export function getSettings() { return { ..._state.settings, generalAccount: { ..._state.settings.generalAccount } }; }
 export function getGeneralAccount() { return { ..._state.settings.generalAccount }; }
 export function getActivity(limit = 30) { return _state.activity.slice(0, limit); }
+export function getStreamChat(limit = 40) { return _state.streamChat.slice(-limit); }
 export function getVideos() { return _state.videos.slice(); }
 export function getActor(id) {
   if (!id) return getGeneralAccount();
@@ -85,6 +89,7 @@ export async function hydrate() {
     _state.channelByPhotoId = new Map(Object.entries(snap.channelByPhotoId || {}));
     _state.activity = Array.isArray(snap.activity) ? snap.activity.slice() : [];
     _state.videos = Array.isArray(snap.videos) ? snap.videos.slice() : [];
+    _state.streamChat = Array.isArray(snap.streamChat) ? snap.streamChat.slice(-60) : [];
     if (snap.streamStats) {
       _state.streamStats = { ..._state.streamStats, ...snap.streamStats };
       _state.settings.streamStats = { ..._state.streamStats };
@@ -128,8 +133,13 @@ export function handleWsMessage(msg) {
   }
 
   if (sub === 'settings_update') {
+    const wasStreamEnabled = Boolean(_state.settings.stream?.enabled);
     _state.settings = { ..._state.settings, ...(msg.settings || {}) };
     _emit({ kind: 'settings' });
+    if (wasStreamEnabled && !_state.settings.stream?.enabled) {
+      document.body.classList.remove('hype-stream-mode');
+      emitScreenEvent('layout:request-cycle', { clear: true, reason: 'stream-disabled' });
+    }
     return;
   }
 
@@ -155,6 +165,20 @@ export function handleWsMessage(msg) {
   if (sub === 'videos_update') {
     _state.videos = Array.isArray(msg.videos) ? msg.videos.slice() : [];
     _emit({ kind: 'videos' });
+    return;
+  }
+
+  if (sub === 'stream_chat') {
+    if (msg.item) _state.streamChat.push(msg.item);
+    if (_state.streamChat.length > 60) _state.streamChat.shift();
+    _emit({ kind: 'stream_chat' });
+    return;
+  }
+
+  if (sub === 'stream_chat_update') {
+    const idx = _state.streamChat.findIndex(m => m.id === msg.item?.id);
+    if (idx >= 0) _state.streamChat[idx] = msg.item;
+    _emit({ kind: 'stream_chat' });
     return;
   }
 

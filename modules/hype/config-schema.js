@@ -81,8 +81,8 @@ const DEFAULT_SETTINGS = {
   preLaunch: true,
   launchActive: false,
   generalAccount: {
-    name: 'Scouting Ridder Fulco',
-    handle: '@scoutingridderfulco',
+    name: 'Kamp Live',
+    handle: '@kamplive',
     color: '#00b2ff',
     avatarUrl: '',
   },
@@ -100,6 +100,7 @@ const DEFAULT_SETTINGS = {
     deviceId: '',
     title: 'Keuken Live',
     subtitle: 'live vanaf het kamp',
+    chatUrl: 'http://127.0.0.1:8787',   // fake-chat sidecar (los proces)
   },
 };
 

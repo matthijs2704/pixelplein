@@ -7,6 +7,8 @@ const express = require('express');
 
 const hypeDb = require('./db');
 const state  = require('./state');
+const engine = require('./engine');
+const streamChat = require('./stream-chat');
 
 function createPublicRouter(ctx) {
   const router = express.Router();
@@ -35,7 +37,19 @@ function createPublicRouter(ctx) {
         activity: state.getActivity(),
         videos: state.getVideos(),
         streamStats: state.getStreamStats(),
+        streamChat: state.getStreamChat(),
       });
+    } catch (err) {
+      res.status(500).json({ error: err.message });
+    }
+  });
+
+  // Fired by the physical reboot console (tablet). Triggers the full restart
+  // sequence — same as admin restart — no auth needed on the local festival network.
+  router.post('/reboot-trigger', async (_req, res) => {
+    try {
+      await engine.restartPlatform();
+      res.json({ ok: true });
     } catch (err) {
       res.status(500).json({ error: err.message });
     }
@@ -55,6 +69,7 @@ function createAdminRouter(ctx, engine) {
       activity: state.getActivity(),
       videos: state.getVideos(),
       streamStats: state.getStreamStats(),
+      streamChat: state.getStreamChat(),
     });
   });
 
@@ -84,7 +99,7 @@ function createAdminRouter(ctx, engine) {
 
   router.post('/power-off', async (req, res) => {
     try {
-      res.json(await engine.powerOff({ message: req.body?.message }));
+      res.json(await engine.powerOff({ message: req.body?.message, instant: !!req.body?.instant }));
     } catch (err) {
       res.status(500).json({ error: err.message });
     }
@@ -266,6 +281,25 @@ function createAdminRouter(ctx, engine) {
     } catch (err) {
       res.status(500).json({ error: err.message });
     }
+  });
+
+  /* ── Stream-chat sidecar (regie) ──────────────────────────────────── */
+  // Dunne proxy zodat de admin-UI niet rechtstreeks bij de sidecar hoeft.
+  // De sidecar start alleen expliciet via deze knoppen — nooit automatisch.
+  const _sidecarProxy = (method, path) => async (req, res) => {
+    try {
+      const { status, data } = await streamChat.sidecarRequest(method, path, req.body);
+      res.status(status).json(data);
+    } catch (err) {
+      res.status(502).json({ error: `sidecar niet bereikbaar: ${err.message}` });
+    }
+  };
+  router.post('/stream-chat/start',  _sidecarProxy('POST', '/start'));
+  router.post('/stream-chat/stop',   _sidecarProxy('POST', '/stop'));
+  router.post('/stream-chat/leader', _sidecarProxy('POST', '/leader'));
+  router.get('/stream-chat/status',  _sidecarProxy('GET', '/status'));
+  router.get('/stream-chat/tail', (_req, res) => {
+    res.json({ streamChat: state.getStreamChat(), streamStats: state.getStreamStats(), feeding: streamChat.isFeeding() });
   });
 
   /* ── Special state alerts (proxy to base alerts API) ──────────────── */
