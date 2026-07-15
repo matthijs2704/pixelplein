@@ -20,6 +20,8 @@ import {
 import { startHeartbeat, stopHeartbeat } from './heartbeat.js';
 import { setWs, clearWs, sendSyncPhotos }  from './ws-send.js';
 import { updateSlides as _updateSlides, updatePlaylists as _updatePlaylists, triggerPlaySoon, handleSlideAdvance } from './slides/index.js';
+import { updateVideoPool } from './video-pool.js';
+import { requestVideoSession } from './layouts/video-fullscreen.js';
 import {
   initOverlays,
   applyOverlays,
@@ -132,6 +134,7 @@ let _playlists = [];
 function updateSlides(slides) {
   _slides = slides || [];
   _updateSlides(_slides);
+  updateVideoPool(_slides);
 }
 
 function updatePlaylists(playlists) {
@@ -245,7 +248,7 @@ async function bootFromCache() {
 
   if (config) {
     updateConfig(config);
-    applyTheme(config.theme ?? null).catch(() => {});
+    await applyTheme(config.theme ?? null);
     applyOverlays(config);
   }
   if (slides)    updateSlides(slides);
@@ -569,6 +572,10 @@ async function handleMessage(msg) {
 
     case 'play_soon':
       if (msg.slideId) triggerPlaySoon(msg.slideId);
+      break;
+
+    case 'play_videos_now':
+      requestVideoSession(msg.count);
       break;
 
     case 'slide_advance':

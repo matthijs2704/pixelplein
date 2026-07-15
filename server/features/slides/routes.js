@@ -36,6 +36,7 @@ const {
 } = require('./store');
 
 const { broadcast } = require('../ws/broadcast');
+const loader = require('../../modules/loader');
 
 const SLIDE_ASSETS_DIR = path.join(__dirname, '..', '..', '..', 'slide-assets');
 const VIDEOS_DIR       = path.join(SLIDE_ASSETS_DIR, 'videos');
@@ -125,7 +126,8 @@ router.get('/', (_req, res) => {
 
 router.post('/', (req, res) => {
   const { type, ...rest } = req.body || {};
-  if (!['video', 'text-card', 'qr', 'webpage', 'image', 'article'].includes(type)) {
+  const moduleTypes = [...loader.getModuleSlideTypes().keys()];
+  if (!['video', 'pool-video', 'text-card', 'qr', 'webpage', 'image', 'article', ...moduleTypes].includes(type)) {
     return res.status(400).json({ error: 'Invalid slide type' });
   }
   const slide = createSlide(type, rest);
@@ -141,6 +143,18 @@ router.post('/upload-video', videoUpload.single('video'), (req, res) => {
     label: filename,
     filename,
     enabled: false,
+  });
+  broadcastSlides();
+  res.status(201).json(slide);
+});
+
+router.post('/upload-pool-video', videoUpload.single('video'), (req, res) => {
+  if (!req.file) return res.status(400).json({ error: 'No file uploaded' });
+  const filename = req.file.filename;
+  const slide = createSlide('pool-video', {
+    label: filename,
+    filename,
+    enabled: true,
   });
   broadcastSlides();
   res.status(201).json(slide);
@@ -162,6 +176,14 @@ router.post('/upload-image', imageUpload.single('image'), (req, res) => {
 router.post('/upload-article-image', imageUpload.single('image'), (req, res) => {
   if (!req.file) return res.status(400).json({ error: 'No file uploaded' });
   res.json({ filename: req.file.filename });
+});
+
+// "Play videos now" — screens cut to a pool-video session immediately.
+// count: 'all' plays the whole pool once, 'batch' plays videoBatchSize videos.
+router.post('/play-videos-now', (req, res) => {
+  const count = req.body?.count === 'all' ? 'all' : 'batch';
+  broadcast({ type: 'play_videos_now', count });
+  res.json({ ok: true, count });
 });
 
 router.post('/play-soon/:id', (req, res) => {

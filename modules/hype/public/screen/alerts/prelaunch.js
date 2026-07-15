@@ -37,7 +37,7 @@ export function renderPreLaunchAlert(alert) {
         <img class="hp-logo" src="/themes/hype/assets/logo.svg" alt="de HYPE!" />
         <div class="hp-soon">
           <strong>binnenkort live</strong>
-          <span>gaat over enkele minuten live · even geduld...</span>
+          <span>gaat over enkele dagen live · even geduld...</span>
         </div>
       </div>
       <div class="hp-taglines" aria-hidden="true">
@@ -72,9 +72,9 @@ function _playPreLaunchAudio(root) {
   audio.loop = true;
   audio.volume = 0.55;
   const play = audio.play();
-  if (play && typeof play.catch === 'function') play.catch(() => {});
+  if (play && typeof play.catch === 'function') play.catch(() => { });
 
-  const stop = () => { try { audio.pause(); audio.src = ''; } catch {} };
+  const stop = () => { try { audio.pause(); audio.src = ''; } catch { } };
   const observer = new MutationObserver(() => {
     if (!root.isConnected) { observer.disconnect(); stop(); }
   });

@@ -39,6 +39,7 @@ export function renderGlitchAlert(alert) {
     <div class="hype-glitch-scan"    aria-hidden="true"></div>
     <div class="hype-glitch-tears"   aria-hidden="true">
       <span></span><span></span><span></span><span></span>
+      <span></span><span></span><span></span><span></span>
     </div>
     <div class="hype-glitch-rgb"     aria-hidden="true"></div>
     <div class="hype-glitch-flash"   aria-hidden="true"></div>

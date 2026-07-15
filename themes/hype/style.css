@@ -66,12 +66,12 @@
   --hype-accent:  var(--hype-pink);
 
   /* ── Fonts ────────────────────────────────────────────────────────── */
-  --hype-font:    'DM Sans', -apple-system, system-ui, sans-serif;
-  --hype-display: 'Bebas Neue', 'DM Sans', system-ui, sans-serif;
+  --hype-font:    'DM Sans', -apple-system, system-ui, 'Noto Color Emoji', 'Apple Color Emoji', 'Segoe UI Emoji', sans-serif;
+  --hype-display: 'Bebas Neue', 'DM Sans', system-ui, 'Noto Color Emoji', 'Apple Color Emoji', 'Segoe UI Emoji', sans-serif;
 
   /* ── Shell metrics ────────────────────────────────────────────────── */
-  --hype-nav-h:  clamp(54px, 5.2vh, 82px);
   --hype-tab-h:  clamp(52px, 5.0vh, 76px);
+  --hype-nav-h:  var(--hype-tab-h);
 
   /* Reserve room for the chrome so photos never hide behind it */
   --screen-padding-top:    var(--hype-nav-h);
@@ -88,7 +88,8 @@
   --tile-border:  1px solid var(--hype-border);
 
   --polaroid-bg:          transparent;
-  --polaroid-card-bg:     var(--hype-surface);
+  /* Keep the classic white instant-photo frame — dark cards don't read as polaroids */
+  --polaroid-card-bg:     #fffef8;
   --polaroid-card-radius: 8px;
   --polaroid-card-shadow: 0 18px 40px rgba(0, 0, 0, 0.6);
 
@@ -104,20 +105,20 @@
   --qr-color:       #0b0d12;
   --qr-muted-color: #6b6b73;
 
-  /* ── Ticker — notification strip ──────────────────────────────────── */
-  --ticker-bg:             rgba(21, 24, 31, 0.9);
-  --ticker-height:         clamp(28px, 2.2vh, 42px);
+  /* ── Ticker font (infobar-ticker inherits these) ──────────────────── */
   --ticker-color:          var(--hype-text);
-  --ticker-font-size:      clamp(14px, 1vw, 21px);
-  --ticker-font-weight:    600;
-  --ticker-font-family:    var(--hype-font);
-  --ticker-letter-spacing: 0.01em;
-  --ticker-radius:         6px;
+  --ticker-font-size:      clamp(19px, 1.4vw, 28px);
+  --ticker-font-weight:    400;
+  --ticker-font-family:    var(--hype-display);
+  --ticker-letter-spacing: 0;
 
-  --infobar-bg:              rgba(11, 13, 18, 0.92);
+  /* ── Infobar — IS the tab bar ──────────────────────────────────────── */
+  --infobar-bg:              rgba(11, 13, 18, 0.96);
   --infobar-color:           var(--hype-text);
   --infobar-height:          var(--hype-tab-h);
-  --infobar-border-top:      1px solid var(--hype-border);
+  --infobar-border-top:      3px solid var(--hype-pink);
+  --infobar-font-family:     var(--hype-display);
+  --infobar-font-size:       clamp(19px, 1.4vw, 28px);
   --infobar-clock-color:     var(--hype-muted);
   --infobar-event-color:     var(--hype-text);
   --infobar-countdown-color: var(--hype-yellow);
@@ -189,41 +190,14 @@ body, #screen {
 }
 .hype-nav-icons svg { width: clamp(20px, 1.5vw, 27px); height: clamp(20px, 1.5vw, 27px); }
 
-/* ── Bottom tab bar ─────────────────────────────────────────────────────── */
+/* ── Bottom tab bar icons (now inside infobar slot-end) ─────────────────── */
 
-#hype-tabbar {
-  position: fixed;
-  left: 0; right: 0; bottom: 0;
-  height: var(--hype-tab-h);
-  z-index: 9100;
-  display: flex; align-items: center; justify-content: flex-end;
-  background: rgba(11, 13, 18, 0.96);
-  -webkit-backdrop-filter: blur(18px) saturate(140%);
-          backdrop-filter: blur(18px) saturate(140%);
-  border-top: 3px solid var(--hype-pink);
-  color: var(--hype-muted);
-}
-#hype-tabbar::before {
-  content: 'nieuwe foto van @scoutingridderfulco   •   nu trending   •   altijd hype';
-  position: absolute;
-  left: clamp(18px, 1.6vw, 36px);
-  top: 50%;
-  transform: translateY(-50%);
-  max-width: 46vw;
-  overflow: hidden;
-  white-space: nowrap;
-  text-overflow: ellipsis;
-  color: #fff;
-  font-family: var(--hype-display);
-  font-size: clamp(17px, 1.2vw, 25px);
-  line-height: 1;
-}
 .hype-tabbar-icons {
-  margin-left: auto;
   display: flex;
   align-items: center;
   justify-content: flex-end;
   gap: clamp(18px, 1.8vw, 34px);
+  padding-left: clamp(18px, 1.8vw, 42px);
   padding-right: clamp(18px, 1.8vw, 42px);
 }
 .hype-tab {
@@ -253,8 +227,39 @@ body.hype-stream-mode #overlay-infobar,
 body:has(.hype-social-root) #hype-shell,
 body:has(.hype-stream-live) #hype-shell { display: none !important; }
 
-/* Hide the base infobar — the tab bar replaces it */
-#overlay-infobar { display: none !important; }
+/* Infobar: full-width — IS the bottom bar */
+#overlay-infobar {
+  padding-left: 14px;
+  font-weight: 400;
+  line-height: 1;
+  -webkit-backdrop-filter: blur(18px) saturate(140%);
+          backdrop-filter: blur(18px) saturate(140%);
+}
+
+/* Theme slots: hidden until adopted by the infobar */
+#overlay-infobar-slot-start,
+#overlay-infobar-slot-end { display: none; }
+
+#overlay-infobar #overlay-infobar-slot-start {
+  display: flex;
+  align-items: center;
+  flex-shrink: 0;
+  padding-right: 14px;
+}
+/* Allow event slots to shrink so they don't push past the end slot icons */
+#overlay-infobar #overlay-infobar-event,
+#overlay-infobar #overlay-infobar-event2 {
+  flex-shrink: 1;
+  min-width: 0;
+}
+
+#overlay-infobar #overlay-infobar-slot-end {
+  display: flex;
+  align-items: center;
+  gap: clamp(18px, 1.8vw, 34px);
+  padding-right: clamp(18px, 1.8vw, 42px);
+  flex-shrink: 0;
+}
 
 /* ── Tiles ──────────────────────────────────────────────────────────────── */
 .tile, .photo-tile {

@@ -16,29 +16,29 @@ import { getChannels } from '../state-client.js';
 import { icon } from '../icons.js';
 
 const LAUNCH_SYNC = {
-  systemSnap:     747,
-  stepConnect:    1259,
-  stepAccount:    2251,
-  stepSecurity:   3243,
-  appOpen:        4736,
-  logoPrep:       5216,
-  pinkLine:       5717,
-  logoReveal:     6219,
-  logoSettle:     7445,
-  creatorsWake:   8192,
-  creatorsRun:    9472,
-  creatorHitA:   10048,
-  creatorHitB:   10656,
-  creatorHitC:   11157,
-  climax:        11573,
-  climaxHit:     11648,
+  systemSnap: 747,
+  stepConnect: 1259,
+  stepAccount: 2251,
+  stepSecurity: 3243,
+  appOpen: 4736,
+  logoPrep: 5216,
+  pinkLine: 5717,
+  logoReveal: 6219,
+  logoSettle: 7445,
+  creatorsWake: 8192,
+  creatorsRun: 9472,
+  creatorHitA: 10048,
+  creatorHitB: 10656,
+  creatorHitC: 11157,
+  climax: 11573,
+  climaxHit: 11648,
   dashboardOpen: 13611,
-  quietSettle:   15000,
-  emphasis:      16587,
-  finalBuild:    19029,
-  finalHit:      20000,
-  tailHold:      21960,
-  handoff:       28000,
+  quietSettle: 15000,
+  emphasis: 16091,
+  finalBuild: 19029,
+  finalHit: 20000,
+  tailHold: 21960,
+  handoff: 28000,
 };
 
 const CREATOR_BEATS = [8.192, 8.683, 9.184, 9.675, 10.165, 10.656];
@@ -92,7 +92,7 @@ export function renderLaunchAlert(alert) {
     <main class="hlp-stage">
       <section class="hlp-boot-panel" aria-label="platform start">
         <div class="hlp-boot-kicker">lancering gestart</div>
-        <div class="hlp-boot-title">De Hype gaat open</div>
+        <div class="hlp-boot-title">De Hype gaat live</div>
         <div class="hlp-boot-meter"><span></span></div>
         <div class="hlp-boot-steps">
           ${_bootStep('netwerk verbonden', 'connect')}
@@ -106,28 +106,37 @@ export function renderLaunchAlert(alert) {
         <div class="hlp-logo-frame">
           <img class="hlp-logo" src="/themes/hype/assets/logo.svg" alt="de HYPE!" />
         </div>
+        <div class="hlp-logo-rule" aria-hidden="true"></div>
       </section>
 
       <section class="hlp-creator-wall" aria-label="creator kanalen">
+        <div class="hlp-creator-header" aria-hidden="true">De Deelnemers</div>
         ${introChannels.map((c, i) => _channelCard(c, i)).join('')}
       </section>
 
       <section class="hlp-dashboard-preview" aria-label="live dashboard">
         <div class="hlp-preview-card hlp-preview-race">
-          <span>kanalen online</span>
+          <span>startpositie</span>
           ${raceChannels.slice(0, 4).map((c, i) => _raceRow(c, i)).join('')}
         </div>
         <div class="hlp-preview-card hlp-preview-feed">
-          <span>platform leeg en klaar</span>
-          ${_feedLine('Nieuwe posts verschijnen vanaf nu', 'posts')}
-          ${_feedLine('Likes en reacties starten op nul', 'hype')}
-          ${_feedLine('Creator-kanalen zijn gekoppeld', 'live')}
+          <span>strijd begint nu</span>
+          ${_feedLine('Eerste post pakt de aandacht', 'posts')}
+          ${_feedLine('Volgers gaan naar de beste content', 'hype')}
+          ${_feedLine('Alle kanalen op startpositie', 'live')}
         </div>
         <div class="hlp-preview-card hlp-preview-spark">
           <span>vandaag op De Hype</span>
           <strong>${creatorCount} creators live</strong>
-          <em>posts, stories en lives kunnen beginnen</em>
+          <em>ga posten. ga winnen.</em>
         </div>
+      </section>
+
+      <section class="hlp-title-build" aria-hidden="true">
+        <div class="hlp-tb-word hlp-tb-w1">DE</div>
+        <div class="hlp-tb-word hlp-tb-w2">STRIJD</div>
+        <div class="hlp-tb-word hlp-tb-w3">BEGINT</div>
+        <div class="hlp-tb-word hlp-tb-w4">NU</div>
       </section>
 
       <section class="hlp-final-card" aria-label="start">
@@ -201,9 +210,15 @@ function _runLaunchTimeline(root) {
   _at(root, LAUNCH_SYNC.quietSettle, () => add('hlp-quiet-settle'));
   _at(root, LAUNCH_SYNC.emphasis, () => {
     add('hlp-platform-live');
-    colorFlash(6);
+    flash();
   });
+  _at(root, 16845, () => { colorFlash(1); add('hlp-tb-w1-in'); });
+  _at(root, 17085, () => { colorFlash(5); add('hlp-tb-w2-in'); });
+  _at(root, 18078, () => { colorFlash(2); flash(); add('hlp-tb-w3-in'); });
+  _at(root, 18335, () => { add('hlp-tb-w4-in'); });
+  _at(root, 18827, () => { colorFlash(6); flash(); });
   _at(root, LAUNCH_SYNC.finalBuild, () => add('hlp-final-build'));
+  _at(root, 19083, () => flash());
   _at(root, LAUNCH_SYNC.finalHit, () => {
     add('hlp-final-live');
     flash();
@@ -219,6 +234,10 @@ function _runLaunchTimeline(root) {
   shake(LAUNCH_SYNC.creatorHitC, 'shake-s');
   shake(LAUNCH_SYNC.climaxHit, 'shake-l');
   shake(LAUNCH_SYNC.emphasis, 'shake');
+  shake(17109, 'shake-s');
+  shake(17600, 'shake-s');
+  shake(18091, 'shake');
+  shake(18837, 'shake-l');
   shake(LAUNCH_SYNC.finalHit, 'shake-l');
 }
 
@@ -244,7 +263,7 @@ function _bootStep(label, key) {
   `;
 }
 
-function _channelCard(c, index) {
+function _channelCard(c, _index) {
   const iconName = _channelIcon(c.id);
   return `
     <article class="hlp-channel-card" style="--ch-color:${escape(c.color || '#00b2ff')}">
@@ -268,7 +287,7 @@ function _raceRow(c, index) {
     <div class="hlp-race-row" style="--ch-color:${escape(c.color || '#00b2ff')};--rank:${index + 1}">
       <i></i>
       <strong>${escape(c.name || c.handle || 'Kanaal')}</strong>
-      <span>klaar</span>
+      <span>op 0</span>
     </div>
   `;
 }
@@ -285,10 +304,10 @@ function _feedLine(text, tag) {
 function _channelIcon(channelId) {
   if (channelId === 'chnl_manager') return 'radio';
   if (channelId === 'chnl_natuur') return 'paw';
-  if (channelId === 'chnl_kook')   return 'chefHat';
-  if (channelId === 'chnl_game')   return 'gamepad';
+  if (channelId === 'chnl_kook') return 'chefHat';
+  if (channelId === 'chnl_game') return 'gamepad';
   if (channelId === 'chnl_beauty') return 'sparkles';
-  if (channelId === 'chnl_fit')    return 'dumbbell';
+  if (channelId === 'chnl_fit') return 'dumbbell';
   return 'compass';
 }
 
@@ -305,9 +324,9 @@ function _playLaunchAudio(root) {
   audio.preload = 'auto';
   audio.volume = 0.9;
   const play = audio.play();
-  if (play && typeof play.catch === 'function') play.catch(() => {});
+  if (play && typeof play.catch === 'function') play.catch(() => { });
 
-  const stop = () => { try { audio.pause(); audio.src = ''; } catch {} };
+  const stop = () => { try { audio.pause(); audio.src = ''; } catch { } };
   const observer = new MutationObserver(() => {
     if (!root.isConnected) { observer.disconnect(); stop(); }
   });
@@ -319,7 +338,7 @@ function _playLaunchAudio(root) {
 function _confettiBurst(canvas, durationMs, opts = {}) {
   const ctx = canvas.getContext('2d');
   const dpr = Math.min(2, window.devicePixelRatio || 1);
-  canvas.width  = canvas.clientWidth  * dpr;
+  canvas.width = canvas.clientWidth * dpr;
   canvas.height = canvas.clientHeight * dpr;
 
   const colors = ['#f5d904', '#f52368', '#32d74b', '#ff8a00', '#7c4dff', '#27d6c6', '#00b2ff', '#ffffff'];

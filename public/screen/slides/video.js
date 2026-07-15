@@ -22,6 +22,7 @@ export async function buildVideoSlide(slide) {
   video.setAttribute('webkit-playsinline', '');
   video.autoplay    = true;
   video.src         = src;
+  if (slide.fit && slide.fit !== 'contain') video.style.objectFit = slide.fit;
 
   const wrap = el('div', { cls: 'slide-video' }, video);
 
@@ -37,10 +38,11 @@ export async function buildVideoSlide(slide) {
         return;
       }
 
-      let playsLeft = playCount === 0 ? Infinity : playCount;
-      let done      = false;
-      let started   = false;
-      let startupTimer = null;
+      let playsLeft      = playCount === 0 ? Infinity : playCount;
+      let done           = false;
+      let started        = false;
+      let playRequested  = false;
+      let startupTimer   = null;
 
       const safetyTimer = setTimeout(finish, MAX_DURATION_MS);
 
@@ -52,7 +54,6 @@ export async function buildVideoSlide(slide) {
         video.removeEventListener('ended',  onEnded);
         video.removeEventListener('error',  onError);
         video.removeEventListener('playing', onPlaying);
-        video.removeEventListener('loadedmetadata', tryStart);
         video.removeEventListener('canplay', tryStart);
         if (signal) signal.removeEventListener('abort', onAbort);
         resolve();
@@ -69,6 +70,7 @@ export async function buildVideoSlide(slide) {
           finish();
         } else {
           video.currentTime = 0;
+          playRequested = false;
           tryStart();
         }
       }
@@ -91,9 +93,11 @@ export async function buildVideoSlide(slide) {
       }
 
       function tryStart() {
-        if (done) return;
-        console.log('[video] tryStart, readyState:', video.readyState, 'src:', video.src.slice(0, 40));
+        if (done || playRequested) return;
+        playRequested = true;
         video.play().catch(err => {
+          if (done) return;
+          playRequested = false;
           console.error('[video] play() rejected:', err.name, err.message);
           onError();
         });
@@ -103,7 +107,6 @@ export async function buildVideoSlide(slide) {
       video.addEventListener('ended', onEnded);
       video.addEventListener('error', onError, { once: true });
       video.addEventListener('playing', onPlaying);
-      video.addEventListener('loadedmetadata', tryStart);
       video.addEventListener('canplay', tryStart);
       if (signal) signal.addEventListener('abort', onAbort, { once: true });
 

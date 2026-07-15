@@ -28,13 +28,15 @@ const OVERLAY_KEYS = [
   'bugEnabled', 'bugText', 'bugCorner', 'bugImageUrl',
   'qrBugEnabled', 'qrBugUrl', 'qrBugCorner', 'qrBugLabel',
   'infoBarEnabled', 'infoBarShowClock', 'infoBarShowCurrentEvent',
-  'infoBarShowNextEvent', 'infoBarShowDeviceInfo',
+  'infoBarShowNextEvent', 'infoBarShowDeviceInfo', 'infoBarShowTicker',
 ];
 
 function defaultScreenConfig() {
   return {
     layoutDuration: 8000,
     transitionTime: 800,
+    videoEveryCycles: 6,
+    videoBatchSize: 1,
     enabledLayouts: ['fullscreen', 'sidebyside', 'featuredduo', 'polaroid', 'mosaic', 'dynamicsplit', 'triptych', 'cascade', 'filmstrip'],
     transition: 'fade',
     groupMode: 'auto',
@@ -90,12 +92,14 @@ function defaultScreenConfig() {
     infoBarShowCurrentEvent: null,
     infoBarShowNextEvent: null,
     infoBarShowDeviceInfo: null,
+    infoBarShowTicker: null,
   };
 }
 
 function defaultSlide(type) {
   const base = { type, label: '', enabled: true, playSoon: false };
-  if (type === 'video') return { ...base, filename: '', muted: true, playCount: 1 };
+  if (type === 'video')      return { ...base, filename: '', muted: true, playCount: 1, fit: 'contain' };
+  if (type === 'pool-video') return { ...base, filename: '', muted: true, fit: 'contain' };
   if (type === 'text-card') return { ...base, template: 'dark-center', title: '', body: '', bgColor: '', durationSec: 10 };
   if (type === 'qr') return { ...base, url: '', title: '', caption: '', durationSec: 10 };
   if (type === 'webpage') return { ...base, src: '', durationSec: 15 };
@@ -138,7 +142,7 @@ function defaultConfig() {
     sessionSecret: null,
     theme: null,
     clock24h: true,
-    infoBarFontSize: 15,
+    infoBarFontSize: 0,
     // Global overlay defaults (per-screen null fields inherit from these)
     tickerEnabled: false,
     tickerMessages: [],
@@ -160,6 +164,7 @@ function defaultConfig() {
     infoBarShowCurrentEvent: true,
     infoBarShowNextEvent: true,
     infoBarShowDeviceInfo: false,
+    infoBarShowTicker: false,
     // Alert defaults (pre-fill for manually-created alerts)
     alertStyle: 'banner',
     alertPosition: 'top-center',
@@ -232,8 +237,12 @@ const SCREEN_CONFIG_SCHEMA = {
   // Core playback
   layoutDuration:          { type: 'number',      min: 3000,  max: 45000 },
   transitionTime:          { type: 'number',      min: 200,   max: 3000  },
-  enabledLayouts:          { type: 'stringArray', allowed: ['fullscreen','sidebyside','featuredduo','polaroid','mosaic','dynamicsplit','triptych','cascade','filmstrip'], fallback: ['fullscreen'] },
+  enabledLayouts:          { type: 'stringArray', allowed: ['fullscreen','sidebyside','featuredduo','polaroid','mosaic','dynamicsplit','triptych','cascade','filmstrip','video-fullscreen'], fallback: ['fullscreen'] },
   transition:              { type: 'enum',        values: ['fade','slide','zoom'] },
+  // Video pool sessions: play N videos back-to-back after every X photo
+  // cycles (0 = only via the "play now" button in the Videos tab).
+  videoEveryCycles:        { type: 'number',      min: 0,     max: 50    },
+  videoBatchSize:          { type: 'number',      min: 1,     max: 10    },
   // Grouping
   groupMode:               { type: 'enum',        values: ['auto','manual'] },
   activeGroup:             { type: 'string',      default: 'ungrouped' },
@@ -287,6 +296,7 @@ const SCREEN_CONFIG_SCHEMA = {
   infoBarShowCurrentEvent: { type: 'bool' },
   infoBarShowNextEvent:    { type: 'bool' },
   infoBarShowDeviceInfo:   { type: 'bool' },
+  infoBarShowTicker:       { type: 'bool' },
 };
 
 // Derived from schema — all keys that sanitizeScreenConfig will accept.
@@ -626,7 +636,8 @@ function sanitizeScreenConfig(input, base) {
   }
 
   // tickerMessages: sanitize array of strings (max 50, each max 500 chars)
-  if (Object.prototype.hasOwnProperty.call(src, 'tickerMessages')) {
+  // null means "inherit from global" — skip sanitization so the null survives
+  if (Object.prototype.hasOwnProperty.call(src, 'tickerMessages') && src.tickerMessages !== null) {
     const msgs = Array.isArray(src.tickerMessages) ? src.tickerMessages : [];
     next.tickerMessages = msgs
       .map(v => String(v ?? '').trim())
@@ -766,6 +777,9 @@ function _sanitizeGlobalOverlayFields(raw, target) {
   if (Object.prototype.hasOwnProperty.call(raw, 'infoBarShowDeviceInfo')) {
     target.infoBarShowDeviceInfo = Boolean(raw.infoBarShowDeviceInfo);
   }
+  if (Object.prototype.hasOwnProperty.call(raw, 'infoBarShowTicker')) {
+    target.infoBarShowTicker = Boolean(raw.infoBarShowTicker);
+  }
 }
 
 // Compare two values for overlay migration equality.
@@ -838,8 +852,8 @@ function sanitizeConfig(input, validThemeIds) {
 
   const rawFontSize = Number(raw.infoBarFontSize);
   next.infoBarFontSize = Number.isFinite(rawFontSize)
-    ? Math.max(8, Math.min(60, Math.floor(rawFontSize)))
-    : 15;
+    ? Math.max(0, Math.min(60, Math.floor(rawFontSize)))
+    : 0;
 
   // --- Global overlay defaults ---
   _sanitizeGlobalOverlayFields(raw, next);
@@ -975,7 +989,7 @@ function sanitizeGlobalConfig(input, target, validThemeIds) {
 
   if (Object.prototype.hasOwnProperty.call(input, 'infoBarFontSize')) {
     const v = Number(input.infoBarFontSize);
-    if (Number.isFinite(v)) target.infoBarFontSize = Math.max(8, Math.min(60, Math.floor(v)));
+    if (Number.isFinite(v)) target.infoBarFontSize = Math.max(0, Math.min(60, Math.floor(v)));
   }
 
   if (Object.prototype.hasOwnProperty.call(input, 'scheduleAlertStyle')) {
@@ -1079,6 +1093,7 @@ function getPublicConfig() {
       ...loader.getModuleScreenLayouts().keys(),
     ],
     moduleLayoutLabels: Object.fromEntries(loader.getModuleScreenLayouts()),
+    moduleSlideTypes:   Object.fromEntries(loader.getModuleSlideTypes()),
   };
 }
 

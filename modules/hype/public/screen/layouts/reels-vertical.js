@@ -2,8 +2,6 @@
 // TikTok/Reels side-rail (heart + like count + comment count + share).
 
 import { el, photoUrl } from '/shared/utils.js';
-import { applySmartFit } from '/screen/fit.js';
-import { startKenBurns } from '/screen/transitions.js';
 import { getPhotoChannel, getChannel, getGeneralAccount, getPhotoLikes } from '../state-client.js';
 import { icon } from '../icons.js';
 
@@ -42,7 +40,9 @@ function _build(photo) {
   stage.appendChild(bg);
   const img   = el('img', { cls: 'hype-reels-img', src: photoUrl(photo), alt: photo.name });
   img.dataset.photoId = photo.id;
-  applySmartFit(img, photo, false);
+  img.dataset.hypeChromeSkip = '1'; // reel info + rail already show identity/likes
+  // No applySmartFit here: it forces object-fit:cover inline, and this
+  // layout must never crop — CSS keeps it contain inside the 9:16 column.
   stage.appendChild(img);
 
   // Channel info bottom-left
@@ -51,8 +51,17 @@ function _build(photo) {
   if (ch) {
     const info = el('div', { cls: 'hype-reels-info' });
     info.style.setProperty('--ch-color', ch.color || '#7c5cff');
-    info.appendChild(el('div', { cls: 'hype-reels-handle', text: ch.handle }));
-    info.appendChild(el('div', { cls: 'hype-reels-caption', text: chId ? 'creator update vanaf het kamp' : 'live vanaf het kamp' }));
+    const handleEl = el('div', { cls: 'hype-reels-handle' });
+    handleEl.innerHTML = `<span>${ch.handle}</span><span class="hype-reels-verified">${icon.verified(14)}</span>`;
+    info.appendChild(handleEl);
+    info.appendChild(el('div', {
+      cls: 'hype-reels-caption',
+      text: chId ? `🔥 creator update — #kamplive` : `🏕️ live vanaf het kamp — #kamplive`,
+    }));
+    const tickerText = `♫ Original sound — ${ch.name}`;
+    const music = el('div', { cls: 'hype-reels-music' });
+    music.innerHTML = `<div class="hype-reels-music-scroll"><span>${tickerText} &nbsp;&nbsp; ${tickerText}</span></div>`;
+    info.appendChild(music);
     stage.appendChild(info);
   }
 
@@ -81,6 +90,8 @@ function _build(photo) {
   return {
     el: root,
     visibleIds: [photo.id],
-    startMotion: (durationMs) => startKenBurns(img, durationMs),
+    // No Ken Burns: the photo is contain-fit and must never be clipped;
+    // the music ticker provides the motion.
+    startMotion: () => {},
   };
 }

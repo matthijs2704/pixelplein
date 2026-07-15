@@ -159,12 +159,14 @@ apt-get update -qq
 # - curl, gnupg, ca-certificates: for downloading packages
 # - sudo: required by provisioner for service management
 # - systemd, udev: system init and device management
-# - network-manager: provides nmcli for WiFi/network configuration
+# - network-manager, wpasupplicant, rfkill, wireless-regdb, dnsmasq-base, iw: WiFi/network configuration
+# - fonts-noto-color-emoji: color emoji rendering in Chromium kiosk
 # - git, rsync, jq: utility tools
 apt-get install -y --no-install-recommends \
 	curl gnupg ca-certificates \
 	sudo systemd udev \
-	network-manager \
+	network-manager wpasupplicant rfkill wireless-regdb dnsmasq-base iw \
+	fonts-noto-color-emoji \
 	jq rsync git
 
 # Wayland kiosk display
@@ -217,22 +219,36 @@ echo "Node $(node --version) / npm $(npm --version)"
 
 # ── 3. pixelplein user + groups ────────────────────────────────────────────
 echo "Creating $APP_USER user..."
-USER_GROUPS="video,audio,plugdev,netdev,render"
-if getent group seat >/dev/null; then
-	USER_GROUPS="$USER_GROUPS,seat"
-fi
-if getent group bluetooth >/dev/null; then
-	USER_GROUPS="$USER_GROUPS,bluetooth"
-fi
-if ! id "$APP_USER" &>/dev/null; then
-	if [[ $PLATFORM == "rpi" ]]; then
-		useradd -m -s /bin/bash -G "$USER_GROUPS,gpio,spi,i2c" "$APP_USER"
-	else
-		useradd -m -s /bin/bash -G "$USER_GROUPS" "$APP_USER"
+USER_GROUPS=()
+
+add_user_group() {
+	local group="$1"
+	if getent group "$group" >/dev/null; then
+		USER_GROUPS+=("$group")
 	fi
-else
-	usermod -a -G "$USER_GROUPS" "$APP_USER" 2>/dev/null || true
+}
+
+for group in video audio plugdev netdev render seat bluetooth; do
+	add_user_group "$group"
+done
+
+if [[ $PLATFORM == "rpi" ]]; then
+	for group in gpio spi i2c; do
+		add_user_group "$group"
+	done
 fi
+
+if ! id "$APP_USER" &>/dev/null; then
+	if command -v adduser >/dev/null 2>&1; then
+		adduser --disabled-password --gecos "" --shell /bin/bash "$APP_USER"
+	else
+		useradd -m -s /bin/bash "$APP_USER"
+	fi
+fi
+
+for group in "${USER_GROUPS[@]}"; do
+	usermod -a -G "$group" "$APP_USER" 2>/dev/null || true
+done
 
 # ── 4. Console setup ────────────────────────────────────────────────────────
 echo "Configuring console session..."
@@ -318,6 +334,11 @@ echo "Configuring Chromium..."
 POLICY_JSON='{
   "AutoplayAllowed": true,
   "AutoplayAllowlist": ["*"],
+  "DefaultMediaStreamSetting": 1,
+  "DefaultMediaStreamVideoCaptureSetting": 1,
+  "DefaultMediaStreamAudioCaptureSetting": 1,
+  "VideoCaptureAllowed": true,
+  "AudioCaptureAllowed": true,
   "BuiltInDnsClientEnabled": false,
   "InsecurePrivateNetworkRequestsAllowed": true
 }'

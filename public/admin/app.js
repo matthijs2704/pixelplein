@@ -7,6 +7,7 @@ import { initQuickTab, refreshFromConfig as quickRefresh, updateGroups as quickU
 import { initAdvancedTab, refreshFromConfig as advRefresh, updateGroups as advUpdateGroups, applySafeFallback } from './tabs/advanced.js';
 import { initPhotosTab, refreshPhotos, onNewPhoto, onRemovePhoto, onPhotoUpdate, updateGroups as photosUpdateGroups } from './tabs/photos.js';
 import { initSlidesTab, refreshSlides, createNewPlaylist, onTranscodeProgress } from './tabs/slides.js';
+import { initVideosTab, refreshVideos } from './tabs/videos.js';
 import { initOverlaysTab, refreshFromConfig as ovRefresh } from './tabs/overlays.js';
 import { initSettingsTab, refreshFromConfig as settingsRefresh, refreshScreenDevices } from './tabs/settings.js';
 import { dispatchAdminWsMessage, getRegisteredAdminTabs } from './module-registry.js';
@@ -337,6 +338,7 @@ async function doLoadSlides() {
     const [slides, playlists] = await Promise.all([loadSlides(), loadPlaylists()]);
     _playlists = playlists || [];
     refreshSlides(slides, _playlists);
+    refreshVideos(slides);
     _refreshPlaylistSelects();
   } catch (err) {
     // silent — WS slides_update is the primary path
@@ -479,6 +481,7 @@ const PAGE_TITLES = {
   control:     'Control Room',
   slides:      'Slides',
   photos:      'Photos',
+  videos:      'Videos',
   signage:     'Signage',
   schedule:    'Schedule',
   submissions: 'Submissions',
@@ -517,6 +520,7 @@ function setPage(page) {
   // Lazy-load page data
   if (page === 'photos') refreshPhotos();
   if (page === 'slides') doLoadSlides();
+  if (page === 'videos') doLoadSlides(); // videos are backed by slides data
   if (page === 'signage' || page === 'schedule') window._loadAlertsAndSchedule?.().catch(() => {});
   if (page === 'submissions') window._loadSubmissions?.().catch(() => {});
   if (page === 'settings') refreshScreenDevices().catch(() => {});
@@ -580,6 +584,7 @@ function connectWs() {
       }
       _renderTranscodingSection();
       refreshSlides(msg.slides, null);
+      refreshVideos(msg.slides);
       return;
     }
 
@@ -786,6 +791,7 @@ async function boot() {
   initAdvancedTab(getConfig, onChanged);
   initPhotosTab(doLoadStats);
   initSlidesTab(getConfig, onChanged);
+  initVideosTab();
   initOverlaysTab(getConfig, onChanged);
   initSettingsTab(getConfig, onChanged);
 

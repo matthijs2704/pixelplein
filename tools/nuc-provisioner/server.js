@@ -16,6 +16,7 @@ const CONFIG_FILE = path.join(CONFIG_DIR, 'config.json');
 const USB_FILE    = 'pixelplein-screen.json';
 const ENABLE_LAUNCH = process.env.PIXELPLEIN_NUC_LAUNCH === '1';
 const SERVER_ENV_FILE = process.env.PIXELPLEIN_SERVER_ENV || '/etc/pixelplein/server.env';
+const HOTSPOT_FALLBACK_DELAY_MS = 60_000;
 
 let _lastError = '';
 let _lastAppliedAt = 0;
@@ -35,6 +36,7 @@ let _agentStatus = {
 /** Active session tokens (in-memory; cleared on process restart). */
 const _sessions = new Set();
 let _webPin     = '';
+let _hotspotFallbackTimer = null;
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -177,6 +179,7 @@ function _parseCookies(req) {
 }
 
 function _isAuthed(req) {
+  if (!_webPin) return true;
   const token = _parseCookies(req).prov_session;
   return Boolean(token && _sessions.has(token));
 }
@@ -234,6 +237,7 @@ function _sanitizeConfig(raw) {
         enabled:  Boolean(src.hotspot.enabled),
         ssid:     String(src.hotspot.ssid || 'PixelPlein').trim(),
         password: String(src.hotspot.password || '').trim(),
+        source:   src.hotspot.source === 'manual' ? 'manual' : 'fallback',
       }
     : null;
 
@@ -302,6 +306,7 @@ async function _applyNetwork(config) {
 
 async function _applyWifi(config) {
   if (!config.wifi?.ssid) return;
+  await _run('sudo', ['nmcli', 'connection', 'delete', config.wifi.ssid]).catch(() => {});
   const args = ['sudo', 'nmcli', 'device', 'wifi', 'connect', config.wifi.ssid];
   if (config.wifi.password) args.push('password', config.wifi.password);
   if (config.wifi.hidden) args.push('hidden', 'yes');
@@ -557,6 +562,8 @@ async function _applyHotspot(config) {
 
 async function applyProvisioning(raw) {
   const existing = await _readConfig();
+  const shouldApplyWifi = Object.prototype.hasOwnProperty.call(raw || {}, 'wifi');
+  const shouldApplyHotspot = Object.prototype.hasOwnProperty.call(raw || {}, 'hotspot');
   const merged = {
     ...(existing || {}),
     ...(raw || {}),
@@ -570,8 +577,8 @@ async function applyProvisioning(raw) {
   if (config.webPin) _webPin = config.webPin;
   // Order: network → wifi → hotspot → bluetooth → audio → local-server control
   await _applyNetwork(config);
-  await _applyWifi(config);
-  await _applyHotspot(config);
+  if (shouldApplyWifi) await _applyWifi(config);
+  if (shouldApplyHotspot) await _applyHotspot(config);
   await _applyBluetooth(config);
   await _applyAudio(config);
   await _applyLocalServer(config);
@@ -644,7 +651,7 @@ async function _hasNetworkConnection() {
     const out = await _run('nmcli', ['-t', '-f', 'TYPE,STATE', 'device']);
     return out.split('\n').some(l => {
       const [type, state] = l.split(':');
-      return (type === 'ethernet' || type === 'wifi') && state === 'connected';
+      return (type === 'ethernet' || type === 'wifi') && String(state || '').startsWith('connected');
     });
   } catch {
     return false;
@@ -657,6 +664,35 @@ async function _scanWifi() {
     .map(line => line.split(':'))
     .filter(parts => parts[0])
     .map(([ssid, signal, security]) => ({ ssid, signal, security }));
+}
+
+async function _wifiDevice() {
+  const out = await _run('nmcli', ['-t', '-f', 'DEVICE,TYPE,STATE', 'device']);
+  const devices = out.split('\n')
+    .map(line => line.split(':'))
+    .map(([device, type, state]) => ({ device, type, state }))
+    .filter(item => item.device && item.type === 'wifi' && item.state !== 'unavailable' && item.state !== 'unmanaged');
+  return devices[0]?.device || '';
+}
+
+async function _knownWifiAvailable(config) {
+  if (!(await _wifiDevice().catch(() => ''))) return false;
+
+  const known = new Set();
+  if (config?.wifi?.ssid) known.add(config.wifi.ssid);
+
+  const conOut = await _run('nmcli', ['-t', '-f', 'NAME,TYPE', 'connection', 'show']).catch(() => '');
+  conOut.split('\n')
+    .map(line => line.split(':'))
+    .filter(([, type]) => type === '802-11-wireless')
+    .map(([name]) => name)
+    .filter(name => name && name !== HOTSPOT_CON)
+    .forEach(name => known.add(name));
+
+  if (!known.size) return false;
+
+  const networks = await _scanWifi().catch(() => []);
+  return networks.some(network => known.has(network.ssid));
 }
 
 // ---------------------------------------------------------------------------
@@ -675,12 +711,15 @@ async function _hotspotActive() {
 }
 
 async function _startHotspot(ssid, password) {
+  const wifiDevice = await _wifiDevice();
+  if (!wifiDevice) throw new Error('No available Wi-Fi device found for hotspot');
+
   await _run('sudo', ['nmcli', 'connection', 'delete', HOTSPOT_CON]).catch(() => {});
   if (password) {
-    await _run('sudo', ['nmcli', 'device', 'wifi', 'hotspot', 'con-name', HOTSPOT_CON, 'ssid', ssid, 'password', password]);
+    await _run('sudo', ['nmcli', 'device', 'wifi', 'hotspot', 'ifname', wifiDevice, 'con-name', HOTSPOT_CON, 'ssid', ssid, 'password', password]);
   } else {
     // Open hotspot — nmcli hotspot always sets a random password, so build the profile manually
-    await _run('sudo', ['nmcli', 'con', 'add', 'type', 'wifi', 'ifname', '*', 'con-name', HOTSPOT_CON,
+    await _run('sudo', ['nmcli', 'con', 'add', 'type', 'wifi', 'ifname', wifiDevice, 'con-name', HOTSPOT_CON,
       'autoconnect', 'no', 'ssid', ssid,
       '802-11-wireless.mode', 'ap',
       'ipv4.method', 'shared']);
@@ -690,6 +729,35 @@ async function _startHotspot(ssid, password) {
 
 async function _stopHotspot() {
   await _run('sudo', ['nmcli', 'connection', 'delete', HOTSPOT_CON]).catch(() => {});
+}
+
+function _clearHotspotFallbackTimer() {
+  if (_hotspotFallbackTimer) clearTimeout(_hotspotFallbackTimer);
+  _hotspotFallbackTimer = null;
+}
+
+function _scheduleHotspotFallback(delayMs) {
+  _clearHotspotFallbackTimer();
+  _hotspotFallbackTimer = setTimeout(() => {
+    _hotspotFallbackTimer = null;
+    _startFallbackHotspot().catch(err => console.warn('[hotspot] fallback failed:', err.message));
+  }, delayMs);
+}
+
+async function _startFallbackHotspot() {
+  const cfg = await _readConfig() || {};
+  if (await _hasNetworkConnection()) {
+    await _stopHotspot().catch(() => {});
+    return;
+  }
+
+  const ssid     = cfg?.hotspot?.ssid     || 'PixelPlein';
+  const password = cfg?.hotspot?.password || '';
+  console.log(`[hotspot] No network detected — starting fallback hotspot "${ssid}"`);
+  await _startHotspot(ssid, password);
+
+  cfg.hotspot = { enabled: true, ssid, password, source: 'fallback' };
+  await _writeConfig(cfg);
 }
 
 // ---------------------------------------------------------------------------
@@ -1453,7 +1521,7 @@ const server = http.createServer(async (req, res) => {
     // Auth endpoints — always accessible
     if (req.method === 'POST' && req.url === '/auth/login') {
       const { pin } = await _readBody(req);
-      if (!_webPin || String(pin || '').trim().toUpperCase() !== _webPin) {
+      if (_webPin && String(pin || '').trim().toUpperCase() !== _webPin) {
         return _json(res, 401, { ok: false, error: 'Verkeerde toegangscode' });
       }
       const token = crypto.randomBytes(32).toString('hex');
@@ -1567,9 +1635,10 @@ const server = http.createServer(async (req, res) => {
     if (req.method === 'POST' && req.url === '/api/change-pin') {
       const { newPin } = await _readBody(req);
       const pin = String(newPin || '').trim().toUpperCase();
-      if (!/^[A-Z0-9]{4,8}$/.test(pin)) return _json(res, 400, { ok: false, error: 'PIN moet 4-8 alfanumerieke tekens zijn' });
+      if (pin && !/^[A-Z0-9]{4,8}$/.test(pin)) return _json(res, 400, { ok: false, error: 'PIN moet leeg zijn of 4-8 alfanumerieke tekens zijn' });
       const cfg = await _readConfig() || {};
-      cfg.webPin = pin;
+      if (pin) cfg.webPin = pin;
+      else delete cfg.webPin;
       await _writeConfig(cfg);
       _webPin = pin;
       return _json(res, 200, { ok: true });
@@ -1578,12 +1647,16 @@ const server = http.createServer(async (req, res) => {
       const { ssid, password } = await _readBody(req);
       if (!ssid) return _json(res, 400, { ok: false, error: 'ssid vereist' });
       // Stop hotspot first — adapter can't be in AP mode and connect as client simultaneously
+      _clearHotspotFallbackTimer();
       await _stopHotspot().catch(() => {});
       await _applyWifi({ wifi: { ssid, password: password || '', hidden: false } });
       // Persist wifi + disabled hotspot to config
       const cfg = await _readConfig() || {};
       cfg.wifi = { ssid, password: password || '', hidden: false };
-      if (cfg.hotspot) cfg.hotspot.enabled = false;
+      if (cfg.hotspot) {
+        cfg.hotspot.enabled = false;
+        cfg.hotspot.source = 'fallback';
+      }
       await _writeConfig(cfg);
       return _json(res, 200, { ok: true });
     }
@@ -1591,15 +1664,21 @@ const server = http.createServer(async (req, res) => {
       const { ssid, password } = await _readBody(req);
       if (!ssid) return _json(res, 400, { ok: false, error: 'ssid vereist' });
       // Persist hotspot config
+      _clearHotspotFallbackTimer();
       const cfg = await _readConfig() || {};
-      cfg.hotspot = { enabled: true, ssid, password: password || '' };
+      cfg.hotspot = { enabled: true, ssid, password: password || '', source: 'manual' };
       await _writeConfig(cfg);
       await _startHotspot(ssid, password);
       return _json(res, 200, { ok: true });
     }
     if (req.method === 'POST' && req.url === '/api/hotspot/stop') {
       const cfg = await _readConfig() || {};
-      if (cfg.hotspot) { cfg.hotspot.enabled = false; await _writeConfig(cfg); }
+      _clearHotspotFallbackTimer();
+      if (cfg.hotspot) {
+        cfg.hotspot.enabled = false;
+        cfg.hotspot.source = 'fallback';
+        await _writeConfig(cfg);
+      }
       await _stopHotspot();
       return _json(res, 200, { ok: true });
     }
@@ -1625,29 +1704,28 @@ const server = http.createServer(async (req, res) => {
 // ---------------------------------------------------------------------------
 
 async function _boot() {
-  // Ensure PIN exists in config; generate one if missing
   let cfg = await _readConfig();
-  if (!cfg || !cfg.webPin) {
-    cfg = cfg || {};
-    cfg.webPin = crypto.randomBytes(3).toString('hex').toUpperCase();
-    await _writeConfig(cfg);
-  }
-  _webPin = cfg.webPin;
+  _webPin = String(cfg?.webPin || '').trim().toUpperCase();
 
   // Auto-start hotspot if no active network connection
   const hasNet = await _hasNetworkConnection();
-  if (!hasNet) {
-    const ssid     = cfg?.hotspot?.ssid     || 'PixelPlein';
-    const password = cfg?.hotspot?.password || '';
-    console.log(`[hotspot] No network detected — starting hotspot "${ssid}"`);
-    await _startHotspot(ssid, password).catch(err => console.warn('[hotspot] auto-start failed:', err.message));
-    if (cfg) {
-      cfg.hotspot = { enabled: true, ssid, password };
+  const manualHotspot = cfg?.hotspot?.enabled && cfg.hotspot.source === 'manual';
+  if (manualHotspot) {
+    await _startHotspot(cfg.hotspot.ssid || 'PixelPlein', cfg.hotspot.password || '')
+      .catch(err => console.warn('[hotspot] manual start failed:', err.message));
+  } else if (hasNet) {
+    _clearHotspotFallbackTimer();
+    await _stopHotspot().catch(() => {});
+    if (cfg?.hotspot?.enabled) {
+      cfg.hotspot.enabled = false;
+      cfg.hotspot.source = 'fallback';
       await _writeConfig(cfg);
     }
+  } else if (await _knownWifiAvailable(cfg)) {
+    console.log(`[hotspot] No network detected — waiting ${Math.round(HOTSPOT_FALLBACK_DELAY_MS / 1000)}s for known Wi-Fi`);
+    _scheduleHotspotFallback(HOTSPOT_FALLBACK_DELAY_MS);
   } else {
-    // Apply hotspot state from saved config (may start or stop based on enabled flag)
-    await _applyHotspot(cfg);
+    await _startFallbackHotspot().catch(err => console.warn('[hotspot] auto-start failed:', err.message));
   }
 
   if (cfg?.audio?.output === 'bluetooth' && cfg?.bluetooth?.device) {
@@ -1673,5 +1751,5 @@ server.listen(PORT, HOST, () => {
   console.log(`PixelPlein provisioner running on http://${HOST}:${PORT}`);
   const ips = _getLocalIPs();
   if (ips.length) console.log(`LAN IPs: ${ips.join(', ')}`);
-  console.log(`PIN:     ${_webPin}`);
+  console.log(`PIN:     ${_webPin || '(none)'}`);
 });

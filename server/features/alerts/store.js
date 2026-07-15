@@ -296,6 +296,15 @@ function createAlert(input) {
     eventId: null,
   };
 
+  // Honor a caller-supplied id (modules use fixed ids like
+  // "hype-hacker-active" so their cutscenes can be dismissed by id).
+  // Re-firing the same id replaces the previous entry.
+  if (typeof input?.id === 'string' && input.id.trim()) {
+    base.id = input.id.trim().slice(0, 80);
+    const existing = _alerts.findIndex(a => a.id === base.id);
+    if (existing !== -1) _alerts.splice(existing, 1);
+  }
+
   const next = _sanitizeAlertPatch(input, base);
   const shouldFireNow = Boolean(input?.fireNow) || (next.trigger === 'manual' && !next.scheduledAt);
   if (shouldFireNow) {

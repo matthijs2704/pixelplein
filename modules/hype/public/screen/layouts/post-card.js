@@ -27,33 +27,32 @@ export const layout = {
   },
 };
 
-function _build(photo) {
-  const root = el('div', { cls: 'layout layout-hype-post-card' });
-  if (!photo) return { el: root, visibleIds: [], startMotion: () => {} };
-
+// Builds one post card for a photo. Shared with hype:duo-post.
+export function buildCard(photo) {
   const channelId = getPhotoChannel(photo.id);
   const actor = (channelId && getChannel(channelId)) || getGeneralAccount();
   const likes = getPhotoLikes(photo.id);
   const comments = getRecentComments(photo.id, 1);
-  root.style.setProperty('--ch-color', actor.color || '#00b2ff');
 
   const card = el('article', { cls: 'hype-post-card' });
+  card.style.setProperty('--ch-color', actor.color || '#00b2ff');
   const img = el('img', { src: photoUrl(photo), alt: photo.name || '' });
   img.dataset.photoId = photo.id;
+  img.dataset.hypeChromeSkip = '1'; // card header + reactions already show identity
   applySmartFit(img, photo, false);
 
   card.appendChild(el('header', { cls: 'hype-post-head' },
     _avatar(actor),
     el('div', { cls: 'hype-post-meta' },
-      el('strong', { text: actor.name || 'Scouting Ridder Fulco' }),
-      el('span', { text: `${actor.handle || '@scoutingridderfulco'} · live van het kamp` }),
+      el('strong', { text: actor.name }),
+      el('span', { text: `${actor.handle} · live van het kamp` }),
     ),
     el('span', { cls: 'hype-post-live', text: 'live' }),
   ));
 
-  card.appendChild(el('div', { cls: 'hype-post-photo' }, img, _sticker(channelId)));
+  card.appendChild(el('div', { cls: 'hype-post-photo' }, img));
 
-  card.appendChild(el('p', { cls: 'hype-post-caption', text: _caption(channelId) }));
+  card.appendChild(el('p', { cls: 'hype-post-caption', text: _caption(channelId, photo.id) }));
   card.appendChild(el('footer', { cls: 'hype-post-reactions' },
     _reaction('heartFill', fmtCount(likes), 'vindt dit hype'),
     _reaction('comment', fmtCount(Math.max(comments.length, Math.round(likes / 15))), 'reacties'),
@@ -68,12 +67,18 @@ function _build(photo) {
     ));
   }
 
-  root.appendChild(el('div', { cls: 'hype-post-brand' },
-    el('img', { src: '/themes/hype/assets/logo.svg', alt: 'de HYPE!' }),
-  ));
+  return { card, img };
+}
+
+function _build(photo) {
+  const root = el('div', { cls: 'layout layout-hype-post-card' });
+  if (!photo) return { el: root, visibleIds: [], startMotion: () => {} };
+
+  const { card, img } = buildCard(photo);
+  root.style.setProperty('--ch-color', card.style.getPropertyValue('--ch-color'));
+  // No brand logo or tape stickers here — the theme frame already brands the
+  // screen; the card should read as a clean post.
   root.appendChild(card);
-  root.appendChild(el('div', { cls: 'hype-post-tape hype-post-tape-yellow', text: 'live. deel. hype.' }));
-  root.appendChild(el('div', { cls: 'hype-post-tape hype-post-tape-pink', text: 'top post' }));
 
   return {
     el: root,
@@ -118,12 +123,27 @@ function _reaction(iconName, value, label) {
   return node;
 }
 
-function _caption(channelId) {
-  if (channelId) return 'Nieuwe creator post vanaf het kamp.';
-  return 'Jouw kamp. Jouw momenten. Altijd hype.';
+// Caption pools — picked per photo (seeded) so a photo keeps its caption.
+const CAPTIONS_CHANNEL = [
+  'Nieuwe drop 🔥 #kamplive',
+  'Vandaag gedraaid op het kamp 🎬',
+  'Dit moet je zien!! 👀',
+  'Contentdag met de crew 📸',
+  'Achter de schermen 🤫 #kamplive',
+];
+const CAPTIONS_GENERAL = [
+  'Vandaag op kamp 🏕️ #kamplive',
+  'Dit wil je niet missen! 🔥',
+  'Live vanaf het kampterrein 📸',
+  'Weer een topdag met z\'n allen 💛',
+  'Kampleven op z\'n best 🌲',
+];
+
+function _caption(channelId, photoId) {
+  const pool = channelId ? CAPTIONS_CHANNEL : CAPTIONS_GENERAL;
+  let h = 0;
+  const seed = String(photoId || '');
+  for (let i = 0; i < seed.length; i++) h = (h * 31 + seed.charCodeAt(i)) >>> 0;
+  return pool[h % pool.length];
 }
 
-function _sticker(channelId) {
-  const text = channelId ? 'top post' : 'scouting 24/7';
-  return el('div', { cls: 'hype-post-sticker', text });
-}

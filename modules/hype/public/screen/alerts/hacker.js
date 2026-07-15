@@ -1,26 +1,21 @@
 // Alert renderer: hype-hacker
-// Theatrical full-screen takeover when Harry Ecker tries to break in.
-// Welpen-friendly Dutch + dramatic enough to feel like a real moment.
+// Theatrical full-screen takeover when Harry Ecker breaks in.
+// Full-width alarm banner, large terminal, faint watermark in background.
 //
-// Layout:
-//   - red flashing "INDRINGER" alarm bar at the top
-//   - dark terminal panel in the middle, lines type out
-//   - flickering "HARRY ECKER" signature underneath
-//   - subtle scanlines + vignette
-//
-// payload.lines overrides the default script. Default hints at the password
-// puzzle (huisdier-naam + geboortedatum) which the kids unlock later.
+// payload.lines  — override the typed lines (max 10)
+// payload.target — creator handle Harry is targeting (shown in alarm sub)
 
 const DEFAULT_LINES = [
-  '> verbinding gemaakt met dehype.live',
-  '> wachtwoord raden gestart…',
-  '> hint 1: naam van een huisdier',
-  '> hint 2: + geboortedatum',
-  '> nog 9 998 combinaties te gaan',
-  '> jullie zien me niet aankomen',
+  '> verbinding gemaakt met dehype.live...',
+  '> authenticatie omzeild · niveau 2',
+  '> creator-profiel geladen',
+  '> privé-data ophalen...',
+  '> foto-locaties: gevonden',
+  '> persoonlijke info: toegang verkregen',
+  '> jullie zien me niet aankomen  :)',
 ];
 
-const DEFAULT_SIGNATURE = 'HARRY · ECKER';
+const DEFAULT_SIGNATURE = 'H · E · C · K · E · R';
 
 export function renderHackerAlert(alert) {
   const root = document.createElement('div');
@@ -31,47 +26,40 @@ export function renderHackerAlert(alert) {
     ? alert.payload.lines.slice(0, 10)
     : DEFAULT_LINES;
   const signature = String(alert.payload?.signature || DEFAULT_SIGNATURE);
+  const target = alert.payload?.target ? `· doelwit: @${escape(alert.payload.target)}` : '';
 
-  const bodyId = `hype-hacker-body-${escapeAttr(alert.id)}`;
+  const bodyId = `hh-body-${escapeAttr(alert.id)}`;
 
   root.innerHTML = `
-    <div class="hype-hacker-scan" aria-hidden="true"></div>
+    <div class="hype-hacker-watermark" aria-hidden="true">h4rr3ck3r</div>
+    <div class="hype-hacker-scan"    aria-hidden="true"></div>
     <div class="hype-hacker-vignette" aria-hidden="true"></div>
 
     <div class="hype-hacker-alarm" role="alert">
       <span class="hype-hacker-alarm-dot"></span>
-      <span class="hype-hacker-alarm-text">INDRINGER GEDETECTEERD</span>
-      <span class="hype-hacker-alarm-sub">iemand probeert binnen te komen</span>
+      <span class="hype-hacker-alarm-text">BEVEILIGINGSLEK GEDETECTEERD</span>
+      <span class="hype-hacker-alarm-sub">onbevoegde toegang · h4rr3ck3r ${target}</span>
     </div>
 
     <div class="hype-hacker-term">
       <div class="hype-hacker-bar">
-        <span class="hype-hacker-dot"></span>
-        <span class="hype-hacker-dot"></span>
-        <span class="hype-hacker-dot"></span>
-        <span class="hype-hacker-title">security-log@dehype</span>
-      </div>
-      <div class="hype-hacker-head">
-        <span>onbekende gebruiker</span>
-        <strong>toegangspoging</strong>
+        <span class="hype-hacker-dot r"></span>
+        <span class="hype-hacker-dot y"></span>
+        <span class="hype-hacker-dot g"></span>
+        <span class="hype-hacker-title">bash — hype-server.nl · ONBEVEILIGD</span>
       </div>
       <div class="hype-hacker-body" id="${bodyId}"></div>
     </div>
-
-    <div class="hype-hacker-signature" data-text="${escape(signature)}">${escape(signature)}</div>
   `;
 
-  const body = root.querySelector(`#${cssId(alert.id) ? 'hype-hacker-body-' + cssId(alert.id) : bodyId}`)
-    || root.querySelector(`[id="${bodyId}"]`);
+  const body = root.querySelector(`[id="${bodyId}"]`);
   _typeLines(body, lines);
   return root;
 }
 
 function _typeLines(container, lines) {
   if (!container) return;
-  let i = 0, j = 0;
-  let lineEl = null;
-  const TICK = 38;
+  let i = 0, j = 0, lineEl = null;
   const t = setInterval(() => {
     if (i >= lines.length) { clearInterval(t); return; }
     if (!lineEl) {
@@ -85,11 +73,9 @@ function _typeLines(container, lines) {
       j++;
     } else {
       lineEl.textContent = line;
-      lineEl = null;
-      i++;
-      j = 0;
+      lineEl = null; i++; j = 0;
     }
-  }, TICK);
+  }, 36);
 }
 
 function escape(s) {
@@ -98,4 +84,3 @@ function escape(s) {
   ));
 }
 function escapeAttr(s) { return String(s).replace(/[^a-z0-9_-]/gi, '-'); }
-function cssId(s)      { try { return CSS.escape(escapeAttr(s)); } catch { return ''; } }

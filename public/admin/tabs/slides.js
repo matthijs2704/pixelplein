@@ -3,6 +3,7 @@
 import { icon } from '/shared/icons.js';
 import { esc as _esc, activeScreenIds as _activeScreenIds } from '/shared/utils.js';
 import { showToast as _showToast, showConfirm as _showConfirm } from '../app.js';
+import { getSlideFormExtension } from '../module-registry.js';
 
 // ---------------------------------------------------------------------------
 // State
@@ -37,9 +38,26 @@ function _usedByScreens(plId) {
 export function initSlidesTab(getConfig, onChanged) {
   _getConfig = getConfig;
   _onChanged = onChanged;
+  _populateModuleSlideTypes();
   _bindUpload();
   _renderScreenAssignments();
   _bindTypeFilters();
+}
+
+function _populateModuleSlideTypes() {
+  const cfg = _getConfig?.();
+  const moduleTypes = cfg?.moduleSlideTypes || {};
+  const select = document.getElementById('slides-create-type');
+  if (!select || !Object.keys(moduleTypes).length) return;
+  const enabledModules = new Set(cfg?.enabledModules || []);
+  for (const [type, info] of Object.entries(moduleTypes)) {
+    if (select.querySelector(`option[value="${type}"]`)) continue;
+    const opt = document.createElement('option');
+    opt.value = type;
+    opt.textContent = info.label || type;
+    if (!enabledModules.has(info.module)) opt.disabled = true;
+    select.appendChild(opt);
+  }
 }
 
 function _bindTypeFilters() {
@@ -55,6 +73,7 @@ function _bindTypeFilters() {
 export function refreshSlides(slides, playlists) {
   if (slides    !== null) _slides    = slides    || [];
   if (playlists !== null) _playlists = playlists || [];
+  _populateModuleSlideTypes();
   _renderLibrary();
   _renderPlaylistList();
   _renderScreenAssignments();
@@ -86,10 +105,19 @@ function _renderLibrary() {
   }
 }
 
+function _isModuleInvalid(type) {
+  const cfg = _getConfig?.();
+  const info = cfg?.moduleSlideTypes?.[type];
+  if (!info) return false;
+  return !(cfg?.enabledModules || []).includes(info.module);
+}
+
 function _makeSlideCard(slide) {
+  const moduleInvalid = _isModuleInvalid(slide.type);
   const card = document.createElement('div');
   card.className = 'slide-card' + (slide.enabled === false ? ' slide-disabled' : '') +
-                   (slide._transcoding ? ' slide-transcoding' : '');
+                   (slide._transcoding ? ' slide-transcoding' : '') +
+                   (moduleInvalid ? ' slide-module-invalid' : '');
   card.dataset.id = slide.id;
 
   const typeIconMap = {
@@ -104,15 +132,23 @@ function _makeSlideCard(slide) {
   const label    = _esc(slide.label || slide.filename || slide.title || slide.url || '(untitled)');
   const pct      = slide._transcodeProgress ?? 0;
 
+  const thumbEl = ((slide.type === 'video' || slide.type === 'pool-video') && slide.filename)
+    ? `<video class="slide-card-thumb" src="/slide-assets/videos/${encodeURIComponent(slide.filename)}" preload="metadata" muted></video>`
+    : (slide.type === 'image' && slide.filename)
+    ? `<img class="slide-card-thumb" src="/slide-assets/images/${encodeURIComponent(slide.filename)}" alt="">`
+    : '';
+
   card.innerHTML = `
     <div class="slide-card-header">
       <span class="slide-type-badge slide-type-${slide.type}">${typeIcon} ${slide.type}</span>
+      ${moduleInvalid ? `<span class="slide-module-badge" title="Module disabled — slide will not play">module off</span>` : ''}
       <div class="slide-card-actions">
         <button class="sc-btn sc-btn-playsoon" title="Play Soon" onclick="slidesPlaySoon('${slide.id}')">${icon('play')} soon</button>
         <button class="sc-btn sc-btn-edit" onclick="slidesEditSlide('${slide.id}')">Edit</button>
         <button class="sc-btn sc-btn-del"  onclick="slidesDeleteSlide('${slide.id}')">${icon('x-mark')}</button>
       </div>
     </div>
+    ${thumbEl}
     <div class="slide-card-label">${label}</div>
     ${slide._transcoding ? `
       <div class="slide-transcode-wrap">
@@ -235,7 +271,8 @@ window.slidesEditSlide = function(id) {
   const body  = document.getElementById('slides-modal-body');
   if (!modal || !body) return;
 
-  body.innerHTML = _buildSlideForm(slide);
+  const _ext = getSlideFormExtension(slide.type);
+  body.innerHTML = _buildSlideForm(slide) + (_ext ? _ext.buildExtra(slide) : '');
   modal.classList.add('open');
 
   // Wire re-upload button for image slides
@@ -338,10 +375,26 @@ function _buildSlideForm(slide) {
     </div>
   `;
 
-  if (slide.type === 'video') return common + `
+  if (slide.type === 'video' || slide.type === 'pool-video') {
+    const thumbSrc = slide.filename ? `/slide-assets/videos/${encodeURIComponent(slide.filename)}` : '';
+    const thumb = thumbSrc
+      ? `<div style="margin-top:6px;border-radius:6px;overflow:hidden;background:#111;max-height:180px;display:flex;align-items:center;justify-content:center;">
+           <video src="${_esc(thumbSrc)}" preload="metadata" muted style="max-width:100%;max-height:180px;object-fit:contain;"></video>
+         </div>`
+      : '';
+    return common + `
     <div class="sf-field">
       <label>Filename</label>
       <input id="sf-filename" type="text" value="${_esc(slide.filename || '')}" readonly>
+      ${thumb}
+    </div>
+    <div class="sf-field">
+      <label>Display mode</label>
+      <select id="sf-fit">
+        ${[['contain','Contain (letterbox, full video visible)'],['cover','Cover (fill screen, may crop)']].map(([v,l]) =>
+          `<option value="${v}" ${(slide.fit||'contain') === v ? 'selected' : ''}>${l}</option>`
+        ).join('')}
+      </select>
     </div>
     <div class="sf-field">
       <label><input id="sf-muted" type="checkbox" ${slide.muted !== false ? 'checked' : ''}> Muted</label>
@@ -351,6 +404,7 @@ function _buildSlideForm(slide) {
       <input id="sf-playcount" type="number" min="0" max="10" value="${slide.playCount ?? 1}">
     </div>
   `;
+  }
 
   if (slide.type === 'text-card') return common + `
     <div class="sf-field">
@@ -466,9 +520,10 @@ function _readSlideForm(type) {
     label:   g('sf-label')?.value   || '',
     enabled: g('sf-enabled')?.checked ?? true,
   };
-  if (type === 'video') {
-    patch.muted      = g('sf-muted')?.checked ?? true;
-    patch.playCount  = parseInt(g('sf-playcount')?.value || '1', 10);
+  if (type === 'video' || type === 'pool-video') {
+    patch.fit       = g('sf-fit')?.value || 'contain';
+    patch.muted     = g('sf-muted')?.checked ?? true;
+    if (type === 'video') patch.playCount = parseInt(g('sf-playcount')?.value || '1', 10);
   }
   if (type === 'text-card') {
     patch.template    = g('sf-template')?.value || 'dark-center';
@@ -504,6 +559,8 @@ function _readSlideForm(type) {
     const imgFilename   = g('sf-image-filename');
     if (imgFilename?.value) patch.imageFilename = imgFilename.value;
   }
+  const ext = getSlideFormExtension(type);
+  if (ext) Object.assign(patch, ext.readExtra());
   return patch;
 }
 

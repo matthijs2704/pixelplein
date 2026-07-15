@@ -97,6 +97,24 @@ if [[ -z "$REMOTE" ]]; then
 	exit 1
 fi
 
+REMOTE_USER="${REMOTE%@*}"
+if [[ "$REMOTE" != *"@"* ]]; then
+	echo "ERROR: Remote target must include a user, for example: $APP_USER@device-ip" >&2
+	exit 1
+fi
+
+if [[ "$REMOTE_USER" != "$APP_USER" ]]; then
+	echo "ERROR: Deploy target must be $APP_USER@host, got $REMOTE" >&2
+	echo "" >&2
+	echo "For a clean device, sync to the admin user's home and run the installer:" >&2
+	echo "  rsync -az ./ $REMOTE:~/photodisplay/" >&2
+	echo "  ssh -t $REMOTE 'cd ~/photodisplay && sudo bash tools/install.sh'" >&2
+	echo "" >&2
+	echo "After install, deploy updates with:" >&2
+	echo "  tools/deploy-nuc.sh $APP_USER@${REMOTE#*@}" >&2
+	exit 1
+fi
+
 if ! command -v rsync >/dev/null 2>&1; then
 	echo "ERROR: rsync is required" >&2
 	exit 1

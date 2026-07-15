@@ -8,6 +8,7 @@ let _onChanged = null;
 export function initOverlaysTab(getConfig, onChanged) {
   _getConfig = getConfig;
   _onChanged = onChanged;
+  _globalBound = false;
   _renderForms();
   _bindControls();
   const cfg = _getConfig?.();
@@ -53,7 +54,7 @@ const OVERLAY_SECTIONS = ['ticker', 'bug', 'qrbug', 'infobar'];
 
 // Map section → overlay keys that belong to it
 const SECTION_KEYS = {
-  ticker:  ['tickerEnabled', 'tickerMessages', 'tickerMode', 'tickerAlign', 'tickerPosition', 'tickerSpeed', 'tickerFadeDwellSec'],
+  ticker:  ['tickerMessages', 'tickerMode', 'tickerAlign', 'tickerFadeDwellSec', 'tickerSpeed'],
   bug:     ['bugEnabled', 'bugText', 'bugCorner', 'bugImageUrl'],
   qrbug:   ['qrBugEnabled', 'qrBugUrl', 'qrBugCorner', 'qrBugLabel'],
   infobar: ['infoBarEnabled', 'infoBarShowClock', 'infoBarShowCurrentEvent', 'infoBarShowNextEvent', 'infoBarShowDeviceInfo'],
@@ -82,54 +83,71 @@ function _buildOverlayForm(screenId, cfg) {
       <div class="section-label">Screen ${screenId}</div>
 
       <details class="section" open>
-        <summary>Ticker</summary>
+        <summary>Info Bar</summary>
         <div class="section-body">
-          ${_inheritToggle('ticker')}
-          <div id="ov-${prefix}-ticker-fields" class="${_sectionIsInheriting(sc, 'ticker') ? 'overlay-inherited' : ''}">
+          ${_inheritToggle('infobar')}
+          <div id="ov-${prefix}-infobar-fields" class="${_sectionIsInheriting(sc, 'infobar') ? 'overlay-inherited' : ''}">
             <div class="check-row">
-              <input type="checkbox" id="ov-${prefix}-ticker-enabled">
-              <label for="ov-${prefix}-ticker-enabled">Enabled</label>
+              <input type="checkbox" id="ov-${prefix}-infobar-enabled">
+              <label for="ov-${prefix}-infobar-enabled">Enabled</label>
             </div>
-            <div class="field">
-              <label>Messages</label>
-              <div id="ov-${prefix}-ticker-messages" style="display:flex;flex-direction:column;gap:6px"></div>
-              <button type="button" class="btn btn-secondary btn-sm" id="ov-${prefix}-ticker-add-msg" style="margin-top:6px;width:auto">+ Add message</button>
+            <div class="check-row">
+              <input type="checkbox" id="ov-${prefix}-infobar-clock">
+              <label for="ov-${prefix}-infobar-clock">Show clock</label>
             </div>
-            <div class="two-col">
-              <div class="field">
-                <label for="ov-${prefix}-ticker-mode">Mode</label>
-                <select id="ov-${prefix}-ticker-mode">
-                  <option value="scroll">Scroll (continuous)</option>
-                  <option value="fade">Fade (one at a time)</option>
-                </select>
-              </div>
-              <div class="field" id="ov-${prefix}-ticker-dwell-wrap">
-                <label for="ov-${prefix}-ticker-dwell">Dwell time (seconds)</label>
-                <input type="number" id="ov-${prefix}-ticker-dwell" min="1" max="60" step="1" value="5">
-              </div>
+            <div class="check-row">
+              <input type="checkbox" id="ov-${prefix}-infobar-current-event">
+              <label for="ov-${prefix}-infobar-current-event">Show current event</label>
             </div>
-            <div class="field" id="ov-${prefix}-ticker-align-wrap">
-              <label for="ov-${prefix}-ticker-align">Alignment</label>
-              <select id="ov-${prefix}-ticker-align">
-                <option value="start">Left</option>
-                <option value="center">Center</option>
-                <option value="end">Right</option>
-              </select>
+            <div class="check-row">
+              <input type="checkbox" id="ov-${prefix}-infobar-next-event">
+              <label for="ov-${prefix}-infobar-next-event">Show next event</label>
             </div>
-            <div class="two-col">
-              <div class="field">
-                <label for="ov-${prefix}-ticker-position">Position</label>
-                <select id="ov-${prefix}-ticker-position">
-                  <option value="bottom">Bottom</option>
-                  <option value="top">Top</option>
-                </select>
-              </div>
-              <div class="field">
-                <label for="ov-${prefix}-ticker-speed">Scroll speed (px/s)</label>
-                <input type="number" id="ov-${prefix}-ticker-speed" min="10" max="400" step="10" value="80">
-              </div>
+            <div class="check-row">
+              <input type="checkbox" id="ov-${prefix}-infobar-device-info">
+              <label for="ov-${prefix}-infobar-device-info">Show screen ID &amp; IP</label>
             </div>
           </div>
+
+          <details class="section" style="margin-top:10px" open>
+            <summary>Ticker</summary>
+            <div class="section-body">
+              ${_inheritToggle('ticker')}
+              <div id="ov-${prefix}-ticker-fields" class="${_sectionIsInheriting(sc, 'ticker') ? 'overlay-inherited' : ''}">
+                <!-- ticker content config -->
+                <div class="field">
+                  <label>Messages</label>
+                  <div id="ov-${prefix}-ticker-messages" style="display:flex;flex-direction:column;gap:6px"></div>
+                  <button type="button" class="btn btn-secondary btn-sm" id="ov-${prefix}-ticker-add-msg" style="margin-top:6px;width:auto">+ Add message</button>
+                </div>
+                <div class="two-col">
+                  <div class="field">
+                    <label for="ov-${prefix}-ticker-mode">Mode</label>
+                    <select id="ov-${prefix}-ticker-mode">
+                      <option value="scroll">Scroll (continuous)</option>
+                      <option value="fade">Fade (one at a time)</option>
+                    </select>
+                  </div>
+                  <div class="field" id="ov-${prefix}-ticker-dwell-wrap">
+                    <label for="ov-${prefix}-ticker-dwell">Dwell (seconds)</label>
+                    <input type="number" id="ov-${prefix}-ticker-dwell" min="1" max="60" step="1" value="5">
+                  </div>
+                </div>
+                <div class="field" id="ov-${prefix}-ticker-align-wrap">
+                  <label for="ov-${prefix}-ticker-align">Alignment</label>
+                  <select id="ov-${prefix}-ticker-align">
+                    <option value="start">Left</option>
+                    <option value="center">Center</option>
+                    <option value="end">Right</option>
+                  </select>
+                </div>
+                <div class="field">
+                  <label for="ov-${prefix}-ticker-speed">Scroll speed (px/s)</label>
+                  <input type="number" id="ov-${prefix}-ticker-speed" min="10" max="400" step="10" value="80">
+                </div>
+              </div>
+            </div>
+          </details>
         </div>
       </details>
 
@@ -192,36 +210,6 @@ function _buildOverlayForm(screenId, cfg) {
           </div>
         </div>
       </details>
-
-      <details class="section">
-        <summary>Info Bar</summary>
-        <div class="section-body">
-          ${_inheritToggle('infobar')}
-          <div id="ov-${prefix}-infobar-fields" class="${_sectionIsInheriting(sc, 'infobar') ? 'overlay-inherited' : ''}">
-            <div class="check-row">
-              <input type="checkbox" id="ov-${prefix}-infobar-enabled">
-              <label for="ov-${prefix}-infobar-enabled">Enabled</label>
-            </div>
-            <div class="check-row">
-              <input type="checkbox" id="ov-${prefix}-infobar-clock">
-              <label for="ov-${prefix}-infobar-clock">Show clock</label>
-            </div>
-            <div class="check-row">
-              <input type="checkbox" id="ov-${prefix}-infobar-current-event">
-              <label for="ov-${prefix}-infobar-current-event">Show current event</label>
-            </div>
-            <div class="check-row">
-              <input type="checkbox" id="ov-${prefix}-infobar-next-event">
-              <label for="ov-${prefix}-infobar-next-event">Show next event</label>
-            </div>
-            <div class="check-row">
-              <input type="checkbox" id="ov-${prefix}-infobar-device-info">
-              <label for="ov-${prefix}-infobar-device-info">Show screen ID &amp; IP</label>
-            </div>
-            <p class="field-hint">When enabled, the ticker integrates into the bar rather than appearing as a separate strip.</p>
-          </div>
-        </div>
-      </details>
     </div>
   `;
 }
@@ -242,8 +230,6 @@ function _applyToForm(screenId, sc, cfg) {
   }
 
   // Apply resolved values to form fields (shows inherited values when inheriting)
-  _setChk(`ov-${prefix}-ticker-enabled`, resolved.tickerEnabled || false);
-  _setVal(`ov-${prefix}-ticker-position`, resolved.tickerPosition || 'bottom');
   _setVal(`ov-${prefix}-ticker-speed`, resolved.tickerSpeed ?? 60);
   _setVal(`ov-${prefix}-ticker-mode`, resolved.tickerMode || 'scroll');
   _setVal(`ov-${prefix}-ticker-align`, ['start', 'center', 'end'].includes(resolved.tickerAlign) ? resolved.tickerAlign : 'start');
@@ -305,6 +291,7 @@ function _applyGlobalToForm(cfg) {
   _setChk('ov-global-infobar-current-event', cfg.infoBarShowCurrentEvent !== false);
   _setChk('ov-global-infobar-next-event', cfg.infoBarShowNextEvent !== false);
   _setChk('ov-global-infobar-device-info', cfg.infoBarShowDeviceInfo || false);
+  _setChk('ov-global-infobar-show-ticker', cfg.infoBarShowTicker || false);
 
   // Alert defaults
   _setVal('ov-global-alert-style', cfg.alertStyle || 'banner');
@@ -349,6 +336,7 @@ function _readGlobal() {
   cfg.infoBarShowCurrentEvent = _getChk('ov-global-infobar-current-event');
   cfg.infoBarShowNextEvent    = _getChk('ov-global-infobar-next-event');
   cfg.infoBarShowDeviceInfo   = _getChk('ov-global-infobar-device-info');
+  cfg.infoBarShowTicker       = _getChk('ov-global-infobar-show-ticker');
 
   // Alert defaults
   cfg.alertStyle       = _getVal('ov-global-alert-style');
@@ -391,12 +379,10 @@ function _readScreen(prefix) {
 
 function _readSectionValues(prefix, section, sc) {
   if (section === 'ticker') {
-    sc.tickerEnabled      = _getChk(`ov-${prefix}-ticker-enabled`);
     sc.tickerMessages     = _getMessageRows(prefix);
     sc.tickerMode         = _getVal(`ov-${prefix}-ticker-mode`);
     sc.tickerAlign        = _getVal(`ov-${prefix}-ticker-align`);
     sc.tickerFadeDwellSec = parseInt(_getVal(`ov-${prefix}-ticker-dwell`) || '5', 10);
-    sc.tickerPosition     = _getVal(`ov-${prefix}-ticker-position`);
     sc.tickerSpeed        = parseInt(_getVal(`ov-${prefix}-ticker-speed`) || '60', 10);
   } else if (section === 'bug') {
     sc.bugEnabled   = _getChk(`ov-${prefix}-bug-enabled`);
@@ -548,7 +534,10 @@ function _bindControls() {
   }
 }
 
+let _globalBound = false;
 function _bindGlobal() {
+  if (_globalBound) return;
+  _globalBound = true;
   // Clock, font size, schedule alert defaults
   const changeIds = [
     'ov-global-clock24h',
@@ -561,7 +550,7 @@ function _bindGlobal() {
     'ov-global-qrbug-enabled', 'ov-global-qrbug-corner',
     'ov-global-infobar-enabled', 'ov-global-infobar-clock',
     'ov-global-infobar-current-event', 'ov-global-infobar-next-event',
-    'ov-global-infobar-device-info',
+    'ov-global-infobar-device-info', 'ov-global-infobar-show-ticker',
   ];
   const inputIds = [
     'ov-global-sched-duration', 'ov-global-infobar-font-size',

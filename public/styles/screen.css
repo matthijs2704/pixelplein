@@ -14,7 +14,7 @@
       radial-gradient(circle at 84% 78%, var(--waiting-glow-b, rgba(250, 204, 21, 0.12)), transparent 34vw),
       var(--waiting-bg, var(--screen-bg, #080810));
     color: var(--waiting-fg, #fff);
-    font-family: var(--waiting-font-family, 'Segoe UI', system-ui, -apple-system, sans-serif);
+    font-family: var(--waiting-font-family, 'Segoe UI', system-ui, -apple-system, 'Noto Color Emoji', 'Apple Color Emoji', 'Segoe UI Emoji', sans-serif);
     gap: 24px;
     transition: opacity 0.8s ease;
     z-index: 10;
@@ -156,7 +156,7 @@
     display: flex;
     justify-content: space-between;
     align-items: baseline;
-    font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+    font-family: 'Segoe UI', system-ui, -apple-system, 'Noto Color Emoji', 'Apple Color Emoji', 'Segoe UI Emoji', sans-serif;
   }
   .sync-progress-label {
     font-size: clamp(11px, 1.4vw, 13px);
@@ -201,7 +201,7 @@
     backdrop-filter: blur(8px);
     -webkit-backdrop-filter: blur(8px);
     color: rgba(255, 255, 255, 0.88);
-    font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+    font-family: 'Segoe UI', system-ui, -apple-system, 'Noto Color Emoji', 'Apple Color Emoji', 'Segoe UI Emoji', sans-serif;
     font-size: 12px;
     z-index: 40;
     pointer-events: none;

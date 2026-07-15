@@ -5,6 +5,22 @@
   inset: 0;
 }
 
+/* ── Video fullscreen ────────────────────────────────────────────────────── */
+
+.layout-video-fullscreen {
+  background: #000;
+  overflow: hidden;
+}
+
+/* Video session pages: reels-style scroll-up between back-to-back videos */
+.video-page {
+  position: absolute;
+  inset: 0;
+  transition: transform 0.65s cubic-bezier(0.32, 0.72, 0.24, 1);
+}
+.video-page-enter { transform: translateY(100%); transition: none; }
+.video-page-exit  { transform: translateY(-100%); }
+
 /* ── Fullscreen ───────────────────────────────────────────────────────────── */
 
 .layout-fullscreen {

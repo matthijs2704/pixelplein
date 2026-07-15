@@ -87,15 +87,19 @@ function escapeHtml(s) {
   ));
 }
 
+// Layouts with their own channel/like chrome (post card, story, reels, …)
+// opt out via data-hype-chrome-skip so identity isn't shown twice.
+const IMG_SELECTOR = 'img[data-photo-id]:not([data-hype-chrome-skip])';
+
 function _refreshAll() {
-  const imgs = document.querySelectorAll('img[data-photo-id]');
+  const imgs = document.querySelectorAll(IMG_SELECTOR);
   for (const img of imgs) _ensureBadge(img);
 }
 
 function _scheduleCommentPopup() {
   if (_commentTimer) return;
   _commentTimer = setInterval(() => {
-    const imgs = Array.from(document.querySelectorAll('img[data-photo-id]'));
+    const imgs = Array.from(document.querySelectorAll(IMG_SELECTOR));
     if (!imgs.length) return;
     const img = imgs[Math.floor(Math.random() * imgs.length)];
     const photoId = img.dataset.photoId;

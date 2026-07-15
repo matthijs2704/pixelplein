@@ -232,6 +232,7 @@ main() {
 			--no-first-run \
 			--check-for-update-interval=31536000 \
 			--autoplay-policy=no-user-gesture-required \
+			--use-fake-ui-for-media-stream \
 			--disable-features=TranslateUI,Translate \
 			--disable-breakpad \
 			"${chromium_backend_flags[@]}" \

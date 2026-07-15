@@ -9,15 +9,16 @@ let _groups          = ['ungrouped'];
 let _selectedScreen  = 'all'; // 'all' | '1' | '2' | etc.
 
 const LAYOUT_LABELS = {
-  fullscreen:   'Full screen',
-  sidebyside:   'Side by side',
-  featuredduo:  'Featured duo',
-  polaroid:     'Polaroid',
-  mosaic:       'Mosaic',
-  dynamicsplit: 'Dynamic split',
-  triptych:     'Triptych',
-  cascade:      'Cascade',
-  filmstrip:    'Filmstrip',
+  fullscreen:          'Full screen',
+  sidebyside:          'Side by side',
+  featuredduo:         'Featured duo',
+  polaroid:            'Polaroid',
+  mosaic:              'Mosaic',
+  dynamicsplit:        'Dynamic split',
+  triptych:            'Triptych',
+  cascade:             'Cascade',
+  filmstrip:           'Filmstrip',
+  'video-fullscreen':  'Video full screen',
 };
 
 const TEMPLATE_OPTIONS = [
@@ -116,11 +117,24 @@ function _buildScreenForm(screenKey, cfg, globalCfg) {
       <summary>Core playback<span class="adv-section-hint">Timing, transitions, and which layout types are active</span></summary>
       ${_range(screenKey, 'layoutDuration', 'Display duration', 3000, 30000, 500, s.layoutDuration ?? 8000, v => (v/1000).toFixed(1)+'s')}
       ${_range(screenKey, 'transitionTime', 'Transition speed', 200, 2000, 100, s.transitionTime ?? 800, v => v+'ms')}
-      ${_toggleGroup(screenKey, 'enabledLayouts', 'Enabled layouts',
-          (globalCfg?.availableLayouts || Object.keys(LAYOUT_LABELS)).map(id => [id, LAYOUT_LABELS[id] || globalCfg?.moduleLayoutLabels?.[id] || id]),
-          s.enabledLayouts || globalCfg?.availableLayouts || Object.keys(LAYOUT_LABELS))}
+      ${(() => {
+          const available = globalCfg?.availableLayouts || Object.keys(LAYOUT_LABELS);
+          const saved     = s.enabledLayouts || available;
+          // Layouts saved but no longer available (module disabled) — show as invalid
+          const orphaned  = saved.filter(id => !available.includes(id));
+          const options   = [
+            ...available.map(id => [id, LAYOUT_LABELS[id] || globalCfg?.moduleLayoutLabels?.[id] || id]),
+            ...orphaned.map(id => [id, globalCfg?.moduleLayoutLabels?.[id] || id, true]),
+          ];
+          return _toggleGroup(screenKey, 'enabledLayouts', 'Enabled layouts', options, saved);
+        })()}
       ${_select(screenKey, 'transition', 'Transition animation',
           [['fade','Fade'],['slide','Slide'],['zoom','Zoom']], s.transition || 'fade')}
+      ${_range(screenKey, 'videoEveryCycles', 'Video session frequency', 0, 50, 1, s.videoEveryCycles ?? 6,
+          v => v === 0 ? 'off' : 'every '+v+' cycles',
+          'Pool videos play as a session after this many photo layouts (0 = only via the Videos tab button)')}
+      ${_range(screenKey, 'videoBatchSize', 'Videos per session', 1, 10, 1, s.videoBatchSize ?? 1, v => v+'×',
+          'Back-to-back videos per session, with a reels-style scroll-up between them')}
     </details>
 
     <details class="adv-section">
@@ -217,6 +231,7 @@ function _bindFormEvents() {
 
   container.querySelectorAll('.adv-toggle[data-screen][data-key][data-value]').forEach(el => {
     el.addEventListener('click', () => {
+      if (el.classList.contains('invalid')) return;
       const { screen, key, value } = el.dataset;
       el.classList.toggle('on');
       const cfg = _getConfig();
@@ -337,6 +352,8 @@ function _formatRange(key, val) {
   const xKeys    = ['mosaicSwapRounds'];
 
   if (key === 'layoutDuration')  return (val/1000).toFixed(1)+'s';
+  if (key === 'videoEveryCycles') return val === 0 ? 'off' : 'every '+val+' cycles';
+  if (key === 'videoBatchSize')  return val+'×';
   if (key === 'transitionTime')  return val+'ms';
   if (key === 'mosaicDurationFactor') return val+'%';
   if (key === 'swapStaggerMs')   return val+'ms';
@@ -361,7 +378,10 @@ function _select(screen, key, label, options, current) {
 }
 
 function _toggleGroup(screen, key, label, options, current) {
-  const buttons = options.map(([val, lbl]) => {
+  const buttons = options.map(([val, lbl, invalid]) => {
+    if (invalid) {
+      return `<button class="adv-toggle on invalid" title="Module disabled — layout inactive" data-screen="${screen}" data-key="${key}" data-value="${esc(val)}">${esc(lbl)}</button>`;
+    }
     const on = current.includes(val) ? 'on' : '';
     return `<button class="adv-toggle ${on}" data-screen="${screen}" data-key="${key}" data-value="${esc(val)}">${esc(lbl)}</button>`;
   }).join('');
@@ -414,7 +434,7 @@ function _groupVisibility(screen, hiddenGroups) {
  */
 export function applySafeFallback(getConfig, onChanged) {
   const base = {
-    enabledLayouts: Object.keys(LAYOUT_LABELS),
+    enabledLayouts: Object.keys(LAYOUT_LABELS).filter(l => l !== 'video-fullscreen'),
     transition: 'fade',
     groupMode: 'auto',
     cinematicWeight: 60,

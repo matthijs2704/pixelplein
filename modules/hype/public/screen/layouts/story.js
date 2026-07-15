@@ -4,9 +4,8 @@
 
 import { el, photoUrl } from '/shared/utils.js';
 import { applySmartFit } from '/screen/fit.js';
-import { startKenBurns } from '/screen/transitions.js';
-import { getPhotoChannel, getChannel, getGeneralAccount, getPhotoLikes } from '../state-client.js';
-import { icon } from '../icons.js';
+import { getPhotoLikes, getPhotoChannel, getChannel, getGeneralAccount } from '../state-client.js';
+import { icon, monogramAvatar } from '../icons.js';
 import { fmtCount } from '../format.js';
 
 export const layout = {
@@ -29,9 +28,6 @@ function _build(photo) {
   const root = el('div', { cls: 'layout layout-hype-story' });
   if (!photo) return { el: root, visibleIds: [], startMotion: () => {} };
 
-  const chId = getPhotoChannel(photo.id);
-  const ch = (chId && getChannel(chId)) || getGeneralAccount();
-
   // Legibility scrims top + bottom
   root.appendChild(el('div', { cls: 'hype-story-scrim-top' }));
   root.appendChild(el('div', { cls: 'hype-story-scrim-bottom' }));
@@ -42,33 +38,31 @@ function _build(photo) {
   progressBar.appendChild(progressFill);
   root.appendChild(progressBar);
 
-  // Header
-  if (ch) {
-    const header = el('div', { cls: 'hype-story-header' });
-    header.style.setProperty('--ch-color', ch.color || '#7c5cff');
-    const avatar = el('div', { cls: 'hype-story-avatar', text: String(ch.name || ch.handle || '?').charAt(0).toUpperCase() });
-    if (ch.avatarUrl || ch.avatar_url) {
-      avatar.textContent = '';
-      avatar.appendChild(el('img', { src: ch.avatarUrl || ch.avatar_url, alt: '' }));
-    }
-    header.appendChild(avatar);
-    header.appendChild(el('div', { cls: 'hype-story-meta' },
-      el('div', { cls: 'hype-story-handle', text: ch.handle }),
-      el('div', { cls: 'hype-story-time',   text: 'nu' }),
-    ));
-    root.appendChild(header);
-  }
+  // Header: channel avatar + handle + "nu" — like a real story viewer
+  const chId = getPhotoChannel(photo.id);
+  const ch = (chId && getChannel(chId)) || getGeneralAccount();
+  const head = el('div', { cls: 'hype-story-header' });
+  head.style.setProperty('--ch-color', ch.color || '#00b2ff');
+  head.innerHTML =
+    `<span class="hype-story-avatar">${monogramAvatar(ch.name, ch.color, 38)}</span>` +
+    `<span class="hype-story-handle">${ch.handle} <span class="hype-story-verified">${icon.verified(14)}</span></span>` +
+    `<span class="hype-story-time">nu</span>`;
+  root.appendChild(head);
 
   const wrap = el('div', { cls: 'hype-story-wrap' });
   const img  = el('img', { src: photoUrl(photo), alt: photo.name });
   img.dataset.photoId = photo.id;
+  img.dataset.hypeChromeSkip = '1';
   applySmartFit(img, photo, false);
   wrap.appendChild(img);
   root.appendChild(wrap);
 
-  // Footer: brand caption + live like count
+  // Footer: caption + live like count
   const foot = el('div', { cls: 'hype-story-foot' });
-  foot.appendChild(el('div', { cls: 'hype-story-caption', text: 'live op De Hype' }));
+  foot.appendChild(el('div', {
+    cls: 'hype-story-caption',
+    text: chId ? `nieuwe story van ${ch.name} — live op De Hype` : 'live op De Hype — #kamplive',
+  }));
   const like = el('div', { cls: 'hype-story-like' });
   like.innerHTML = icon.heartFill(22);
   like.appendChild(el('span', { text: fmtCount(getPhotoLikes(photo.id)) }));
@@ -79,10 +73,10 @@ function _build(photo) {
     el: root,
     visibleIds: [photo.id],
     startMotion: (durationMs) => {
-      // CSS handles the progress fill via inline transition
+      // Progress bar only — no Ken Burns: the photo is contain-fit inside
+      // the safe area and zooming would push it under the top/bottom bars.
       progressFill.style.transition = `transform ${durationMs}ms linear`;
       requestAnimationFrame(() => progressFill.style.transform = 'scaleX(1)');
-      startKenBurns(img, durationMs);
     },
   };
 }

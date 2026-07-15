@@ -236,14 +236,15 @@ function _clearLookahead() {
 // ---------------------------------------------------------------------------
 
 async function _buildSlide(slide) {
+  // Module builders are checked first so active modules can wrap built-in types.
+  const moduleBuilder = getModuleSlideBuilder(slide.type);
+  if (moduleBuilder) return moduleBuilder(slide);
   if (slide.type === 'video')          return buildVideoSlide(slide);
   if (slide.type === 'webpage')        return buildWebpageSlide(slide);
   if (slide.type === 'text-card')      return buildTextCardSlide(slide);
   if (slide.type === 'qr')             return buildQrSlide(slide);
   if (slide.type === 'image')          return buildImageSlide(slide);
   if (slide.type === 'article')        return buildArticleSlide(slide);
-  const moduleBuilder = getModuleSlideBuilder(slide.type);
-  if (moduleBuilder) return moduleBuilder(slide);
   throw new Error(`unknown slide type: ${slide.type}`);
 }
 

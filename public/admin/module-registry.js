@@ -1,8 +1,9 @@
 // Admin-side module registry. Mirrors the screen registry but for admin
 // extension points: tabs and WebSocket message handlers.
 
-const _tabs       = [];                // [{ id, label, mount(container) }]
-const _wsHandlers = new Map();         // prefix -> (msg) => void
+const _tabs              = [];         // [{ id, label, mount(container) }]
+const _wsHandlers        = new Map();  // prefix -> (msg) => void
+const _slideFormExts     = new Map();  // type -> { buildExtra(slide)->html, readExtra()->patch }
 
 export function registerAdminTab(tab) {
   if (!tab || typeof tab !== 'object') return;
@@ -22,6 +23,15 @@ export function getRegisteredAdminTabs() {
 export function registerAdminWsHandler(prefix, fn) {
   if (typeof prefix !== 'string' || typeof fn !== 'function') return;
   _wsHandlers.set(prefix, fn);
+}
+
+// Slide-form extension points: modules add extra fields to built-in slide forms.
+export function registerSlideFormExtension(type, { buildExtra, readExtra }) {
+  if (typeof type !== 'string' || typeof buildExtra !== 'function' || typeof readExtra !== 'function') return;
+  _slideFormExts.set(type, { buildExtra, readExtra });
+}
+export function getSlideFormExtension(type) {
+  return _slideFormExts.get(type) || null;
 }
 
 export function dispatchAdminWsMessage(msg) {

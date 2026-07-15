@@ -67,10 +67,23 @@ function getModuleScreenLayouts() {
   return out;
 }
 
+// Returns all slide types declared by loaded modules (type -> { label, module }).
+function getModuleSlideTypes() {
+  const out = new Map();
+  for (const [name, mod] of _loaded.entries()) {
+    if (!Array.isArray(mod.slideTypes)) continue;
+    for (const { type, label } of mod.slideTypes) {
+      if (type) out.set(String(type), { label: String(label || type), module: name });
+    }
+  }
+  return out;
+}
+
 module.exports = {
   MODULES_ROOT,
   loadEnabledModules,
   listLoadedModuleNames,
   getModule,
   getModuleScreenLayouts,
+  getModuleSlideTypes,
 };
