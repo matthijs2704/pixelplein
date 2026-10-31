@@ -195,4 +195,10 @@ adminRouter.post('/reload', (_req, res) => {
   return res.json({ ok: true });
 });
 
+adminRouter.post('/devices/:deviceId/reload', (req, res) => {
+  const sent = broadcastToScreenDevice(req.params.deviceId, { type: 'reload', delayMs: 1500 });
+  if (!sent) return res.status(404).json({ ok: false, error: 'Screen display is not connected' });
+  return res.json({ ok: true });
+});
+
 module.exports = { publicRouter, adminRouter };
