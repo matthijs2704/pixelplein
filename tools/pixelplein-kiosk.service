@@ -17,7 +17,7 @@ TimeoutStopSec=5
 KillMode=control-group
 Environment=PIXELPLEIN_KIOSK_BACKEND=wayland
 Environment=XDG_SESSION_TYPE=wayland
-ExecStart=systemd-inhibit --what=idle:sleep:handle-lid-switch --who=pixelplein-kiosk --why="Kiosk display must stay on" /opt/pixelplein/tools/pixelplein-kiosk.sh
+ExecStart=/opt/pixelplein/tools/pixelplein-kiosk.sh
 Restart=always
 RestartSec=3
 

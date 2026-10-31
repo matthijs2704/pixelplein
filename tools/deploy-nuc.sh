@@ -178,6 +178,7 @@ if [[ -n "$ADMIN_REMOTE" ]]; then
 		sudo cp '$APP_DIR/tools/pixelplein-server.service' /etc/systemd/system/ &&
 		sudo cp '$APP_DIR/tools/pixelplein-agent.service' /etc/systemd/system/ &&
 		sudo cp '$APP_DIR/tools/pixelplein-kiosk.service' /etc/systemd/system/ &&
+		sudo systemctl mask sleep.target suspend.target hibernate.target hybrid-sleep.target &&
 		rm /tmp/pixelplein-sudoers
 	"
 fi

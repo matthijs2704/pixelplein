@@ -202,6 +202,9 @@ EOF
 systemctl enable NetworkManager 2>/dev/null || true
 systemctl enable seatd 2>/dev/null || true
 systemctl enable bluetooth 2>/dev/null || true
+# Kiosk must never suspend. systemd-inhibit can't be used: polkit denies the
+# unprivileged kiosk user, which made the service exit before starting.
+systemctl mask sleep.target suspend.target hibernate.target hybrid-sleep.target 2>/dev/null || true
 # Do not restart NetworkManager here: on fresh installs the active SSH/DNS
 # connection may still be owned by ifupdown. The config takes effect after the
 # final reboot without disrupting the installation session.
