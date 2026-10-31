@@ -48,7 +48,7 @@ async function _waitForImages(el, timeoutMs) {
  *
  * @param {HTMLElement} outEl - The element currently on screen (may be null)
  * @param {HTMLElement} inEl  - The new element to show
- * @param {'fade'|'slide'|'zoom'} type
+ * @param {'fulco-festival-2026-journey'|'fade'|'slide'|'zoom'} type
  * @param {number} durationMs
  * @returns {Promise<void>} Resolves when the transition completes
  */
@@ -63,7 +63,11 @@ export function runTransition(outEl, inEl, type, durationMs) {
     if (outEl) {
       outEl.style.zIndex = '1';
       inEl.style.zIndex = '2';
-      if (transitionType === 'slide') {
+      if (transitionType === 'fulco-festival-2026-journey') {
+        inEl.style.opacity = '1';
+        inEl.style.transform = '';
+        outEl.style.zIndex = '3';
+      } else if (transitionType === 'slide') {
         inEl.style.transform = 'translateX(100%)';
         inEl.style.opacity = '1';
       } else if (transitionType === 'zoom') {
@@ -73,6 +77,53 @@ export function runTransition(outEl, inEl, type, durationMs) {
         inEl.style.opacity = '0';
         inEl.style.transform = '';
       }
+    }
+
+    if (transitionType === 'fulco-festival-2026-journey') {
+      if (!outEl) {
+        inEl.style.opacity = '1';
+        inEl.style.transform = '';
+        inEl.style.zIndex = '';
+        resolve();
+        return;
+      }
+
+      const closingEl = outEl.querySelector?.('.xp-page') || outEl;
+      const x = closingEl.style.getPropertyValue('--reveal-x')
+        || outEl.style.getPropertyValue('--reveal-x')
+        || '50%';
+      const y = closingEl.style.getPropertyValue('--reveal-y')
+        || outEl.style.getPropertyValue('--reveal-y')
+        || '50%';
+      outEl.classList?.add('xp-closing-to-map');
+      closingEl.classList?.remove('xp-page-reveal');
+      outEl.style.zIndex = '4';
+      closingEl.style.zIndex = '4';
+      closingEl.style.opacity = '1';
+      closingEl.style.visibility = 'visible';
+      closingEl.style.transition = '';
+      closingEl.style.animation = 'none';
+      closingEl.style.clipPath = `circle(155% at ${x} ${y})`;
+      closingEl.style.setProperty('--reveal-x', x);
+      closingEl.style.setProperty('--reveal-y', y);
+      requestAnimationFrame(() => {
+        requestAnimationFrame(() => {
+          const closeMs = Math.max(ms, 1150);
+          let done = false;
+          const finish = () => {
+            if (done) return;
+            done = true;
+            closingEl.removeEventListener('animationend', finish);
+            outEl.remove();
+            inEl.style.zIndex = '';
+            resolve();
+          };
+          closingEl.addEventListener('animationend', finish);
+          closingEl.style.animation = `xp-page-close ${closeMs}ms cubic-bezier(.18,.86,.25,1) both`;
+          setTimeout(finish, closeMs + 80);
+        });
+      });
+      return;
     }
 
     await _waitForImages(inEl, Math.min(IMAGE_READY_TIMEOUT_MS, Math.max(250, ms)));

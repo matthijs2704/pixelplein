@@ -4,6 +4,7 @@ FROM node:20-slim
 RUN apt-get update && \
     apt-get install -y --no-install-recommends \
       libvips-dev \
+      libheif-examples \
       ffmpeg \
     && rm -rf /var/lib/apt/lists/*
 
@@ -17,6 +18,7 @@ RUN npm ci --omit=dev
 COPY server/ server/
 COPY public/ public/
 COPY themes/ themes/
+COPY modules/ modules/
 
 # persistent data lives in these directories — mount as volumes
 VOLUME ["/app/photos", "/app/data", "/app/cache", \

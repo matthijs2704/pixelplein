@@ -1,0 +1,817 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+<meta charset="UTF-8">
+<title>Scoutingcarrière Paspoort — Fulco Festival</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,700;12..96,800&family=Inter:wght@400;600&family=Saira+Condensed:wght@600;700&display=swap" rel="stylesheet">
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+:root {
+  --cream:  #f8f1de;
+  --paper:  #e7d4a8;
+  --ink:    #1c2b33;
+  --navy:   #23264e;
+  --route:  #c8442b;
+  --brass:  #c28b22;
+  --scout:  #00a551;
+  --blue:   #6c9fc9;
+  --c1: #6c9fc9;
+  --c2: #ed1c24;
+  --c3: #00a551;
+  --c4: #7c3aed;
+}
+
+@page { size: A4 landscape; margin: 0; }
+
+body {
+  font-family: "Inter", system-ui, sans-serif;
+  background: #b0a898;
+  print-color-adjust: exact;
+  -webkit-print-color-adjust: exact;
+}
+
+.sheet {
+  width: 297mm;
+  height: 210mm;
+  display: flex;
+  page-break-after: always;
+}
+.sheet:last-child { page-break-after: avoid; }
+
+.panel {
+  width: 148.5mm;
+  height: 210mm;
+  overflow: hidden;
+  position: relative;
+}
+
+@media screen {
+  .sheet { margin: 8mm auto; box-shadow: 0 6px 32px rgba(0,0,0,.28); }
+  .panel:first-child::after {
+    content: '';
+    position: absolute;
+    top: 0; right: 0; bottom: 0;
+    width: 1px;
+    background: repeating-linear-gradient(to bottom, #999 0, #999 4px, transparent 4px, transparent 8px);
+    z-index: 99;
+  }
+}
+
+/* ── Shared helpers ──────────────────────────────────────────────────────── */
+.sc { font-family: "Saira Condensed", system-ui, sans-serif; }
+.bg { font-family: "Bricolage Grotesque", system-ui, sans-serif; }
+
+.kicker {
+  font-family: "Saira Condensed", system-ui, sans-serif;
+  font-size: 6.5pt;
+  font-weight: 700;
+  letter-spacing: .18em;
+  text-transform: uppercase;
+}
+
+.stamp-badge {
+  display: inline-block;
+  padding: .25em .75em;
+  border-radius: 5px;
+  background: var(--route);
+  color: var(--cream);
+  font-family: "Saira Condensed", system-ui, sans-serif;
+  font-size: 6.5pt;
+  font-weight: 700;
+  letter-spacing: .14em;
+  text-transform: uppercase;
+  transform: rotate(-1.5deg);
+  flex-shrink: 0;
+}
+
+.stempel-box {
+  width: 14mm;
+  height: 14mm;
+  border: 1.2px dashed rgba(28,43,51,.3);
+  border-radius: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+.stempel-box span {
+  font-family: "Saira Condensed", system-ui, sans-serif;
+  font-size: 5pt;
+  font-weight: 700;
+  letter-spacing: .1em;
+  text-transform: uppercase;
+  color: rgba(28,43,51,.32);
+  text-align: center;
+}
+
+.answer-line {
+  width: 100%;
+  height: 0;
+  border-bottom: 1px solid rgba(28,43,51,.25);
+  margin-bottom: 3mm;
+}
+
+/* ── Route map SVG strip ─────────────────────────────────────────────────── */
+.route-map-wrap {
+  width: 100%;
+}
+.route-map-wrap svg {
+  width: 100%;
+  height: auto;
+  display: block;
+}
+
+
+/* ══════════════════════════════════════════════════════════════════════════
+   PANEL 1 — FRONT COVER
+   ══════════════════════════════════════════════════════════════════════════ */
+.front-cover {
+  padding: 9mm 10mm 8mm;
+  display: flex;
+  flex-direction: column;
+  gap: 5mm;
+  background:
+    radial-gradient(140% 130% at 8% 95%, #b88c28 0%, #9e7820 45%, #7a5c12 100%);
+  color: var(--cream);
+}
+
+.front-cover::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  opacity: .18;
+  background-image:
+    radial-gradient(circle at 50% 50%, transparent 0 52px, rgba(248,241,222,.08) 52px 53px, transparent 53px),
+    radial-gradient(circle at 50% 50%, transparent 0 104px, rgba(248,241,222,.05) 104px 105px, transparent 105px);
+  background-size: 200px 200px;
+}
+
+.front-cover::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  box-shadow: inset 0 0 28mm rgba(20,12,0,.42);
+  pointer-events: none;
+}
+
+.fc-brand {
+  display: flex;
+  align-items: center;
+  gap: 3mm;
+  position: relative;
+  z-index: 1;
+}
+.fc-logo { width: 10mm; height: 10mm; filter: brightness(10); opacity: .9; }
+.fc-brand-name {
+  font-family: "Bricolage Grotesque", system-ui, sans-serif;
+  font-size: 9pt;
+  font-weight: 800;
+  line-height: 1;
+  color: var(--cream);
+}
+.fc-brand-sub {
+  font-family: "Saira Condensed", system-ui, sans-serif;
+  font-size: 6pt;
+  font-weight: 700;
+  letter-spacing: .18em;
+  text-transform: uppercase;
+  color: rgba(248,241,222,.6);
+  margin-top: .8mm;
+}
+
+.fc-divider {
+  height: 1px;
+  background: rgba(248,241,222,.22);
+  position: relative;
+  z-index: 1;
+}
+
+.fc-title-block { position: relative; z-index: 1; }
+.fc-eyebrow {
+  font-family: "Saira Condensed", system-ui, sans-serif;
+  font-size: 7pt;
+  font-weight: 700;
+  letter-spacing: .2em;
+  text-transform: uppercase;
+  color: rgba(248,241,222,.58);
+  margin-bottom: 1.5mm;
+}
+.fc-title {
+  font-family: "Bricolage Grotesque", system-ui, sans-serif;
+  font-size: 31pt;
+  font-weight: 800;
+  line-height: .93;
+  color: var(--cream);
+  letter-spacing: -.01em;
+}
+.fc-route-label {
+  margin-top: 2mm;
+  font-family: "Saira Condensed", system-ui, sans-serif;
+  font-size: 9pt;
+  font-weight: 700;
+  letter-spacing: .14em;
+  text-transform: uppercase;
+  color: rgba(248,241,222,.75);
+}
+
+.fc-name-field {
+  position: relative;
+  z-index: 1;
+  padding: 2.5mm 3.5mm;
+  background: rgba(248,241,222,.1);
+  border: 1.5px solid rgba(248,241,222,.28);
+  border-radius: 6px;
+}
+.fc-name-field .kicker { color: rgba(248,241,222,.52); display: block; margin-bottom: 2.5mm; }
+.fc-name-field .answer-line { border-bottom-color: rgba(248,241,222,.38); margin-bottom: 0; }
+
+/* Mini route map on cover */
+.fc-map-block { position: relative; z-index: 1; }
+.fc-map-label { margin-bottom: 2mm; }
+
+.fc-stamps {
+  display: flex;
+  gap: 2mm;
+  position: relative;
+  z-index: 1;
+}
+.fc-stamp-stop {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1.5mm;
+}
+.fc-stamp-num {
+  width: 7mm;
+  height: 7mm;
+  border-radius: 50%;
+  border: 1.5px solid rgba(248,241,222,.4);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: "Bricolage Grotesque", system-ui, sans-serif;
+  font-size: 7.5pt;
+  font-weight: 800;
+  color: var(--cream);
+}
+.fc-stamp-tag {
+  font-family: "Saira Condensed", system-ui, sans-serif;
+  font-size: 5pt;
+  font-weight: 700;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+  color: rgba(248,241,222,.6);
+  text-align: center;
+  line-height: 1.2;
+}
+
+
+/* ══════════════════════════════════════════════════════════════════════════
+   PANEL 4 — BACK COVER
+   ══════════════════════════════════════════════════════════════════════════ */
+.back-cover {
+  padding: 9mm 10mm 8mm;
+  display: flex;
+  flex-direction: column;
+  gap: 4mm;
+  background:
+    radial-gradient(110% 110% at 10% 90%, #f4ead0 0%, var(--paper) 52%, #dfc892 100%);
+}
+
+.bc-header { margin-bottom: 1mm; }
+.bc-kicker { color: var(--route); margin-bottom: 1.5mm; }
+.bc-title {
+  font-family: "Bricolage Grotesque", system-ui, sans-serif;
+  font-size: 13pt;
+  font-weight: 800;
+  color: var(--navy);
+  line-height: 1.1;
+}
+
+.bc-map-block {
+  padding: 3mm;
+  background: rgba(248,241,222,.7);
+  border: 1.5px solid rgba(28,43,51,.15);
+  border-radius: 8px;
+}
+
+.bc-steps {
+  display: flex;
+  flex-direction: column;
+  gap: 2.5mm;
+  flex: 1;
+}
+
+.bc-step {
+  display: flex;
+  align-items: flex-start;
+  gap: 2.5mm;
+  padding: 2.5mm 3mm;
+  border-radius: 7px;
+  border-left: 3.5px solid;
+  background: rgba(248,241,222,.75);
+}
+.bc-step-1 { border-color: var(--c1); }
+.bc-step-2 { border-color: var(--c2); }
+.bc-step-3 { border-color: var(--c3); }
+.bc-step-4 { border-color: var(--c4); }
+
+.bc-step-num {
+  width: 7mm;
+  height: 7mm;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: "Bricolage Grotesque", system-ui, sans-serif;
+  font-size: 7.5pt;
+  font-weight: 800;
+  color: var(--cream);
+  flex-shrink: 0;
+}
+
+.bc-step-body { min-width: 0; }
+.bc-step-name {
+  font-family: "Bricolage Grotesque", system-ui, sans-serif;
+  font-size: 8pt;
+  font-weight: 800;
+  color: var(--ink);
+  line-height: 1.1;
+}
+.bc-step-tag {
+  font-family: "Saira Condensed", system-ui, sans-serif;
+  font-size: 6pt;
+  font-weight: 700;
+  letter-spacing: .12em;
+  text-transform: uppercase;
+  margin-top: .5mm;
+  margin-bottom: 1mm;
+}
+.bc-step-why {
+  font-size: 6.5pt;
+  font-weight: 600;
+  color: rgba(28,43,51,.68);
+  line-height: 1.35;
+}
+
+.bc-footer {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding-top: 3mm;
+  border-top: 1px solid rgba(28,43,51,.12);
+  margin-top: auto;
+}
+.bc-footer span {
+  font-family: "Saira Condensed", system-ui, sans-serif;
+  font-size: 6.5pt;
+  font-weight: 700;
+  letter-spacing: .1em;
+  text-transform: uppercase;
+  color: rgba(28,43,51,.5);
+}
+
+
+/* ══════════════════════════════════════════════════════════════════════════
+   PANELS 2 & 3 — INSIDE
+   ══════════════════════════════════════════════════════════════════════════ */
+.inside {
+  padding: 8mm 9mm 7mm;
+  display: flex;
+  flex-direction: column;
+  gap: 4mm;
+  background:
+    linear-gradient(90deg, rgba(248,241,222,.96), rgba(248,241,222,.88) 52%, rgba(231,212,168,.92)),
+    radial-gradient(120% 100% at 12% 88%, #ebdab1 0%, var(--paper) 48%, #dfc892 100%);
+}
+
+.in-header {
+  display: flex;
+  align-items: center;
+  gap: 2.5mm;
+  padding-bottom: 3mm;
+  border-bottom: 1.5px solid rgba(28,43,51,.12);
+}
+.in-logo { width: 7.5mm; height: 7.5mm; }
+.in-header-kicker { color: var(--scout); }
+.in-header-title {
+  font-family: "Bricolage Grotesque", system-ui, sans-serif;
+  font-size: 7.5pt;
+  font-weight: 800;
+  color: var(--navy);
+  margin-top: .5mm;
+}
+
+/* Station card */
+.station-card {
+  display: flex;
+  flex-direction: column;
+  gap: 2mm;
+  padding: 3mm;
+  border-radius: 8px;
+  border: 1.5px solid rgba(28,43,51,.14);
+  background: rgba(248,241,222,.82);
+  position: relative;
+  overflow: hidden;
+}
+
+.station-card::before {
+  content: '';
+  position: absolute;
+  top: 0; left: 0; bottom: 0;
+  width: 3px;
+}
+.sc-1::before { background: var(--c1); }
+.sc-2::before { background: var(--c2); }
+.sc-3::before { background: var(--c3); }
+.sc-4::before { background: var(--c4); }
+
+.sc-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 2mm;
+  padding-left: 2mm;
+}
+.sc-titles { flex: 1; min-width: 0; }
+.sc-badges {
+  display: flex;
+  align-items: center;
+  gap: 2mm;
+  margin-bottom: 1.5mm;
+}
+.sc-laag-badge {
+  font-family: "Saira Condensed", system-ui, sans-serif;
+  font-size: 6pt;
+  font-weight: 700;
+  letter-spacing: .12em;
+  text-transform: uppercase;
+}
+.sc-1 .sc-laag-badge { color: var(--c1); }
+.sc-2 .sc-laag-badge { color: var(--c2); }
+.sc-3 .sc-laag-badge { color: var(--c3); }
+.sc-4 .sc-laag-badge { color: var(--c4); }
+
+.sc-name {
+  font-family: "Bricolage Grotesque", system-ui, sans-serif;
+  font-size: 9pt;
+  font-weight: 800;
+  color: var(--navy);
+  line-height: 1.1;
+}
+
+.sc-feit {
+  padding: 2mm 2.5mm;
+  margin-left: 2mm;
+  border-radius: 5px;
+  background: rgba(194,139,34,.08);
+  border: 1px solid rgba(194,139,34,.28);
+}
+.sc-feit-label {
+  font-family: "Saira Condensed", system-ui, sans-serif;
+  font-size: 5.5pt;
+  font-weight: 700;
+  letter-spacing: .14em;
+  text-transform: uppercase;
+  color: var(--brass);
+  display: block;
+  margin-bottom: 1mm;
+}
+.sc-feit-text {
+  font-size: 6.5pt;
+  font-weight: 600;
+  color: rgba(28,43,51,.72);
+  line-height: 1.35;
+}
+
+.sc-question { padding-left: 2mm; }
+.sc-q-label {
+  font-family: "Saira Condensed", system-ui, sans-serif;
+  font-size: 6pt;
+  font-weight: 700;
+  letter-spacing: .14em;
+  text-transform: uppercase;
+  color: var(--route);
+  margin-bottom: 1mm;
+}
+.sc-q-text {
+  font-family: "Bricolage Grotesque", system-ui, sans-serif;
+  font-size: 8pt;
+  font-weight: 700;
+  color: var(--ink);
+  line-height: 1.25;
+  margin-bottom: 2mm;
+}
+
+.in-footer {
+  margin-top: auto;
+  padding-top: 2.5mm;
+  border-top: 1px solid rgba(28,43,51,.1);
+  text-align: center;
+  font-size: 6pt;
+  font-weight: 600;
+  color: rgba(28,43,51,.42);
+}
+</style>
+</head>
+<body>
+
+<!-- ═══════════════════════════════════════════════════════════════════
+     SHEET 1 — FRONT OF PAPER   [Back cover | Front cover]
+     ═══════════════════════════════════════════════════════════════════ -->
+<div class="sheet" id="sheet1">
+
+  <!-- BACK COVER -->
+  <div class="panel back-cover">
+    <div class="bc-header">
+      <div class="kicker bc-kicker">Scoutingcarrière</div>
+      <div class="bc-title">Van Maarn<br>naar de Wereld</div>
+    </div>
+
+    <!-- Mini map -->
+    <div class="bc-map-block">
+      <svg viewBox="0 0 520 90" xmlns="http://www.w3.org/2000/svg" style="overflow:visible;">
+        <!-- Route shadow -->
+        <path d="M 48 68 C 130 60, 190 52, 260 44 C 330 36, 390 28, 472 22"
+          fill="none" stroke="rgba(28,43,51,.12)" stroke-width="5" stroke-linecap="round" transform="translate(0,3)"/>
+        <!-- Route base -->
+        <path d="M 48 68 C 130 60, 190 52, 260 44 C 330 36, 390 28, 472 22"
+          fill="none" stroke="rgba(28,43,51,.18)" stroke-width="3.5" stroke-linecap="round"/>
+        <!-- Route colored dashes -->
+        <path d="M 48 68 C 130 60, 190 52, 260 44 C 330 36, 390 28, 472 22"
+          fill="none" stroke="#c8442b" stroke-width="3" stroke-linecap="round" stroke-dasharray="10 12" opacity=".8"/>
+        <!-- Station dots + labels -->
+        <!-- S1 Maarn -->
+        <circle cx="48" cy="68" r="10" fill="#6c9fc9" stroke="#1c2b33" stroke-width="2.5"/>
+        <text x="48" y="72" text-anchor="middle" font-family="Bricolage Grotesque,system-ui" font-size="9" font-weight="800" fill="#f8f1de">1</text>
+        <text x="48" y="86" text-anchor="middle" font-family="Saira Condensed,system-ui" font-size="8" font-weight="700" fill="#1c2b33" letter-spacing="1">MAARN</text>
+        <!-- S2 Regio UH -->
+        <circle cx="188" cy="50" r="10" fill="#ed1c24" stroke="#1c2b33" stroke-width="2.5"/>
+        <text x="188" y="54" text-anchor="middle" font-family="Bricolage Grotesque,system-ui" font-size="9" font-weight="800" fill="#f8f1de">2</text>
+        <text x="188" y="68" text-anchor="middle" font-family="Saira Condensed,system-ui" font-size="7.5" font-weight="700" fill="#1c2b33" letter-spacing=".5">REGIO UH</text>
+        <!-- S3 Nederland -->
+        <circle cx="330" cy="36" r="10" fill="#00a551" stroke="#1c2b33" stroke-width="2.5"/>
+        <text x="330" y="40" text-anchor="middle" font-family="Bricolage Grotesque,system-ui" font-size="9" font-weight="800" fill="#f8f1de">3</text>
+        <text x="330" y="54" text-anchor="middle" font-family="Saira Condensed,system-ui" font-size="7.5" font-weight="700" fill="#1c2b33" letter-spacing=".5">NEDERLAND</text>
+        <!-- S4 Wereld -->
+        <circle cx="472" cy="22" r="10" fill="#7c3aed" stroke="#1c2b33" stroke-width="2.5"/>
+        <text x="472" y="26" text-anchor="middle" font-family="Bricolage Grotesque,system-ui" font-size="9" font-weight="800" fill="#f8f1de">4</text>
+        <text x="472" y="40" text-anchor="middle" font-family="Saira Condensed,system-ui" font-size="7.5" font-weight="700" fill="#1c2b33" letter-spacing=".5">DE WERELD</text>
+      </svg>
+    </div>
+
+    <div class="bc-steps">
+      <div class="bc-step bc-step-1">
+        <div class="bc-step-num" style="background:var(--c1);">1</div>
+        <div class="bc-step-body">
+          <div class="bc-step-name">Scouting Ridder Fulco</div>
+          <div class="bc-step-tag" style="color:var(--c1);">Maarn · Jouw eigen groep</div>
+          <div class="bc-step-why">Hier begin je. Je eigen groep, je eigen vrienden, je eigen avonturen — elke zaterdag weer.</div>
+        </div>
+      </div>
+      <div class="bc-step bc-step-2">
+        <div class="bc-step-num" style="background:var(--c2);">2</div>
+        <div class="bc-step-body">
+          <div class="bc-step-name">Regio Utrechtse Heuvelrug</div>
+          <div class="bc-step-tag" style="color:var(--c2);">Regio UH · De regio</div>
+          <div class="bc-step-why">Je ontmoet scouts van andere groepen en ontdekt dat scouting veel groter is dan de opkomsten in Maarn.</div>
+        </div>
+      </div>
+      <div class="bc-step bc-step-3">
+        <div class="bc-step-num" style="background:var(--c3);">3</div>
+        <div class="bc-step-body">
+          <div class="bc-step-name">Scouting Nederland</div>
+          <div class="bc-step-tag" style="color:var(--c3);">Nederland · Heel Nederland</div>
+          <div class="bc-step-why">Jij kiest je eigen avontuur. LSW, HIT — er is voor ieder wat wils, ergens in Nederland.</div>
+        </div>
+      </div>
+      <div class="bc-step bc-step-4">
+        <div class="bc-step-num" style="background:var(--c4);">4</div>
+        <div class="bc-step-body">
+          <div class="bc-step-name">Wereldjamboree</div>
+          <div class="bc-step-tag" style="color:var(--c4);">De Wereld · Gdańsk 2027</div>
+          <div class="bc-step-why">Het grootste avontuur begint gewoon hier, in Maarn. Maar het eindigt aan de andere kant van de wereld.</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="bc-footer">
+      <span>ridderfulco.nl</span>
+      <span>Fulco Festival 2025</span>
+    </div>
+  </div>
+
+  <!-- FRONT COVER -->
+  <div class="panel front-cover">
+    <div class="fc-brand">
+      <img class="fc-logo" src="logos/fulco.svg" alt="" onerror="this.style.display='none'">
+      <div>
+        <div class="fc-brand-name">Scouting Ridder Fulco</div>
+        <div class="fc-brand-sub">Fulco Festival 2025</div>
+      </div>
+    </div>
+
+    <div class="fc-divider"></div>
+
+    <div class="fc-title-block">
+      <div class="fc-eyebrow">Officieel document</div>
+      <div class="fc-title">Scouting<br>Paspoort</div>
+      <div class="fc-route-label">Van Maarn naar de Wereld</div>
+    </div>
+
+    <div class="fc-name-field">
+      <span class="kicker fc-name-label" style="color:rgba(248,241,222,.52);display:block;margin-bottom:2.5mm;">Naam paspoorthouder</span>
+      <div class="answer-line" style="border-bottom-color:rgba(248,241,222,.38);"></div>
+    </div>
+
+    <!-- Mini route map -->
+    <div class="fc-map-block">
+      <div class="kicker" style="color:rgba(248,241,222,.5);margin-bottom:2mm;">De route</div>
+      <svg viewBox="0 0 520 72" xmlns="http://www.w3.org/2000/svg" style="overflow:visible;">
+        <path d="M 48 56 C 130 48, 190 40, 260 32 C 330 24, 390 18, 472 12"
+          fill="none" stroke="rgba(248,241,222,.15)" stroke-width="5" stroke-linecap="round" transform="translate(0,2)"/>
+        <path d="M 48 56 C 130 48, 190 40, 260 32 C 330 24, 390 18, 472 12"
+          fill="none" stroke="rgba(248,241,222,.35)" stroke-width="3" stroke-linecap="round"/>
+        <path d="M 48 56 C 130 48, 190 40, 260 32 C 330 24, 390 18, 472 12"
+          fill="none" stroke="rgba(248,241,222,.6)" stroke-width="2.5" stroke-linecap="round" stroke-dasharray="9 11" opacity=".7"/>
+        <!-- S1 -->
+        <circle cx="48" cy="56" r="9" fill="#6c9fc9" stroke="rgba(248,241,222,.7)" stroke-width="2"/>
+        <text x="48" y="60" text-anchor="middle" font-family="Bricolage Grotesque,system-ui" font-size="8" font-weight="800" fill="#f8f1de">1</text>
+        <text x="48" y="72" text-anchor="middle" font-family="Saira Condensed,system-ui" font-size="7" font-weight="700" fill="rgba(248,241,222,.65)" letter-spacing=".5">MAARN</text>
+        <!-- S2 -->
+        <circle cx="188" cy="40" r="9" fill="#ed1c24" stroke="rgba(248,241,222,.7)" stroke-width="2"/>
+        <text x="188" y="44" text-anchor="middle" font-family="Bricolage Grotesque,system-ui" font-size="8" font-weight="800" fill="#f8f1de">2</text>
+        <text x="188" y="56" text-anchor="middle" font-family="Saira Condensed,system-ui" font-size="6.5" font-weight="700" fill="rgba(248,241,222,.65)">REGIO UH</text>
+        <!-- S3 -->
+        <circle cx="330" cy="26" r="9" fill="#00a551" stroke="rgba(248,241,222,.7)" stroke-width="2"/>
+        <text x="330" y="30" text-anchor="middle" font-family="Bricolage Grotesque,system-ui" font-size="8" font-weight="800" fill="#f8f1de">3</text>
+        <text x="330" y="42" text-anchor="middle" font-family="Saira Condensed,system-ui" font-size="6.5" font-weight="700" fill="rgba(248,241,222,.65)">NL</text>
+        <!-- S4 -->
+        <circle cx="472" cy="12" r="9" fill="#7c3aed" stroke="rgba(248,241,222,.7)" stroke-width="2"/>
+        <text x="472" y="16" text-anchor="middle" font-family="Bricolage Grotesque,system-ui" font-size="8" font-weight="800" fill="#f8f1de">4</text>
+        <text x="472" y="28" text-anchor="middle" font-family="Saira Condensed,system-ui" font-size="6.5" font-weight="700" fill="rgba(248,241,222,.65)">WERELD</text>
+      </svg>
+    </div>
+
+    <!-- Stamp boxes -->
+    <div>
+      <div class="kicker" style="color:rgba(248,241,222,.5);margin-bottom:2.5mm;">Stempels ophalen bij elke halte</div>
+      <div class="fc-stamps">
+        <div class="fc-stamp-stop">
+          <div class="fc-stamp-num" style="border-color:var(--c1);">1</div>
+          <div class="stempel-box"><span>stempel</span></div>
+          <div class="fc-stamp-tag">Maarn</div>
+        </div>
+        <div class="fc-stamp-stop">
+          <div class="fc-stamp-num" style="border-color:var(--c2);">2</div>
+          <div class="stempel-box"><span>stempel</span></div>
+          <div class="fc-stamp-tag">Regio UH</div>
+        </div>
+        <div class="fc-stamp-stop">
+          <div class="fc-stamp-num" style="border-color:var(--c3);">3</div>
+          <div class="stempel-box"><span>stempel</span></div>
+          <div class="fc-stamp-tag">Nederland</div>
+        </div>
+        <div class="fc-stamp-stop">
+          <div class="fc-stamp-num" style="border-color:var(--c4);">4</div>
+          <div class="stempel-box"><span>stempel</span></div>
+          <div class="fc-stamp-tag">De Wereld</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════════════
+     SHEET 2 — BACK OF PAPER   [Inside left | Inside right]
+     ═══════════════════════════════════════════════════════════════════ -->
+<div class="sheet" id="sheet2">
+
+  <!-- INSIDE LEFT — stations 1 & 2 -->
+  <div class="panel inside">
+    <div class="in-header">
+      <img class="in-logo" src="logos/fulco.svg" alt="" onerror="this.style.display='none'">
+      <div>
+        <div class="kicker in-header-kicker">Scoutingcarrière Paspoort</div>
+        <div class="in-header-title">Fulco Festival 2025</div>
+      </div>
+    </div>
+
+    <!-- Station 1 -->
+    <div class="station-card sc-1">
+      <div class="sc-top">
+        <div class="sc-titles">
+          <div class="sc-badges">
+            <span class="stamp-badge">Stap 01</span>
+            <span class="sc-laag-badge">Maarn</span>
+          </div>
+          <div class="sc-name">Scouting Ridder Fulco</div>
+        </div>
+        <div class="stempel-box"><span>stempel</span></div>
+      </div>
+      <div class="sc-feit">
+        <span class="sc-feit-label">Wist je dat?</span>
+        <span class="sc-feit-text">Scouting Ridder Fulco bestaat al sinds 1969, dus is waarschijnlijk ouder dan jouw ouders!</span>
+      </div>
+      <div class="sc-question">
+        <div class="sc-q-label">Vraagkaartje · Gewone Opkomsten</div>
+        <div class="sc-q-text">Hoeveel speltakken heeft Scouting Ridder Fulco?</div>
+        <div class="answer-line"></div>
+        <div class="answer-line"></div>
+      </div>
+    </div>
+
+    <!-- Station 2 -->
+    <div class="station-card sc-2">
+      <div class="sc-top">
+        <div class="sc-titles">
+          <div class="sc-badges">
+            <span class="stamp-badge">Stap 02</span>
+            <span class="sc-laag-badge">Regio UH</span>
+          </div>
+          <div class="sc-name">Regio Utrechtse Heuvelrug</div>
+        </div>
+        <div class="stempel-box"><span>stempel</span></div>
+      </div>
+      <div class="sc-feit">
+        <span class="sc-feit-label">Wist je dat?</span>
+        <span class="sc-feit-text">Op één Jungledag spelen soms meer dan 300 welpen tegelijk samen — dat is een heel welpenleger!</span>
+      </div>
+      <div class="sc-question">
+        <div class="sc-q-label">Vraagkaartje · Jungledag</div>
+        <div class="sc-q-text">Hoeveel welpen(groepen) deden er dit jaar mee aan Jungledag?</div>
+        <div class="answer-line"></div>
+        <div class="answer-line"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- INSIDE RIGHT — stations 3 & 4 -->
+  <div class="panel inside">
+    <div class="in-header">
+      <div>
+        <div class="kicker" style="color:var(--route);">Vervolg — haltes 3 & 4</div>
+        <div class="in-header-title" style="color:var(--navy);">Van Nederland naar de Wereld</div>
+      </div>
+    </div>
+
+    <!-- Station 3 -->
+    <div class="station-card sc-3">
+      <div class="sc-top">
+        <div class="sc-titles">
+          <div class="sc-badges">
+            <span class="stamp-badge">Stap 03</span>
+            <span class="sc-laag-badge">Nederland</span>
+          </div>
+          <div class="sc-name">Scouting Nederland</div>
+        </div>
+        <div class="stempel-box"><span>stempel</span></div>
+      </div>
+      <div class="sc-feit">
+        <span class="sc-feit-label">Wist je dat?</span>
+        <span class="sc-feit-text">Elk jaar worden er op 8 plekken meer dan 80 activiteiten georganiseerd — van klimmen en koken tot theater en survival.</span>
+      </div>
+      <div class="sc-question">
+        <div class="sc-q-label">Vraagkaartje · HIT</div>
+        <div class="sc-q-text">In welk weekend vindt de HIT jaarlijks plaats?</div>
+        <div class="answer-line"></div>
+        <div class="answer-line"></div>
+      </div>
+    </div>
+
+    <!-- Station 4 -->
+    <div class="station-card sc-4">
+      <div class="sc-top">
+        <div class="sc-titles">
+          <div class="sc-badges">
+            <span class="stamp-badge">Stap 04</span>
+            <span class="sc-laag-badge">De Wereld</span>
+          </div>
+          <div class="sc-name">Wereldjamboree</div>
+        </div>
+        <div class="stempel-box"><span>stempel</span></div>
+      </div>
+      <div class="sc-feit">
+        <span class="sc-feit-label">Wist je dat?</span>
+        <span class="sc-feit-text">Op een World Scout Jamboree komen meer dan 40.000 scouts uit 150 landen samen in één gigantische tentstad.</span>
+      </div>
+      <div class="sc-question">
+        <div class="sc-q-label">Vraagkaartje · Gdańsk 2027</div>
+        <div class="sc-q-text">Wat is het thema van de WSJ 2027?</div>
+        <div class="answer-line"></div>
+        <div class="answer-line"></div>
+      </div>
+    </div>
+
+    <div class="in-footer">
+      Heb je alle 4 stempels? Gefeliciteerd — jij bent een echte scout!
+    </div>
+  </div>
+
+</div>
+</body>
+</html>

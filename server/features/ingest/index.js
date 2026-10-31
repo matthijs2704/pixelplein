@@ -132,11 +132,12 @@ async function upsertPhotoFromPath(filePath) {
     }
   }
 
+  const derivedGroup = toEventGroup(id);
   const photo = existing || {
     id,
     relativePath: id,
     name:         filename,
-    eventGroup:   toEventGroup(id),
+    eventGroup:   derivedGroup,
     sourcePath:   filePath,
     sourceUrl:    `/photos-original/${id}`,
     displayUrl:   '',
@@ -150,7 +151,7 @@ async function upsertPhotoFromPath(filePath) {
   photo.sourceUrl    = `/photos-original/${id}`;
   photo.relativePath = id;
   photo.name         = filename;
-  photo.eventGroup   = toEventGroup(id);
+  if (!existing) photo.eventGroup = derivedGroup;
   state.photosById.set(id, photo);
   upsertPhotoMetadata(photo).catch(err => {
     console.warn(`[ingest] failed to persist metadata for ${id}: ${err.message}`);

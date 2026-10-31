@@ -10,6 +10,7 @@
 //   countdown: top-right | top-left | bottom-right | bottom-left
 
 import { fmtDuration, el } from '../../../shared/utils.js';
+import { getModuleAlertRenderer } from '../module-registry.js';
 
 const _active = new Map(); // alertId -> { alert, el, timeout }
 let _countdownTimer = null;
@@ -78,6 +79,23 @@ function _reStackBanners() {
 /* ── Element builder ──────────────────────────────────────────────────── */
 
 function _buildEl(alert) {
+  // Module-registered renderer wins (matched by alert.type). It must return
+  // an HTMLElement with [data-alert-id] set; the rest of this file treats it
+  // opaquely.
+  const moduleRender = alert.type && getModuleAlertRenderer(alert.type);
+  if (moduleRender) {
+    try {
+      const node = moduleRender(alert);
+      if (node instanceof HTMLElement) {
+        if (!node.dataset.alertId) node.dataset.alertId = alert.id;
+        if (!node.classList.contains('ov-alert')) node.classList.add('ov-alert');
+        return node;
+      }
+    } catch (err) {
+      console.warn('[modules] alert renderer threw:', alert.type, err && err.message);
+    }
+  }
+
   const style    = alert.style || 'banner';
   const posCls   = _positionClasses(style, alert.position);
   const urgentCls = alert.priority === 'urgent' ? 'urgent' : '';
@@ -152,6 +170,8 @@ function _applyLocalTimeout(entry) {
 
 export function showAlert(alert) {
   if (!alert?.id) return;
+  const existing = _active.get(alert.id);
+  if (existing && Number(existing.alert.firedAt || 0) === Number(alert.firedAt || 0)) return;
   dismissAlert(alert.id);
 
   const el = _buildEl(alert);
@@ -183,7 +203,12 @@ export function dismissAlert(alertId) {
 
   const el = entry.el;
   el.classList.add('ov-dismissing');
-  el.addEventListener('animationend', () => el.remove(), { once: true });
+  let removed = false;
+  const remove = () => { if (removed) return; removed = true; el.remove(); };
+  el.addEventListener('animationend', remove, { once: true });
+  // Backstop: module-rendered alerts may not have a dismiss animation, so
+  // animationend would never fire. Remove after a short timeout regardless.
+  setTimeout(remove, 600);
 
   if (entry.alert.style === 'banner') {
     setTimeout(_reStackBanners, 210);
@@ -192,13 +217,17 @@ export function dismissAlert(alertId) {
 
 export function setAlertSnapshot(alerts) {
   const incoming = Array.isArray(alerts) ? alerts : [];
-  const ids = new Set(incoming.map(a => a.id));
+  const byId = new Map();
+  for (const alert of incoming) {
+    if (alert?.id) byId.set(alert.id, alert);
+  }
+  const ids = new Set(byId.keys());
 
   for (const id of Array.from(_active.keys())) {
     if (!ids.has(id)) dismissAlert(id);
   }
 
-  for (const alert of incoming) {
+  for (const alert of byId.values()) {
     if (!alert?.active || alert.dismissed) continue;
     showAlert(alert);
   }

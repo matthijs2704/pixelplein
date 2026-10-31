@@ -84,7 +84,8 @@ export function removePhotos(ids) {
 }
 
 export function updatePhoto(photo) {
-  photoRegistry.set(photo.id, photo);
+  const existing = photoRegistry.get(photo.id) || {};
+  photoRegistry.set(photo.id, { ...existing, ...photo });
 }
 
 export function setOtherVisibleIds(ids) {

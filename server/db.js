@@ -85,6 +85,67 @@ async function initDb() {
   try {
     await run('ALTER TABLE photo_metadata ADD COLUMN processed_at INTEGER');
   } catch {}
+
+  // Generic per-photo tag store, used by optional modules so they don't
+  // need to mutate photo_metadata. (photo_id, namespace, key) is unique.
+  await run(`
+    CREATE TABLE IF NOT EXISTS photo_tags (
+      photo_id  TEXT NOT NULL,
+      namespace TEXT NOT NULL,
+      key       TEXT NOT NULL,
+      value     TEXT,
+      PRIMARY KEY (photo_id, namespace, key)
+    )
+  `);
+  await run('CREATE INDEX IF NOT EXISTS idx_photo_tags_ns ON photo_tags(namespace, photo_id)');
+  await run('CREATE INDEX IF NOT EXISTS idx_photo_tags_ns_kv ON photo_tags(namespace, key, value)');
+}
+
+async function getPhotoTags(photoId, namespace) {
+  const rows = await all(
+    'SELECT key, value FROM photo_tags WHERE photo_id = ? AND namespace = ?',
+    [photoId, namespace],
+  );
+  const out = {};
+  for (const row of rows) out[row.key] = row.value;
+  return out;
+}
+
+async function setPhotoTag(photoId, namespace, key, value) {
+  if (value === null || value === undefined) {
+    await run(
+      'DELETE FROM photo_tags WHERE photo_id = ? AND namespace = ? AND key = ?',
+      [photoId, namespace, key],
+    );
+    return;
+  }
+  await run(
+    `INSERT INTO photo_tags (photo_id, namespace, key, value)
+     VALUES (?, ?, ?, ?)
+     ON CONFLICT(photo_id, namespace, key) DO UPDATE SET value = excluded.value`,
+    [photoId, namespace, key, String(value)],
+  );
+}
+
+async function listPhotosByTag(namespace, key, value) {
+  const rows = await all(
+    'SELECT photo_id FROM photo_tags WHERE namespace = ? AND key = ? AND value = ?',
+    [namespace, key, String(value)],
+  );
+  return rows.map(r => r.photo_id);
+}
+
+async function listPhotoTagsByNamespace(namespace) {
+  const rows = await all(
+    'SELECT photo_id, key, value FROM photo_tags WHERE namespace = ?',
+    [namespace],
+  );
+  const out = {};
+  for (const row of rows) {
+    if (!out[row.photo_id]) out[row.photo_id] = {};
+    out[row.photo_id][row.key] = row.value;
+  }
+  return out;
 }
 
 async function listUsersFromDb() {
@@ -232,6 +293,9 @@ async function loadAllPhotoMetadata() {
 module.exports = {
   DB_PATH,
   initDb,
+  run,
+  get,
+  all,
   listUsersFromDb,
   getUserByUsername,
   insertUser,
@@ -244,4 +308,8 @@ module.exports = {
   loadPhotoOverrides,
   loadAllPhotoMetadata,
   clearAllPhotoMetadata,
+  getPhotoTags,
+  setPhotoTag,
+  listPhotosByTag,
+  listPhotoTagsByNamespace,
 };

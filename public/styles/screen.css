@@ -14,7 +14,7 @@
       radial-gradient(circle at 84% 78%, var(--waiting-glow-b, rgba(250, 204, 21, 0.12)), transparent 34vw),
       var(--waiting-bg, var(--screen-bg, #080810));
     color: var(--waiting-fg, #fff);
-    font-family: var(--waiting-font-family, 'Segoe UI', system-ui, -apple-system, sans-serif);
+    font-family: var(--waiting-font-family, 'Segoe UI', system-ui, -apple-system, 'Noto Color Emoji', 'Apple Color Emoji', 'Segoe UI Emoji', sans-serif);
     gap: 24px;
     transition: opacity 0.8s ease;
     z-index: 10;
@@ -45,18 +45,18 @@
     animation: waiting-breathe 3s ease-in-out infinite;
   }
   .waiting-logo-img {
-    width: clamp(64px, 10vw, 96px);
-    height: clamp(64px, 10vw, 96px);
+    width: clamp(64px, 10vw, 192px);
+    height: clamp(64px, 10vw, 192px);
   }
   .waiting-logo-name {
-    font-size: clamp(16px, 2.5vw, 22px);
+    font-size: clamp(16px, 2.5vw, 44px);
     font-weight: 600;
     letter-spacing: 0.01em;
     color: rgba(255,255,255,0.75);
   }
-  .waiting-title { font-size: clamp(18px, 3vw, 28px); font-weight: 700; letter-spacing: 0.01em; }
+  .waiting-title { font-size: clamp(18px, 3vw, 56px); font-weight: 700; letter-spacing: 0.01em; }
   .waiting-sub {
-    font-size: clamp(12px, 1.8vw, 16px);
+    font-size: clamp(12px, 1.8vw, 32px);
     color: var(--waiting-muted, rgba(255,255,255,0.45));
     display: flex; align-items: center; gap: 6px;
   }
@@ -80,7 +80,7 @@
   /* Pairing mode: inherits #waiting base (icon, title, bg, gap).
      Only the sub needs a column layout to stack code + steps + meta. */
   .waiting-pairing .waiting-sub {
-    width: min(800px, 92vw);
+    width: min(92vw, max(800px, 41.7vw));
     display: flex;
     flex-direction: column;
     align-items: center;
@@ -90,7 +90,7 @@
   }
 
   .pair-code {
-    font-size: clamp(72px, 14vw, 180px);
+    font-size: clamp(72px, 14vw, 360px);
     font-weight: 800;
     letter-spacing: 0.1em;
     color: #fff;
@@ -107,7 +107,7 @@
   }
   .pair-steps span {
     color: var(--waiting-muted, rgba(255,255,255,0.45));
-    font-size: clamp(12px, 1.8vw, 16px);
+    font-size: clamp(12px, 1.8vw, 32px);
     white-space: nowrap;
     background: none;
     border: none;
@@ -121,7 +121,7 @@
 
   .pair-meta {
     color: rgba(255,255,255,0.28);
-    font-size: clamp(11px, 1.2vw, 13px);
+    font-size: clamp(11px, 1.2vw, 26px);
     font-variant-numeric: tabular-nums;
     letter-spacing: 0.04em;
   }
@@ -129,7 +129,7 @@
   .pair-message {
     max-width: 520px;
     color: var(--waiting-muted, rgba(255,255,255,0.45));
-    font-size: clamp(14px, 2vw, 18px);
+    font-size: clamp(14px, 2vw, 36px);
     font-weight: 500;
     line-height: 1.4;
   }
@@ -142,7 +142,7 @@
 
   /* ── Sync progress — waiting-screen block ────────────────────────────── */
   #sync-progress {
-    width: clamp(240px, 40vw, 420px);
+    width: clamp(240px, 40vw, 840px);
     display: flex;
     flex-direction: column;
     gap: 10px;
@@ -156,22 +156,22 @@
     display: flex;
     justify-content: space-between;
     align-items: baseline;
-    font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+    font-family: 'Segoe UI', system-ui, -apple-system, 'Noto Color Emoji', 'Apple Color Emoji', 'Segoe UI Emoji', sans-serif;
   }
   .sync-progress-label {
-    font-size: clamp(11px, 1.4vw, 13px);
+    font-size: clamp(11px, 1.4vw, 26px);
     color: rgba(255,255,255,0.55);
     letter-spacing: 0.04em;
     text-transform: uppercase;
   }
   .sync-progress-count {
-    font-size: clamp(12px, 1.6vw, 15px);
+    font-size: clamp(12px, 1.6vw, 30px);
     font-weight: 600;
     color: rgba(255,255,255,0.85);
     font-variant-numeric: tabular-nums;
   }
   .sync-progress-speed {
-    font-size: clamp(10px, 1.3vw, 12px);
+    font-size: clamp(10px, 1.3vw, 24px);
     color: rgba(255,255,255,0.38);
     font-variant-numeric: tabular-nums;
   }
@@ -201,7 +201,7 @@
     backdrop-filter: blur(8px);
     -webkit-backdrop-filter: blur(8px);
     color: rgba(255, 255, 255, 0.88);
-    font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+    font-family: 'Segoe UI', system-ui, -apple-system, 'Noto Color Emoji', 'Apple Color Emoji', 'Segoe UI Emoji', sans-serif;
     font-size: 12px;
     z-index: 40;
     pointer-events: none;

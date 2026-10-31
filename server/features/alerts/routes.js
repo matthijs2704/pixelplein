@@ -75,12 +75,10 @@ router.post('/alerts/:id/fire', (req, res) => {
 router.post('/alerts/:id/dismiss', (req, res) => {
   const id = String(req.params.id || '');
   const alert = dismissAlert(id);
-  if (!alert) {
-    return res.status(404).json({ ok: false, error: 'Alert not found' });
-  }
-
+  // Broadcast even when the id isn't in the store: modules fire ephemeral
+  // cutscene alerts (fixed ids) straight over WS without a store entry.
   broadcast({ type: 'alert_dismiss', alertId: id });
-  res.json({ ok: true, alert });
+  res.json({ ok: true, alert: alert || null });
 });
 
 router.delete('/alerts/:id', (req, res) => {

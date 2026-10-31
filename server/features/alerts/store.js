@@ -87,6 +87,15 @@ function _sanitizeAlertPatch(input, base = {}) {
     next.eventId = src.eventId ? String(src.eventId) : null;
   }
 
+  // Free-form module fields: `type` selects a module-registered renderer
+  // (e.g. "hype-glitch"), `payload` is opaque module data.
+  if (Object.prototype.hasOwnProperty.call(src, 'type')) {
+    next.type = src.type == null ? null : String(src.type).slice(0, 64);
+  }
+  if (Object.prototype.hasOwnProperty.call(src, 'payload')) {
+    next.payload = (src.payload && typeof src.payload === 'object') ? src.payload : null;
+  }
+
   if (!ALERT_POSITIONS.has(next.position)) {
     if (next.style === 'popup')      next.position = 'center';
     else if (next.style === 'countdown') next.position = 'top-right';
@@ -160,6 +169,8 @@ function _sanitizeAlert(alert) {
     firedAt: null,
     dismissedAt: null,
     eventId: null,
+    type: null,
+    payload: null,
   });
   if (!next.id) next.id = crypto.randomUUID();
   next.createdAt = _toInt(alert?.createdAt, 0, Number.MAX_SAFE_INTEGER, now);
@@ -284,6 +295,15 @@ function createAlert(input) {
     dismissedAt: null,
     eventId: null,
   };
+
+  // Honor a caller-supplied id (modules use fixed ids like
+  // "hype-hacker-active" so their cutscenes can be dismissed by id).
+  // Re-firing the same id replaces the previous entry.
+  if (typeof input?.id === 'string' && input.id.trim()) {
+    base.id = input.id.trim().slice(0, 80);
+    const existing = _alerts.findIndex(a => a.id === base.id);
+    if (existing !== -1) _alerts.splice(existing, 1);
+  }
 
   const next = _sanitizeAlertPatch(input, base);
   const shouldFireNow = Boolean(input?.fireNow) || (next.trigger === 'manual' && !next.scheduledAt);

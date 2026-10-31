@@ -68,6 +68,7 @@ The kiosk script auto-detects available binary.
 | Package | Purpose | Used By | Critical? |
 |---------|---------|---------|-----------|
 | `ffmpeg` | Video transcoding | Server (video uploads) | If running local server |
+| `libheif-examples` | HEIC/HEIF to JPEG fallback (`heif-convert`) | Server (photo uploads) | If accepting iPhone HEIC uploads |
 
 ### Node.js Dependencies
 

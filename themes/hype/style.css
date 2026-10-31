@@ -1,0 +1,305 @@
+/* ─── De Hype theme ────────────────────────────────────────────────────────
+   Makes the base PixelPlein photo display read like the De Hype social
+   platform: app chrome (top nav + bottom tab bar), brand palette
+   (yellow #F5D904 + hot-pink #F52368 on near-black), Bebas Neue display +
+   DM Sans UI, photos presented as rounded feed cards. Visual only.
+   Pairs with the hype module, which paints live handles/likes on top.
+──────────────────────────────────────────────────────────────────────────── */
+
+@font-face {
+  font-family: 'Bebas Neue';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url('/themes/hype/assets/fonts/BebasNeue-Regular.ttf') format('truetype');
+}
+
+@font-face {
+  font-family: 'DM Sans';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url('/themes/hype/assets/fonts/DMSans-Regular.ttf') format('truetype');
+}
+
+@font-face {
+  font-family: 'DM Sans';
+  font-style: normal;
+  font-weight: 500;
+  font-display: swap;
+  src: url('/themes/hype/assets/fonts/DMSans-Medium.ttf') format('truetype');
+}
+
+@font-face {
+  font-family: 'DM Sans';
+  font-style: normal;
+  font-weight: 700;
+  font-display: swap;
+  src: url('/themes/hype/assets/fonts/DMSans-Bold.ttf') format('truetype');
+}
+
+@font-face {
+  font-family: 'DM Sans';
+  font-style: normal;
+  font-weight: 900;
+  font-display: swap;
+  src: url('/themes/hype/assets/fonts/DMSans-Black.ttf') format('truetype');
+}
+
+:root {
+  /* ── Brand palette ────────────────────────────────────────────────── */
+  --hype-yellow:  #f5d904;
+  --hype-pink:    #f52368;
+  --hype-blue:    #00b2ff;
+  --hype-gradient: linear-gradient(100deg, #f5d904 0%, #f52368 100%);
+
+  /* ── Surfaces (near-black) ────────────────────────────────────────── */
+  --hype-bg-0:    #050608;
+  --hype-bg-1:    #0b0d12;
+  --hype-bg-2:    #15181f;
+  --hype-surface: #15181f;
+  --hype-card:    #232750;
+  --hype-border:  rgba(255, 255, 255, 0.08);
+  --hype-border-strong: rgba(255, 255, 255, 0.16);
+  --hype-text:    #ffffff;
+  --hype-muted:   rgba(255, 255, 255, 0.50);
+  --hype-accent:  var(--hype-pink);
+
+  /* ── Fonts ────────────────────────────────────────────────────────── */
+  --hype-font:    'DM Sans', -apple-system, system-ui, 'Noto Color Emoji', 'Apple Color Emoji', 'Segoe UI Emoji', sans-serif;
+  --hype-display: 'Bebas Neue', 'DM Sans', system-ui, 'Noto Color Emoji', 'Apple Color Emoji', 'Segoe UI Emoji', sans-serif;
+
+  /* ── Shell metrics ────────────────────────────────────────────────── */
+  --hype-tab-h:  clamp(52px, 5.0vh, 152px);
+  --hype-nav-h:  var(--hype-tab-h);
+
+  /* Reserve room for the chrome so photos never hide behind it */
+  --screen-padding-top:    var(--hype-nav-h);
+  --screen-padding-right:  clamp(14px, 1vw, 60px);
+  --screen-padding-bottom: var(--hype-tab-h);
+  --screen-padding-left:   clamp(14px, 1vw, 60px);
+  --screen-bg: var(--hype-bg-1);
+
+  /* ── Tiles (mosaic / side-by-side / featured-duo / fullscreen) ────── */
+  --tile-gap:     clamp(8px, 0.6vw, 32px);
+  --tile-radius:  8px;
+  --tile-shadow:  0 1px 0 rgba(255,255,255,0.05) inset,
+                  0 18px 40px rgba(0, 0, 0, 0.55);
+  --tile-border:  1px solid var(--hype-border);
+
+  --polaroid-bg:          transparent;
+  /* Keep the classic white instant-photo frame — dark cards don't read as polaroids */
+  --polaroid-card-bg:     #fffef8;
+  --polaroid-card-radius: 8px;
+  --polaroid-card-shadow: 0 18px 40px rgba(0, 0, 0, 0.6);
+
+  /* ── Text-card slide ──────────────────────────────────────────────── */
+  --textcard-bg:         linear-gradient(160deg, var(--hype-bg-2) 0%, var(--hype-bg-0) 100%);
+  --textcard-color:      var(--hype-text);
+  --textcard-accent:     var(--hype-yellow);
+  --textcard-font:       var(--hype-font);
+  --textcard-title-size: clamp(2.6rem, 5vw, 6rem);
+  --textcard-body-size:  clamp(1rem, 1.6vw, 2rem);
+
+  --qr-bg:          #fff;
+  --qr-color:       #0b0d12;
+  --qr-muted-color: #6b6b73;
+
+  /* ── Ticker font (infobar-ticker inherits these) ──────────────────── */
+  --ticker-color:          var(--hype-text);
+  --ticker-font-size:      clamp(19px, 1.4vw, 56px);
+  --ticker-font-weight:    400;
+  --ticker-font-family:    var(--hype-display);
+  --ticker-letter-spacing: 0;
+
+  /* ── Infobar — IS the tab bar ──────────────────────────────────────── */
+  --infobar-bg:              rgba(11, 13, 18, 0.96);
+  --infobar-color:           var(--hype-text);
+  --infobar-height:          var(--hype-tab-h);
+  --infobar-border-top:      3px solid var(--hype-pink);
+  --infobar-font-family:     var(--hype-display);
+  --infobar-font-size:       clamp(19px, 1.4vw, 56px);
+  --infobar-clock-color:     var(--hype-muted);
+  --infobar-event-color:     var(--hype-text);
+  --infobar-countdown-color: var(--hype-yellow);
+  --infobar-divider-color:   var(--hype-border);
+
+  /* ── Corner bug — brand pill ──────────────────────────────────────── */
+  --bug-bg:          rgba(21, 24, 31, 0.82);
+  --bug-radius:      6px;
+  --bug-padding:     6px 13px;
+  --bug-color:       var(--hype-text);
+  --bug-font-size:   clamp(13px, 0.85vw, 38px);
+  --bug-font-weight: 700;
+  --bug-font-family: var(--hype-font);
+}
+
+/* Global type */
+body, #screen {
+  font-family: var(--hype-font);
+  color: var(--hype-text);
+  background: var(--hype-bg-1);
+}
+
+/* ── Top nav bar ────────────────────────────────────────────────────────── */
+
+#hype-shell { pointer-events: none; }
+
+#hype-nav {
+  position: fixed;
+  top: 0; left: 0; right: 0;
+  height: var(--hype-nav-h);
+  z-index: 9100;
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 0 clamp(16px, 1.6vw, 72px);
+  background:
+    linear-gradient(90deg, rgba(11,13,18,0.96), rgba(11,13,18,0.78)),
+    rgba(11, 13, 18, 0.86);
+  -webkit-backdrop-filter: blur(18px) saturate(140%);
+          backdrop-filter: blur(18px) saturate(140%);
+  border-bottom: 3px solid var(--hype-yellow);
+  box-shadow: 0 14px 36px rgba(0,0,0,0.34);
+}
+
+.hype-nav-brand { display: flex; align-items: center; gap: 12px; }
+.hype-brand-logo {
+  height: clamp(52px, 6.1vh, 192px);
+  width: auto; display: block;
+  filter: drop-shadow(0 12px 22px rgba(0,0,0,0.42));
+}
+.hype-nav-live {
+  display: inline-flex; align-items: center; gap: 6px;
+  background: var(--hype-yellow); color: #0b0d12;
+  font-family: var(--hype-display);
+  font-weight: 400; font-size: clamp(18px, 1.35vw, 60px);
+  letter-spacing: 0; text-transform: uppercase;
+  padding: 5px 16px 3px; border-radius: 4px;
+  transform: rotate(-2deg);
+  box-shadow: 6px 6px 0 rgba(0,0,0,0.34);
+  clip-path: polygon(1% 10%, 100% 0, 97% 88%, 0 100%);
+}
+.hype-nav-live::before {
+  content: ''; width: 7px; height: 7px; border-radius: 50%;
+  background: #0b0d12; animation: hype-live-blink 1.6s ease-in-out infinite;
+}
+@keyframes hype-live-blink { 0%,100% { opacity: 1; } 50% { opacity: 0.25; } }
+
+.hype-nav-icons {
+  display: flex; align-items: center; gap: clamp(14px, 1.2vw, 52px);
+  color: var(--hype-text);
+}
+.hype-nav-icons svg { width: clamp(20px, 1.5vw, 54px); height: clamp(20px, 1.5vw, 54px); }
+
+/* ── Bottom tab bar icons (now inside infobar slot-end) ─────────────────── */
+
+.hype-tabbar-icons {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: clamp(18px, 1.8vw, 68px);
+  padding-left: clamp(18px, 1.8vw, 84px);
+  padding-right: clamp(18px, 1.8vw, 84px);
+}
+.hype-tab {
+  width:  clamp(24px, 2vw, 64px);
+  height: clamp(24px, 2vw, 64px);
+}
+.hype-tab.active { color: var(--hype-text); }
+/* Center "create" button — filled yellow, like a real app */
+.hype-tab.plus {
+  width:  clamp(40px, 3.4vw, 112px);
+  height: clamp(28px, 2.4vw, 76px);
+  color: #0b0d12;
+  background: var(--hype-gradient);
+  border-radius: 6px;
+  padding: 4px;
+  box-shadow: 0 6px 18px rgba(245, 35, 104, 0.4);
+}
+
+/* ── Stream / takeover: the module owns the full screen, hide chrome ─────── */
+body.hype-stream-mode {
+  --screen-padding-top: 0px;
+  --screen-padding-right: 0px;
+  --screen-padding-bottom: 0px;
+  --screen-padding-left: 0px;
+}
+body.hype-stream-mode #overlay-infobar,
+body:has(.hype-social-root) #hype-shell,
+body:has(.hype-stream-live) #hype-shell { display: none !important; }
+
+/* Infobar: full-width — IS the bottom bar */
+#overlay-infobar {
+  padding-left: 14px;
+  font-weight: 400;
+  line-height: 1;
+  -webkit-backdrop-filter: blur(18px) saturate(140%);
+          backdrop-filter: blur(18px) saturate(140%);
+}
+
+/* Theme slots: hidden until adopted by the infobar */
+#overlay-infobar-slot-start,
+#overlay-infobar-slot-end { display: none; }
+
+#overlay-infobar #overlay-infobar-slot-start {
+  display: flex;
+  align-items: center;
+  flex-shrink: 0;
+  padding-right: 14px;
+}
+/* Allow event slots to shrink so they don't push past the end slot icons */
+#overlay-infobar #overlay-infobar-event,
+#overlay-infobar #overlay-infobar-event2 {
+  flex-shrink: 1;
+  min-width: 0;
+}
+
+#overlay-infobar #overlay-infobar-slot-end {
+  display: flex;
+  align-items: center;
+  gap: clamp(18px, 1.8vw, 68px);
+  padding-right: clamp(18px, 1.8vw, 84px);
+  flex-shrink: 0;
+}
+
+/* ── Tiles ──────────────────────────────────────────────────────────────── */
+.tile, .photo-tile {
+  border-radius: var(--tile-radius);
+  overflow: hidden;
+  border: 2px solid rgba(255,255,255,0.12);
+  box-shadow: var(--tile-shadow);
+}
+
+/* ── Hype chrome overlay — brand the handle / like / viral badges ───────── */
+
+.hype-chrome-badge {
+  background:
+    linear-gradient(rgba(11,13,18,0.82), rgba(11,13,18,0.82)) padding-box,
+    var(--hype-gradient) border-box !important;
+  border: 2px solid transparent !important;
+  border-radius: 999px !important;
+  padding: 5px 14px 5px 7px !important;
+  box-shadow: 0 6px 18px rgba(0,0,0,0.55) !important;
+  -webkit-backdrop-filter: blur(8px);
+          backdrop-filter: blur(8px);
+  gap: 8px !important;
+  font-family: var(--hype-font) !important;
+}
+.hype-chrome-likes {
+  background: rgba(11, 13, 18, 0.6) !important;
+  -webkit-backdrop-filter: blur(10px);
+          backdrop-filter: blur(10px);
+  border-radius: 999px !important;
+  padding: 6px 14px !important;
+  font-family: var(--hype-font) !important;
+}
+.hype-chrome-heart { color: var(--hype-pink) !important; }
+
+.hype-chrome-viral {
+  background: var(--hype-gradient) !important;
+  color: #0b0d12 !important;
+  border-radius: 999px !important;
+  padding: 4px 11px !important;
+  font-weight: 900 !important;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}

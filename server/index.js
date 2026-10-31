@@ -1,18 +1,21 @@
 'use strict';
 
-const express     = require('express');
-const httpMod     = require('http');
-const path        = require('path');
-const fs          = require('fs');
-const os          = require('os');
-const crypto      = require('crypto');
-const session     = require('express-session');
+const express = require('express');
+const httpMod = require('http');
+const path = require('path');
+const fs = require('fs');
+const os = require('os');
+const crypto = require('crypto');
+const session = require('express-session');
 const compression = require('compression');
 
 const { loadConfig, getConfig, saveConfig } = require('./config');
-const { initDb, loadPhotoOverrides, loadAllPhotoMetadata, DB_PATH } = require('./db');
-const state          = require('./state');
-const { createWss }  = require('./features/ws/index');
+const db = require('./db');
+const { initDb, loadPhotoOverrides, loadAllPhotoMetadata, DB_PATH } = db;
+const state = require('./state');
+const { loadEnabledModules, MODULES_ROOT, listLoadedModuleNames } = require('./modules/loader');
+const broadcastMod = require('./features/ws/broadcast');
+const { createWss } = require('./features/ws/index');
 const { startWatcher } = require('./features/ingest/watcher');
 const { scanPhotos, PHOTOS_DIR } = require('./features/ingest/index');
 const { CACHE_DIR, THUMB_DIR, toCacheFilePath, toThumbFilePath } = require('./features/ingest/process');
@@ -20,12 +23,12 @@ const { startAlertScheduler, stopAlertScheduler } = require('./features/alerts/s
 const { initAlertStore } = require('./features/alerts/store');
 const { initSubmissionStore } = require('./features/submissions/store');
 
-const photosRouter  = require('./features/photos/routes');
+const photosRouter = require('./features/photos/routes');
 const screensRouter = require('./features/screens/routes');
 const { publicRouter: screenDevicesPublicRouter, adminRouter: screenDevicesAdminRouter } = require('./features/screens/device-routes');
 const { slidesRouter, playlistRouter, qrRouter } = require('./features/slides/routes');
-const themesRouter  = require('./features/themes/routes');
-const alertsRouter  = require('./features/alerts/routes');
+const themesRouter = require('./features/themes/routes');
+const alertsRouter = require('./features/alerts/routes');
 const { publicRouter: submissionsPublicRouter, adminRouter: submissionsAdminRouter } = require('./features/submissions/routes');
 const { router: authRouter, requireAuth } = require('./features/auth/routes');
 const { THEMES_DIR } = require('./features/themes/store');
@@ -44,17 +47,17 @@ function getLocalIPs() {
 
 // Ensure required directories exist
 const SLIDE_ASSETS_DIR = path.join(__dirname, '..', 'slide-assets');
-const VIDEOS_DIR       = path.join(SLIDE_ASSETS_DIR, 'videos');
-const IMAGES_DIR       = path.join(SLIDE_ASSETS_DIR, 'images');
-const QR_CACHE_DIR     = path.join(__dirname, '..', 'cache', 'qr');
+const VIDEOS_DIR = path.join(SLIDE_ASSETS_DIR, 'videos');
+const IMAGES_DIR = path.join(SLIDE_ASSETS_DIR, 'images');
+const QR_CACHE_DIR = path.join(__dirname, '..', 'cache', 'qr');
 
-fs.mkdirSync(PHOTOS_DIR,  { recursive: true });
-fs.mkdirSync(CACHE_DIR,   { recursive: true });
-fs.mkdirSync(THUMB_DIR,   { recursive: true });
-fs.mkdirSync(VIDEOS_DIR,  { recursive: true });
-fs.mkdirSync(IMAGES_DIR,  { recursive: true });
+fs.mkdirSync(PHOTOS_DIR, { recursive: true });
+fs.mkdirSync(CACHE_DIR, { recursive: true });
+fs.mkdirSync(THUMB_DIR, { recursive: true });
+fs.mkdirSync(VIDEOS_DIR, { recursive: true });
+fs.mkdirSync(IMAGES_DIR, { recursive: true });
 fs.mkdirSync(QR_CACHE_DIR, { recursive: true });
-fs.mkdirSync(THEMES_DIR,   { recursive: true });
+fs.mkdirSync(THEMES_DIR, { recursive: true });
 fs.mkdirSync(SUBMISSION_ASSETS_DIR, { recursive: true });
 fs.mkdirSync(SUBMISSION_ORIGINAL_DIR, { recursive: true });
 fs.mkdirSync(SUBMISSION_THUMB_DIR, { recursive: true });
@@ -103,13 +106,22 @@ async function _preloadPhotoStateFromDb() {
 // HTTP server + Express
 // ---------------------------------------------------------------------------
 
-const app    = express();
+const app = express();
 const server = httpMod.createServer(app);
 
 app.set('trust proxy', 1);
 
+app.use((_, res, next) => {
+  res.setHeader('Access-Control-Allow-Private-Network', 'true');
+  // CORS allow all
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+
+  next();
+});
 app.use(compression());
-app.use(express.json());
+app.use(express.json({ limit: '6mb' })); // ruim genoeg voor een geresizede regie-foto (base64)
 const sessionMiddleware = session({
   name: 'pixelplein.sid',
   secret: _getOrCreateSessionSecret(),
@@ -119,7 +131,7 @@ const sessionMiddleware = session({
   cookie: {
     httpOnly: true,
     sameSite: 'lax',
-    secure: process.env.NODE_ENV === 'production',
+    secure: (getConfig().publicBaseUrl || '').startsWith('https://'),
   },
 });
 
@@ -139,43 +151,82 @@ app.use('/thumbs', express.static(THUMB_DIR, {
   immutable: true,
 }));
 
-app.use('/photos-original',  express.static(PHOTOS_DIR));
-app.use('/slide-assets',     express.static(SLIDE_ASSETS_DIR, {
-  maxAge:       '7d',      // browser caches videos/images for 7 days
-  etag:         true,      // conditional GET on revisit
+app.use('/photos-original', express.static(PHOTOS_DIR));
+app.use('/slide-assets', express.static(SLIDE_ASSETS_DIR, {
+  maxAge: '7d',      // browser caches videos/images for 7 days
+  etag: true,      // conditional GET on revisit
   lastModified: true,
 }));
-app.use('/cache/qr',         express.static(QR_CACHE_DIR, {
+app.use('/cache/qr', express.static(QR_CACHE_DIR, {
   maxAge: '1y',
   immutable: true,
 }));
-app.use('/themes',           express.static(THEMES_DIR));
+app.use('/themes', express.static(THEMES_DIR));
+
+// Module-owned static assets: /modules/<name>/* serves modules/<name>/public/*
+app.use('/modules/:name', (req, res, next) => {
+  const name = req.params.name;
+  if (!/^[a-z0-9_-]+$/i.test(name)) return next();
+  const dir = path.join(MODULES_ROOT, name, 'public');
+  // maxAge 0 + ETag: browser revalideert elke load (goedkope 304 op LAN),
+  // zodat admin/screen-code direct vers is na een deploy.
+  return express.static(dir, { maxAge: 0 })(req, res, next);
+});
 app.use('/submission-assets', express.static(SUBMISSION_ASSETS_DIR, {
   maxAge: '30d',
 }));
+
+// Clean URLs — serve HTML files without the .html extension. For screen/admin
+// we inject window.PIXELPLEIN_MODULES so the client-side module loader knows
+// which modules to dynamically import.
+const _pub = f => path.join(__dirname, '..', 'public', f);
+
+function _sendWithModuleList(res, file) {
+  const filePath = _pub(file);
+  fs.readFile(filePath, 'utf8', (err, html) => {
+    if (err) return res.status(500).send('error');
+    const list = JSON.stringify(listLoadedModuleNames());
+    const inject = `<script>window.PIXELPLEIN_MODULES = ${list};</script>`;
+    const out = html.includes('</head>')
+      ? html.replace('</head>', `${inject}</head>`)
+      : inject + html;
+    res.type('html').send(out);
+  });
+}
+
+app.get('/screen', (_req, res) => _sendWithModuleList(res, 'screen.html'));
+app.get('/screen.html', (_req, res) => _sendWithModuleList(res, 'screen.html'));
+app.get('/admin', (_req, res) => _sendWithModuleList(res, 'admin.html'));
+app.get('/admin.html', (_req, res) => _sendWithModuleList(res, 'admin.html'));
+app.get('/login', (_req, res) => res.sendFile(_pub('login.html')));
+app.get('/preview', (_req, res) => res.sendFile(_pub('preview.html')));
+app.get('/submit', (_req, res) => res.sendFile(_pub('submit.html')));
 app.use(express.static(path.join(__dirname, '..', 'public')));
 
-// Clean URLs — serve HTML files without the .html extension
-const _pub = f => path.join(__dirname, '..', 'public', f);
-app.get('/screen',  (_req, res) => res.sendFile(_pub('screen.html')));
-app.get('/admin',   (_req, res) => res.sendFile(_pub('admin.html')));
-app.get('/login',   (_req, res) => res.sendFile(_pub('login.html')));
-app.get('/preview', (_req, res) => res.sendFile(_pub('preview.html')));
-app.get('/submit',  (_req, res) => res.sendFile(_pub('submit.html')));
+// API routes — /api/auth is public; everything else requires a session.
+// Module sub-routers mount on these reserved namespaces before the broad
+// /api requireAuth catches /api/modules/*. Modules pick which router to
+// attach to based on auth needs.
+const moduleApiPublic = express.Router();
+const moduleApiAuth = express.Router();
+app.get('/api/modules/enabled', (_req, res) => {
+  res.json({ ok: true, modules: listLoadedModuleNames() });
+});
+app.use('/api/modules', moduleApiPublic);
+app.use('/api/modules', requireAuth, moduleApiAuth);
 
-// API routes — /api/auth is public; everything else requires a session
-app.use('/api/auth',       authRouter);
+app.use('/api/auth', authRouter);
 app.use('/api/submissions', submissionsPublicRouter);
-app.use('/api/screens',    screenDevicesPublicRouter);
-app.use('/api/slides',     qrRouter);
-app.use('/api/photos',     requireAuth, photosRouter);
-app.use('/api/slides',     requireAuth, slidesRouter);
-app.use('/api/playlists',  requireAuth, playlistRouter);
-app.use('/api/themes',     themesRouter);  // read-only theme listing, no PIN needed
+app.use('/api/screens', screenDevicesPublicRouter);
+app.use('/api/slides', qrRouter);
+app.use('/api/photos', requireAuth, photosRouter);
+app.use('/api/slides', requireAuth, slidesRouter);
+app.use('/api/playlists', requireAuth, playlistRouter);
+app.use('/api/themes', themesRouter);  // read-only theme listing, no PIN needed
 app.use('/api/submissions', requireAuth, submissionsAdminRouter);
-app.use('/api/screens',    requireAuth, screenDevicesAdminRouter);
-app.use('/api',            requireAuth, alertsRouter);
-app.use('/api',            requireAuth, screensRouter);
+app.use('/api/screens', requireAuth, screenDevicesAdminRouter);
+app.use('/api', requireAuth, alertsRouter);
+app.use('/api', requireAuth, screensRouter);
 
 // ---------------------------------------------------------------------------
 // WebSocket server
@@ -198,11 +249,26 @@ async function boot() {
   await scanPhotos(true);
   startAlertScheduler();
 
+  // Load optional modules (e.g. "hype"). Each module self-registers via the
+  // registries set up by Phase 1b. Failures are logged and skipped.
+  await loadEnabledModules({
+    app,
+    db,
+    config: getConfig(),
+    state,
+    broadcast: broadcastMod.broadcast,
+    broadcastToScreens: broadcastMod.broadcastToScreens,
+    requireAuth,
+    moduleApiPublic,
+    moduleApiAuth,
+    paths: { MODULES_ROOT, CACHE_DIR, PHOTOS_DIR, THUMB_DIR },
+  });
+
   const PORT = process.env.PORT || 3000;
   server.listen(PORT, '0.0.0.0', () => {
-    const ips      = getLocalIPs();
+    const ips = getLocalIPs();
     const localUrl = `http://${ips[0] || 'localhost'}:${PORT}`;
-    const base     = getConfig().publicBaseUrl || localUrl;
+    const base = getConfig().publicBaseUrl || localUrl;
     const adminUrl = `${base}/admin`;
 
     console.log(`\nPixelPlein running on http://0.0.0.0:${PORT}`);
@@ -232,7 +298,7 @@ boot().catch(err => {
 // Graceful shutdown
 // ---------------------------------------------------------------------------
 
-const { _getWss }    = require('./features/ws/broadcast');
+const { _getWss } = require('./features/ws/broadcast');
 
 let _shuttingDown = false;
 
@@ -269,4 +335,4 @@ function shutdown(signal) {
 }
 
 process.on('SIGTERM', () => shutdown('SIGTERM'));
-process.on('SIGINT',  () => shutdown('SIGINT'));
+process.on('SIGINT', () => shutdown('SIGINT'));

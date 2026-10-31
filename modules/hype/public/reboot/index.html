@@ -1,0 +1,1350 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no">
+<title>De Hype — Herstart Console</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Sans:wght@400;700;900&display=swap" rel="stylesheet" media="print" onload="this.media='all'">
+<style>
+/* ── tokens ── */
+:root {
+  --y:  #f5d904;
+  --r:  #f52368;
+  --g:  #32d74b;
+  --t:  #27d6c6;
+  --b:  #00b2ff;
+  --o:  #ff8a00;
+  --bg: #07080c;
+  --surface: rgba(14,17,24,0.92);
+  --border:  rgba(255,255,255,0.09);
+  --muted:   rgba(255,255,255,0.46);
+  --display: 'Bebas Neue','Arial Black',system-ui,sans-serif;
+  --body:    'DM Sans',system-ui,sans-serif;
+  --topbar-h:   62px;
+}
+*,*::before,*::after { box-sizing:border-box; margin:0; padding:0; }
+html,body { width:100%; height:100%; overflow:hidden; background:var(--bg); color:#fff; font-family:var(--body); -webkit-font-smoothing:antialiased; }
+
+/* ── root container ── */
+#app {
+  position: fixed; inset: 0; overflow: hidden;
+  display: flex; flex-direction: column;
+}
+
+/* ── background layer stack ── */
+.bg { position:absolute; inset:0; pointer-events:none; }
+
+#bg-base {
+  z-index: 0;
+  background: var(--bg);
+  transition: background 0.7s ease;
+}
+#bg-glow {
+  z-index: 1;
+  transition: background 0.7s ease;
+}
+#bg-grid {
+  z-index: 2;
+  inset: -20%;
+  opacity: 0.28;
+  background:
+    linear-gradient(rgba(255,255,255,0.05) 1px, transparent 1px) 0 0 / 64px 64px,
+    linear-gradient(90deg, rgba(255,255,255,0.05) 1px, transparent 1px) 0 0 / 64px 64px;
+  transform: perspective(900px) rotateX(56deg) translateY(20%);
+  transition: opacity 0.5s ease;
+}
+#bg-scan {
+  z-index: 3;
+  opacity: 0.18;
+  mix-blend-mode: overlay;
+  background: repeating-linear-gradient(0deg, rgba(255,255,255,0.07) 0 1px, transparent 1px 4px);
+}
+#bg-vignette {
+  z-index: 4;
+  background: radial-gradient(ellipse at center, transparent 40%, rgba(0,0,0,0.82) 100%);
+}
+#bg-paint-y {
+  z-index: 5;
+  top: 16vh; height: 6vh;
+  background: var(--y);
+  clip-path: polygon(0 14%, 100% 0%, 100% 86%, 0% 100%);
+  transform: rotate(-2deg) translateX(-110%);
+  transition: transform 0.4s cubic-bezier(.2,.8,.2,1), opacity 0.3s ease;
+  opacity: 0;
+}
+#bg-paint-r {
+  z-index: 5;
+  top: 84vh; height: 5vh;
+  background: var(--r);
+  clip-path: polygon(0 0%, 100% 14%, 100% 100%, 0% 86%);
+  transform: rotate(2deg) translateX(110%);
+  transition: transform 0.4s cubic-bezier(.2,.8,.2,1) 0.08s, opacity 0.3s ease;
+  opacity: 0;
+}
+#flash {
+  position: fixed; inset: 0; z-index: 90; pointer-events: none;
+  background: #fff; opacity: 0;
+}
+#flash.pop { animation: flash-pop 0.45s ease-out forwards; }
+@keyframes flash-pop { 0%{opacity:0.62} 100%{opacity:0} }
+
+/* ── confetti: fixed so it's always viewport-relative ── */
+#confetti-canvas {
+  position: fixed; inset: 0; z-index: 95; pointer-events: none;
+}
+
+/* ── topbar ── */
+#topbar {
+  position: relative; z-index: 10; flex-shrink: 0;
+  height: var(--topbar-h);
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 0 clamp(18px,3.5vw,52px);
+  border-bottom: 1px solid var(--border);
+  background: rgba(5,6,9,0.94);
+}
+.logo-img { height: 30px; display: block; }
+.logo-text { display: none; align-items: baseline; gap: 2px; }
+.logo-text.show { display: flex; }
+.logo-de   { font-family: var(--body); font-weight: 900; font-size: 11px; color: var(--y); text-transform: lowercase; }
+.logo-hype { font-family: var(--display); font-size: 34px; line-height: 0.88; color: #fff; letter-spacing: 1px; }
+.logo-bang { font-family: var(--display); font-size: 34px; line-height: 0.88; color: var(--y); }
+#console-label { font-family: var(--display); font-size: 15px; color: rgba(255,255,255,0.2); letter-spacing: 6px; }
+.badges { display: flex; gap: 10px; align-items: center; }
+.badge { display: inline-flex; }
+.badge i { width: 13px; height: 13px; border-radius: 50%; flex-shrink: 0; }
+.badge.off i { background: #ff5860; box-shadow: 0 0 7px #ff5860; animation: blink 2s ease infinite; }
+.badge.on  i { background: var(--g); box-shadow: 0 0 7px var(--g); }
+@keyframes blink { 0%,100%{opacity:1} 50%{opacity:0.15} }
+
+/* ── middle / panels ── */
+#middle { flex: 1; min-height: 0; position: relative; z-index: 5; }
+.panel { position: absolute; inset: 0; display: none; align-items: center; justify-content: center; padding: 24px clamp(12px,2vw,36px); }
+.panel.active { display: flex; }
+
+/* ── idle ── */
+#idle { text-align: center; animation: idle-breathe 2.6s ease-in-out infinite; max-width: 1100px; }
+.i-leds { display: flex; justify-content: center; gap: 12px; margin-bottom: 18px; }
+.i-leds i { width: 12px; height: 12px; border-radius: 50%; background: #ff5860; box-shadow: 0 0 8px #ff5860; animation: blink 1.6s ease infinite; }
+.i-leds i:nth-child(2) { animation-delay: 0.25s; }
+.i-leds i:nth-child(3) { animation-delay: 0.5s; }
+.i-leds i:nth-child(4) { animation-delay: 0.75s; }
+.i-err     { font-family: 'Courier New',monospace; font-size: clamp(11px,1.3vw,15px); color: rgba(255,88,96,0.5); letter-spacing: 3px; margin-bottom: 16px; }
+.i-server  { font-family: var(--display); font-size: clamp(44px,8vw,92px); color: #ff5860; line-height: 0.88; letter-spacing: 3px; text-shadow: 3px 0 rgba(255,0,60,.7), -3px 0 rgba(0,200,255,.7); }
+.i-server.glitch-blip { animation: glitch-blip 0.15s steps(2); }
+.i-is      { font-family: var(--display); font-size: clamp(28px,4.5vw,52px); color: rgba(255,255,255,0.4); letter-spacing: 3px; margin: 6px 0; }
+.i-offline { font-family: var(--display); font-size: clamp(64px,13vw,150px); color: #ff5860; line-height: 0.88; letter-spacing: 4px; animation: blink 1.1s ease infinite; text-shadow: 0 0 60px rgba(255,35,60,0.5); }
+
+.i-hud { display: flex; flex-wrap: wrap; justify-content: center; gap: clamp(10px,1.6vw,20px); margin-top: clamp(22px,3.5vh,34px); }
+.i-hud-item {
+  display: flex; flex-direction: column; gap: 4px; align-items: center;
+  padding: 10px clamp(14px,2vw,22px); border: 1px solid var(--border); border-radius: 8px;
+  background: rgba(255,255,255,0.02); min-width: 118px;
+}
+.i-hud-k { font-family: var(--body); font-weight: 800; font-size: clamp(9px,1vw,11px); letter-spacing: 2px; color: rgba(255,255,255,0.32); }
+.i-hud-v { font-family: 'Courier New',monospace; font-weight: 700; font-size: clamp(15px,2vw,20px); color: rgba(255,255,255,0.82); }
+.i-hud-bad { color: var(--r); }
+
+.i-log {
+  margin: clamp(22px,3.5vh,32px) auto 0; width: min(720px, 88vw); text-align: left;
+  border: 1px solid var(--border); border-radius: 8px; background: rgba(0,0,0,0.25);
+  padding: 12px 18px; min-height: 96px; display: flex; flex-direction: column; gap: 5px;
+  font-family: 'Courier New',monospace; font-size: clamp(12px,1.5vw,15px); color: rgba(120,255,160,0.75);
+}
+.i-log-line { opacity: 0; animation: reveal 0.3s ease both; }
+.i-log-line span { color: rgba(255,255,255,0.28); margin-right: 8px; }
+
+.i-sub     { font-size: clamp(14px,1.7vw,19px); color: var(--muted); margin-top: 22px; line-height: 1.75; }
+.i-callout {
+  margin-top: 18px; display: inline-flex; align-items: center; gap: 8px;
+  font-family: var(--body); font-weight: 800; font-size: clamp(12px,1.4vw,15px); letter-spacing: 1.5px;
+  color: rgba(255,88,96,0.65); animation: bounce 1.7s ease infinite;
+}
+@keyframes idle-breathe { 0%,100%{opacity:1} 50%{opacity:0.82} }
+@keyframes bounce { 0%,100%{transform:translateY(0)} 50%{transform:translateY(6px)} }
+@keyframes glitch-blip {
+  0%   { transform: translateX(0); text-shadow: 3px 0 rgba(255,0,60,.7),-3px 0 rgba(0,200,255,.7); }
+  50%  { transform: translateX(-4px) skewX(-4deg); text-shadow: -6px 0 rgba(255,0,60,.9), 6px 0 rgba(0,200,255,.9); }
+  100% { transform: translateX(0); text-shadow: 3px 0 rgba(255,0,60,.7),-3px 0 rgba(0,200,255,.7); }
+}
+
+/* ── shared instruction panel style ── */
+.instr-box {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: clamp(24px,3.5vh,44px) clamp(28px,4vw,60px);
+  text-align: center;
+  min-width: min(520px, 84vw);
+  animation: reveal 0.38s cubic-bezier(.2,1,.2,1) both;
+  box-shadow: 0 32px 90px rgba(0,0,0,0.48);
+}
+.instr-confirm {
+  display: flex; align-items: center; justify-content: center; gap: 10px;
+  margin-bottom: 22px;
+}
+.instr-confirm-dot { width: 8px; height: 8px; border-radius: 50%; }
+.instr-confirm-text { font-family: var(--body); font-weight: 700; font-size: 13px; letter-spacing: 2px; }
+.instr-pre  { font-family: var(--display); font-size: clamp(32px,5.5vw,58px); color: rgba(255,255,255,0.55); letter-spacing: 3px; line-height: 1.1; }
+.instr-row  { display: flex; align-items: center; justify-content: center; gap: 18px; margin: 6px 0; }
+.instr-dot  { width: 40px; height: 40px; border-radius: 50%; flex-shrink: 0; animation: pulse 0.75s ease infinite; }
+.instr-dot.y { background: var(--y); box-shadow: 0 0 32px rgba(245,217,4,0.8); }
+.instr-dot.r { background: var(--r); box-shadow: 0 0 32px rgba(245,35,104,0.8); }
+.instr-name { font-family: var(--display); font-size: clamp(56px,10vw,106px); letter-spacing: 4px; line-height: 1; }
+.instr-name.y { color: var(--y); text-shadow: 0 0 44px rgba(245,217,4,0.5); }
+.instr-name.r { color: var(--r); text-shadow: 0 0 44px rgba(245,35,104,0.5); }
+.instr-post { font-family: var(--display); font-size: clamp(32px,5.5vw,58px); color: rgba(255,255,255,0.55); letter-spacing: 3px; line-height: 1.1; }
+.instr-hint { font-size: 13px; color: rgba(255,255,255,0.24); margin-top: 16px; }
+
+/* ── armed (power-on splash) ── */
+#armed { display:flex; flex-direction:column; align-items:center; gap:14px; text-align:center; }
+#ar-key { font-size:clamp(44px,7vw,84px); animation:slam 0.5s cubic-bezier(.2,1.25,.2,1) both; }
+#ar-title { font-family:var(--display); font-size:clamp(40px,7vw,80px); letter-spacing:3px; color:var(--y); text-shadow:0 0 40px rgba(245,217,4,0.6); animation:slam 0.55s cubic-bezier(.2,1.25,.2,1) 0.12s both; }
+#ar-sub { font-size:clamp(13px,1.6vw,17px); color:var(--muted); letter-spacing:2px; animation:reveal 0.4s ease 0.3s both; }
+#ar-bar { width:min(460px,76vw); height:10px; border-radius:999px; background:rgba(255,255,255,0.07); border:1px solid var(--border); overflow:hidden; }
+#ar-bar span { display:block; height:100%; width:0; border-radius:999px; background:linear-gradient(90deg,var(--y),var(--o)); box-shadow:0 0 18px rgba(245,180,0,0.8); }
+body.s-keyin #ar-bar span { animation:ar-fill 1.6s cubic-bezier(.3,.7,.4,1) forwards; }
+@keyframes ar-fill { to { width:100%; } }
+
+/* ── recharge (two-stream mini-game) ── */
+#recharge { display: flex; flex-direction: column; align-items: center; gap: 14px; text-align: center; animation: reveal 0.35s cubic-bezier(.2,1,.2,1) both; }
+#rc-title { font-family: var(--display); font-size: clamp(34px,6vw,68px); color: var(--y); letter-spacing: 3px; text-shadow: 0 0 28px rgba(245,217,4,0.55); }
+#rc-sub   { font-size: clamp(20px,3vw,32px); color: rgba(255,255,255,0.9); font-weight: 700; letter-spacing: 1px; }
+#rc-body  { display: flex; align-items: center; gap: clamp(16px,3vw,44px); margin-top: 6px; }
+.rc-side  { display: flex; flex-direction: column; align-items: center; gap: 8px; }
+.rc-lbl   { font-family: var(--display); font-size: clamp(16px,2.4vw,24px); letter-spacing: 3px; }
+.rc-lbl.y { color: var(--y); } .rc-lbl.r { color: var(--r); }
+.rc-track { position: relative; width: clamp(120px,20vw,280px); height: 26px; border-radius: 999px; background: rgba(255,255,255,0.06); border: 1px solid var(--border); overflow: hidden; }
+.rc-fill  { position: absolute; top: 0; bottom: 0; left: 0; width: 0%; border-radius: 999px; transition: width 0.12s linear; }
+.rc-track.right .rc-fill { left: auto; right: 0; }
+.rc-fill.y { background: linear-gradient(90deg, rgba(245,217,4,0.35), var(--y)); box-shadow: 0 0 16px rgba(245,217,4,0.7); }
+.rc-fill.r { background: linear-gradient(270deg, rgba(245,35,104,0.35), var(--r)); box-shadow: 0 0 16px rgba(245,35,104,0.7); }
+
+#countdown-wrap { position: relative; width: clamp(150px,20vw,194px); height: clamp(150px,20vw,194px); }
+#countdown-wrap svg { position: absolute; inset: 0; width: 100%; height: 100%; }
+#countdown-ring { stroke-dasharray: 516; stroke-dashoffset: 516; transition: stroke-dashoffset 0.14s linear; }
+#countdown-num  { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; }
+#count-display  { font-family: var(--display); font-size: clamp(38px,5vw,58px); color: var(--b); line-height: 1; }
+
+#rc-surge { margin-top: 6px; font-family: var(--display); font-size: clamp(38px,7vw,86px); letter-spacing: 4px; color: #fff; background: var(--r); padding: 4px 34px; border-radius: 10px; box-shadow: 0 0 60px rgba(245,35,104,0.85); opacity: 0; transform: scale(0.8); transition: opacity 0.1s ease; }
+#recharge.surging #rc-surge, #recharge.overload #rc-surge { opacity: 1; animation: surge-pulse 0.3s ease infinite; }
+#recharge.surging { animation: surge-shake 0.24s linear infinite; }
+#recharge.overload { animation: surge-shake 0.13s linear infinite; }
+#recharge.overload #rc-surge { background: #b00000; box-shadow: 0 0 80px rgba(255,0,0,0.95); }
+@keyframes surge-pulse { 0%,100%{transform:scale(1)} 50%{transform:scale(1.09)} }
+@keyframes surge-shake { 0%,100%{transform:translateX(0)} 25%{transform:translateX(-5px)} 75%{transform:translateX(5px)} }
+
+/* ── game card: dark surface behind game content, readable over the stripes ── */
+.game-card {
+  position: relative; overflow: hidden;
+  width: min(1080px, 96vw);
+  background: linear-gradient(180deg, rgba(20,24,33,0.96), rgba(11,13,18,0.96));
+  border: 1px solid rgba(255,255,255,0.12);
+  border-radius: 16px;
+  padding: clamp(24px,3.5vh,42px) clamp(24px,3.5vw,56px);
+  box-shadow: 0 24px 70px rgba(0,0,0,0.55), inset 0 1px 0 rgba(255,255,255,0.06);
+}
+.game-card::before { /* brand edge */
+  content: ''; position: absolute; top: 0; left: 0; right: 0; height: 6px;
+  background: linear-gradient(100deg, var(--y) 0%, var(--r) 100%);
+}
+
+/* ── startup checks (fans / handshake / simon chain) ── */
+#checks { display: flex; flex-direction: column; align-items: center; gap: 18px; text-align: center; animation: reveal 0.35s cubic-bezier(.2,1,.2,1) both; }
+#ck-list { display: flex; gap: clamp(8px,1.5vw,18px); justify-content: center; flex-wrap: wrap; }
+.ck-item {
+  display: inline-flex; align-items: center; gap: 8px;
+  padding: 7px 16px; border-radius: 999px; border: 1px solid var(--border);
+  font-family: 'Courier New',monospace; font-size: clamp(13px,1.6vw,17px); letter-spacing: 1px;
+  color: rgba(255,255,255,0.35); background: rgba(255,255,255,0.03);
+}
+.ck-item i { width: 9px; height: 9px; border-radius: 50%; background: rgba(255,255,255,0.15); }
+.ck-item.done   { color: var(--g); border-color: rgba(50,215,75,0.4); }
+.ck-item.done i { background: var(--g); box-shadow: 0 0 8px var(--g); }
+.ck-item.active   { color: #fff; border-color: var(--y); animation: pulse 0.9s ease infinite; }
+.ck-item.active i { background: var(--y); box-shadow: 0 0 8px var(--y); }
+
+.ck-game { display: none; flex-direction: column; align-items: center; gap: 14px; }
+.ck-game.active { display: flex; }
+
+/* check passed splash */
+#ck-pass {
+  display:none; font-family:var(--display); font-size:clamp(44px,8vw,96px); letter-spacing:3px;
+  color:#fff; background:var(--g); padding:8px 42px; border-radius:14px;
+  box-shadow:0 0 80px rgba(50,215,75,0.9);
+}
+#ck-pass.show { display:block; animation:slam 0.45s cubic-bezier(.2,1.25,.2,1); }
+#checks.passing .ck-game, #checks.passing #ck-gate { display:none !important; }
+
+/* gate: the server asks for confirmation before each check starts */
+#ck-gate { display: none; flex-direction: column; align-items: center; gap: clamp(14px,2.4vh,24px); width: 100%; }
+#ck-gate.show { display: flex; }
+#ck-gate-name { font-family: var(--display); font-size: clamp(36px,6vw,66px); letter-spacing: 3px; color: #fff; }
+
+/* how-to-play: three visual step cards, side by side */
+#gate-steps { display: flex; gap: clamp(10px,1.6vw,18px); width: 100%; justify-content: center; }
+.gstep {
+  flex: 1; max-width: 320px; min-width: 0;
+  display: flex; flex-direction: column; align-items: center; gap: 10px;
+  background: rgba(255,255,255,0.045); border: 1px solid var(--border); border-radius: 12px;
+  padding: clamp(14px,2.2vh,22px) clamp(10px,1.4vw,18px);
+}
+.gstep .gnum {
+  width: 34px; height: 34px; border-radius: 50%; display: grid; place-items: center;
+  font-family: var(--display); font-size: 20px; color: #0b0d12;
+  background: linear-gradient(120deg, var(--y), var(--r));
+}
+.gstep .gtxt { font-family: var(--display); font-size: clamp(20px,3vw,32px); line-height: 1.05; letter-spacing: 1px; color: rgba(255,255,255,0.92); }
+.gstep .gtxt b.y { color: var(--y); } .gstep .gtxt b.r { color: var(--r); } .gstep .gtxt b.b { color: var(--b); }
+
+/* start bar: key step then buttons step, lighting up in order */
+#gate-start { display: flex; align-items: center; gap: clamp(12px,2vw,22px); }
+.gst {
+  display: flex; align-items: center; gap: 12px;
+  padding: 12px clamp(16px,2.4vw,28px); border-radius: 999px;
+  border: 1px solid var(--border); background: rgba(255,255,255,0.03);
+  font-family: var(--display); font-size: clamp(20px,3.2vw,34px); letter-spacing: 2px;
+  color: rgba(255,255,255,0.35); transition: all 0.25s ease;
+}
+.gst .gst-dots { display: flex; gap: 6px; }
+.gst .gst-dots i { width: 20px; height: 20px; border-radius: 50%; opacity: 0.35; }
+.gst .gst-dots i.y { background: var(--y); } .gst .gst-dots i.r { background: var(--r); }
+.gst.active { color: #fff; border-color: var(--b); box-shadow: 0 0 26px rgba(0,178,255,0.35); animation: pulse 0.9s ease infinite; }
+.gst.active .gst-dots i { opacity: 1; }
+.gst.done { color: var(--g); border-color: rgba(50,215,75,0.5); }
+.gst.done::after { content: ' ✓'; }
+#gate-arrow { font-family: var(--display); font-size: clamp(22px,3.5vw,38px); color: rgba(255,255,255,0.3); }
+#ck-gate.stage-count #gate-steps, #ck-gate.stage-count #gate-start { display: none; }
+#ck-gate-count { font-family: var(--display); font-size: clamp(90px,16vw,190px); line-height: 1; color: var(--y); text-shadow: 0 0 60px rgba(245,217,4,0.6); }
+#ck-gate-count.pop { animation: slam 0.35s cubic-bezier(.2,1.25,.2,1); }
+.ck-title { font-family: var(--display); font-size: clamp(32px,5.5vw,62px); letter-spacing: 3px; }
+.ck-sub   { font-size: clamp(20px,3vw,32px); color: rgba(255,255,255,0.9); font-weight: 700; letter-spacing: 1px; line-height: 1.55; max-width: 760px; }
+
+/* fans */
+#fan-bar-bg { width: min(520px,80vw); height: 30px; border-radius: 999px; background: rgba(255,255,255,0.06); border: 1px solid var(--border); overflow: hidden; }
+#fan-bar { height: 100%; width: 0%; border-radius: 999px; background: linear-gradient(90deg, var(--y), var(--r)); box-shadow: 0 0 18px rgba(245,120,60,0.7); transition: width 0.12s linear; }
+#fan-pct { font-family: var(--display); font-size: clamp(30px,4.5vw,48px); color: var(--o); }
+#fan-rotor { font-size: clamp(34px,5vw,54px); display: inline-block; animation: rotor-spin 1.2s linear infinite; }
+@keyframes rotor-spin { to { transform: rotate(360deg); } }
+
+/* handshake */
+#hs-turn { font-family: var(--display); font-size: clamp(40px,7vw,84px); letter-spacing: 4px; }
+#hs-turn.y { color: var(--y); text-shadow: 0 0 40px rgba(245,217,4,0.6); }
+#hs-turn.r { color: var(--r); text-shadow: 0 0 40px rgba(245,35,104,0.6); }
+#hs-lamps { display: flex; gap: clamp(14px,2.4vw,26px); }
+.hs-lamp { width: clamp(34px,4.5vw,52px); height: clamp(34px,4.5vw,52px); border-radius: 50%; border: 3px solid rgba(255,255,255,0.16); background: rgba(255,255,255,0.04); transition: all 0.2s ease; }
+.hs-lamp.lit { background: var(--t); border-color: var(--t); box-shadow: 0 0 30px rgba(39,214,198,0.8); animation: slam 0.4s cubic-bezier(.2,1.25,.2,1); }
+#hs-feedback { min-height: 1.3em; font-family: var(--display); font-size: clamp(20px,3vw,34px); letter-spacing: 2px; color: var(--r); }
+#hs-track {
+  position: relative; width: min(700px, 86vw); height: 34px; border-radius: 999px;
+  background: rgba(255,255,255,0.05); border: 1px solid var(--border); overflow: hidden;
+}
+.hs-zone { position: absolute; top: 0; bottom: 0; width: 19%; opacity: 0.25; transition: opacity 0.25s ease; }
+.hs-zone.y { left: 0;  background: linear-gradient(90deg, var(--y), transparent); }
+.hs-zone.r { right: 0; background: linear-gradient(270deg, var(--r), transparent); }
+#hs-track.turn-y .hs-zone.y, #hs-track.turn-r .hs-zone.r { opacity: 0.9; animation: pulse 0.8s ease infinite; }
+#hs-packet {
+  position: absolute; top: 50%; left: 0; width: 22px; height: 22px; margin: -11px 0 0 -11px;
+  border-radius: 50%; background: #fff;
+  box-shadow: 0 0 18px var(--b), 0 0 34px var(--b);
+  transition: left 0.05s linear;
+}
+#hs-packet.waiting { animation: blink 0.36s step-end infinite; }
+
+/* simon */
+#sm-stage { display: flex; flex-direction: column; align-items: center; gap: 12px; }
+#sm-round { font-family: 'Courier New',monospace; font-size: clamp(12px,1.4vw,15px); color: var(--muted); letter-spacing: 2px; }
+#sm-flash { width: clamp(90px,13vw,150px); height: clamp(90px,13vw,150px); border-radius: 18px; background: rgba(255,255,255,0.05); border: 2px solid var(--border); transition: background 0.08s ease, box-shadow 0.08s ease; }
+#sm-flash.y { background: var(--y); box-shadow: 0 0 70px rgba(245,217,4,0.9); }
+#sm-flash.r { background: var(--r); box-shadow: 0 0 70px rgba(245,35,104,0.9); }
+#sm-dots { display: flex; gap: clamp(10px,1.8vw,20px); }
+.sm-dot { width: clamp(24px,3.2vw,38px); height: clamp(24px,3.2vw,38px); border-radius: 50%; border: 3px solid rgba(255,255,255,0.16); background: rgba(255,255,255,0.04); transition: all 0.15s ease; }
+.sm-dot.ok { background: var(--g); border-color: var(--g); box-shadow: 0 0 22px rgba(50,215,75,0.8); }
+#sm-msg { min-height: 1.3em; font-family: var(--display); font-size: clamp(22px,3.4vw,40px); letter-spacing: 3px; }
+#sm-msg.good { color: var(--g); }
+#sm-msg.bad  { color: var(--r); animation: surge-shake 0.2s linear 2; }
+
+/* ── ignite (spark timing mini-game) ── */
+#ignite { display: flex; flex-direction: column; align-items: center; gap: 16px; text-align: center; animation: reveal 0.35s cubic-bezier(.2,1,.2,1) both; }
+#ig-title { font-family: var(--display); font-size: clamp(34px,6vw,68px); color: var(--g); letter-spacing: 3px; text-shadow: 0 0 28px rgba(50,215,75,0.55); }
+#ig-sub   { font-size: clamp(20px,3vw,32px); color: rgba(255,255,255,0.9); font-weight: 700; letter-spacing: 1px; max-width: 760px; line-height: 1.55; }
+#ig-lamps { display: flex; gap: clamp(18px,3vw,34px); margin-top: 8px; }
+.ig-lamp {
+  width: clamp(44px,6vw,72px); height: clamp(44px,6vw,72px); border-radius: 50%;
+  border: 3px solid rgba(255,255,255,0.16); background: rgba(255,255,255,0.04);
+  transition: background 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
+}
+.ig-lamp.lit { background: var(--g); border-color: var(--g); box-shadow: 0 0 34px rgba(50,215,75,0.85); animation: slam 0.4s cubic-bezier(.2,1.25,.2,1); }
+#ig-feedback { min-height: 1.4em; font-family: var(--display); font-size: clamp(22px,3.4vw,40px); letter-spacing: 3px; }
+#ig-feedback.hit  { color: var(--g); animation: slam 0.4s cubic-bezier(.2,1.25,.2,1); }
+#ig-feedback.miss { color: var(--r); animation: surge-shake 0.2s linear 2; }
+
+/* ── color-flash + shake layers (boot-beat energy, à la the launch takeover) ── */
+#color-flashes { position: fixed; inset: 0; z-index: 88; pointer-events: none; }
+#color-flashes span { position: absolute; inset: 0; opacity: 0; background: var(--fc); mix-blend-mode: screen; }
+#color-flashes span.pop { animation: flash-pop 0.4s ease-out forwards; }
+#app.shake   { animation: shk 0.4s cubic-bezier(.36,.07,.19,.97); }
+#app.shake-l { animation: shk-l 0.52s cubic-bezier(.36,.07,.19,.97); }
+@keyframes shk   { 10%,90%{transform:translateX(-2px)} 30%,70%{transform:translateX(4px)} 50%{transform:translateX(-6px)} }
+@keyframes shk-l { 10%,90%{transform:translate(-4px,2px)} 30%,70%{transform:translate(7px,-3px)} 50%{transform:translate(-11px,4px)} }
+
+/* ── booting (matches the big-screen hype-restart terminal: green CRT boot log) ── */
+#boot-wrap {
+  width: 100%; max-width: 720px;
+  animation: reveal 0.38s cubic-bezier(.2,1,.2,1) both;
+  transition: filter 0.12s ease;
+  background: rgba(10,20,14,0.88); border: 1px solid rgba(77,255,112,0.22); border-radius: 10px;
+  padding: clamp(24px,3.5vh,40px) clamp(26px,4vw,44px);
+  box-shadow: 0 32px 90px rgba(0,0,0,0.48), inset 0 0 60px rgba(77,255,112,0.04);
+}
+#boot-wrap.beat { filter: brightness(1.5) saturate(1.7); }
+#boot-title  { font-family: var(--body); font-weight: 900; font-size: clamp(20px,3vw,32px); color: #4dff70; letter-spacing: 0.2em; margin-bottom: 6px; text-shadow: 0 0 22px rgba(77,255,112,0.45); }
+#boot-sub    { font-family: var(--body); font-size: clamp(11px,1.4vw,14px); color: rgba(77,255,112,0.45); letter-spacing: 0.1em; margin-bottom: 20px; transition: color 0.25s ease; }
+#boot-sub.found { color: #4dff70; text-shadow: 0 0 10px rgba(77,255,112,0.5); }
+#boot-bar-bg { position: relative; height: 4px; background: rgba(255,255,255,0.08); border-radius: 999px; margin-bottom: 8px; overflow: hidden; }
+#boot-bar    { height: 100%; border-radius: 999px; width: 0%; transition: width 0.3s ease; background: linear-gradient(90deg, var(--g), var(--t)); }
+#boot-pct    { font-family: 'Courier New',monospace; font-size: 12px; color: rgba(77,255,112,0.6); text-align: right; margin-bottom: 16px; }
+#boot-lines  { display: flex; flex-direction: column; gap: 2px; }
+.boot-line {
+  display: grid; grid-template-columns: 16px 1fr auto;
+  align-items: center; gap: 12px;
+  padding: 8px 14px; border-radius: 5px;
+  background: rgba(255,255,255,0.026);
+  border-left: 3px solid var(--g);
+  animation: boot-in 0.22s ease both;
+}
+.boot-line.err     { border-left-color: var(--r); }
+.boot-line.done    { border-left-color: var(--y); }
+.boot-line.special { border-left-color: var(--y); }
+.boot-arrow { font-size: 10px; color: var(--g); }
+.boot-line.err     .boot-arrow { color: var(--r); }
+.boot-line.done    .boot-arrow { color: var(--y); }
+.boot-line.special .boot-arrow { color: var(--y); }
+.boot-text   { font-family: 'Courier New',monospace; font-size: clamp(11px,1.3vw,14px); color: rgba(255,255,255,0.82); }
+.boot-status { font-family: var(--body); font-weight: 900; font-size: 10px; letter-spacing: 2px; color: var(--g); }
+.boot-line.err     .boot-status { color: var(--r); }
+.boot-line.done    .boot-status { color: var(--y); }
+.boot-line.special .boot-status { color: var(--y); letter-spacing: 3px; }
+.boot-cursor { display:inline-block; margin-left:2px; animation: blink 0.8s step-end infinite; }
+@keyframes boot-in { from{opacity:0;transform:translateX(-12px)} to{opacity:1;transform:none} }
+body.s-booting #bg-scan { opacity: 0.3; }
+
+#boot-chips { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 16px; opacity: 0; transition: opacity 0.3s ease; }
+#boot-chips.visible { opacity: 1; }
+.boot-chip {
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 5px 12px; border-radius: 999px; border: 1px solid var(--ch-color);
+  font-family: 'Courier New',monospace; font-size: 11px; color: var(--ch-color);
+  animation: boot-chip-in 0.35s cubic-bezier(.2,1.4,.4,1) both;
+}
+.boot-chip-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--ch-color); box-shadow: 0 0 6px var(--ch-color); }
+@keyframes boot-chip-in { from{opacity:0;transform:scale(0.5)} to{opacity:1;transform:none} }
+
+/* ── online ── */
+#online { text-align:center; display:flex; flex-direction:column; align-items:center; }
+#online-main { display:flex; flex-direction:column; align-items:center; }
+#online-logo  { display:flex; align-items:flex-end; justify-content:center; line-height:1; animation:slam 0.72s cubic-bezier(.2,.8,.2,1) both; margin-bottom:8px; }
+.ol-img       { height:clamp(64px,16vh,140px); display:block; }
+.ol-text      { display:none; align-items:baseline; gap:3px; }
+.ol-text.show { display:flex; }
+.ol-de   { font-family:var(--body); font-weight:900; font-size:clamp(14px,2.2vw,26px); color:var(--y); text-transform:lowercase; }
+.ol-hype { font-family:var(--display); font-size:clamp(80px,15vw,140px); color:#fff; line-height:0.9; }
+.ol-bang { font-family:var(--display); font-size:clamp(80px,15vw,140px); color:var(--y); line-height:0.9; }
+#online-tag {
+  font-family:var(--display); font-size:clamp(48px,9vw,116px); color:#fff;
+  letter-spacing:4px; line-height:0.9;
+  animation:slam 0.8s cubic-bezier(.2,.8,.2,1) 0.22s both; opacity:0;
+}
+#online-sub { font-size:clamp(15px,1.8vw,22px); color:rgba(255,255,255,0.36); margin-top:14px; animation:reveal 0.5s ease 0.5s both; opacity:0; }
+#trigger-label { display:none; }
+
+/* bands — centered row below headline */
+#online-side { display:grid; grid-template-columns:repeat(3,auto); justify-content:center; gap:clamp(10px,1.4vw,22px); margin-top:clamp(14px,2.5vh,28px); transform:rotate(-1.2deg); }
+.band-tag {
+  position:relative; display:grid; place-items:center;
+  min-height:clamp(82px,11vh,148px); padding:0.6vh 2.6vw;
+  background-repeat:no-repeat; background-position:center; background-size:100% 100%;
+  filter:drop-shadow(10px 16px 0 rgba(0,0,0,0.32));
+  opacity:0;
+}
+.band-tag span { font-family:var(--display); font-size:clamp(36px,5.2vw,86px); font-weight:400; line-height:0.88; text-transform:uppercase; color:#0b0d12; transform:translateY(0.3vh) rotate(-5deg); display:block; }
+.band-live { background-image:url('/themes/hype/assets/bands/YellowBand.svg'); transform:rotate(-1.5deg); animation:slam 0.65s cubic-bezier(.2,1.25,.2,1) 0.44s both; }
+.band-deel { background-image:url('/themes/hype/assets/bands/WhiteBand.svg');  transform:rotate(1.3deg);  animation:slam 0.65s cubic-bezier(.2,1.25,.2,1) 0.58s both; }
+.band-hype { background-image:url('/themes/hype/assets/bands/PinkBand.svg');   transform:rotate(-1.8deg); animation:slam 0.65s cubic-bezier(.2,1.25,.2,1) 0.72s both; }
+
+/* doodles — appear on online */
+#doodles { position:absolute; inset:0; z-index:6; pointer-events:none; opacity:0; transition:opacity 0.6s ease; }
+#doodles.show { opacity:1; }
+.doodle {
+  position: absolute; opacity: 0;
+  color: #fff; filter: drop-shadow(0 8px 18px rgba(0,0,0,0.4));
+}
+.doodle svg { width: 100%; height: 100%; }
+.doodle.d1 { width:clamp(44px,5.5vw,96px); height:clamp(44px,5.5vw,96px); left:7vw;   top:12vh;    color:var(--r); transform:rotate(-12deg); animation:doodle-pop 0.5s cubic-bezier(.2,1.3,.2,1) 0.1s both; }
+.doodle.d2 { width:clamp(38px,4.5vw,80px); height:clamp(38px,4.5vw,80px); right:10vw;  top:14vh;    color:var(--y); transform:rotate(14deg);  animation:doodle-pop 0.5s cubic-bezier(.2,1.3,.2,1) 0.3s both; }
+.doodle.d3 { width:clamp(48px,6vw,108px);  height:clamp(48px,6vw,108px);  left:9vw;    bottom:14vh; color:var(--t); transform:rotate(8deg);   animation:doodle-pop 0.5s cubic-bezier(.2,1.3,.2,1) 0.5s both; }
+.doodle.d4 { width:clamp(44px,5vw,88px);   height:clamp(44px,5vw,88px);   right:9vw;   bottom:12vh; color:var(--b); transform:rotate(-10deg); animation:doodle-pop 0.5s cubic-bezier(.2,1.3,.2,1) 0.7s both; }
+@keyframes doodle-pop { from{opacity:0;scale:0.5} to{opacity:0.45;scale:1} }
+
+/* ── shared animations ── */
+@keyframes reveal { from{opacity:0;transform:translateY(14px)} to{opacity:1;transform:none} }
+@keyframes slam   { 0%{opacity:0;transform:scale(1.28) translateY(-10px)} 65%{transform:scale(0.97)} 100%{opacity:1;transform:none} }
+@keyframes pulse  { 0%,100%{transform:scale(1)} 50%{transform:scale(1.07)} }
+
+/* ── state classes on body ── */
+body.s-idle        #bg-glow { background:radial-gradient(ellipse 90% 55% at 50% 12%, rgba(255,35,60,0.2), transparent 60%); }
+body.s-keyin       #bg-glow { background:radial-gradient(ellipse 90% 55% at 50% 12%, rgba(245,217,4,0.13), transparent 60%); }
+body.s-both        #bg-glow { background:radial-gradient(ellipse 90% 55% at 50% 22%, rgba(255,120,0,0.2),  transparent 60%); animation:both-pulse 0.62s ease infinite; }
+body.s-booting     #bg-glow { background:radial-gradient(ellipse 90% 55% at 50% 12%, rgba(50,215,75,0.13), transparent 60%); }
+body.s-online      #bg-glow { background:radial-gradient(ellipse 90% 65% at 50% 38%, rgba(245,217,4,0.2),  transparent 65%); }
+@keyframes both-pulse { 0%,100%{background:radial-gradient(ellipse 90% 55% at 50% 22%, rgba(255,120,0,0.18), transparent 60%)} 50%{background:radial-gradient(ellipse 90% 55% at 50% 22%, rgba(255,60,0,0.26), transparent 60%)} }
+
+body.s-idle #bg-grid { opacity:0.32; }
+
+/* paint stripes slide in when the key turns (armed) and drift through the ritual */
+body.s-keyin #bg-paint-y, body.s-both #bg-paint-y, body.s-booting #bg-paint-y {
+  transform: rotate(-2deg) translateX(0); opacity: 0.85;
+  animation: paint-drift-y 7s ease-in-out 0.5s infinite;
+}
+body.s-keyin #bg-paint-r, body.s-both #bg-paint-r, body.s-booting #bg-paint-r {
+  transform: rotate(2deg) translateX(0); opacity: 0.8;
+  animation: paint-drift-r 8.5s ease-in-out 1s infinite;
+}
+@keyframes paint-drift-y { 0%,100% { transform: rotate(-2deg) translateX(0); } 50% { transform: rotate(-2.6deg) translateX(-2.5%); } }
+@keyframes paint-drift-r { 0%,100% { transform: rotate(2deg) translateX(0); }  50% { transform: rotate(2.6deg) translateX(2.5%); } }
+
+#gm-hint { position:fixed; bottom:4px; right:8px; font-family:'Courier New',monospace; font-size:8px; color:rgba(255,255,255,0.08); z-index:200; user-select:none; letter-spacing:1px; }
+</style>
+</head>
+<body class="s-idle">
+
+<div id="app">
+
+  <!-- bg layer stack -->
+  <div class="bg" id="bg-base"></div>
+  <div class="bg" id="bg-glow"></div>
+  <div class="bg" id="bg-grid"></div>
+  <div class="bg" id="bg-scan"></div>
+  <div class="bg" id="bg-vignette"></div>
+  <div class="bg" id="bg-paint-y"></div>
+  <div class="bg" id="bg-paint-r"></div>
+  <div id="doodles">
+    <div class="doodle d1"><svg viewBox="0 0 80 90"><path d="M45 5c8 18-2 25 10 38 7 8 10 15 10 24 0 14-11 23-25 23S15 80 15 66c0-13 8-22 15-32 4 10 10 13 17 7 6-6 2-17-2-36Z" fill="currentColor"/></svg></div>
+    <div class="doodle d2"><svg viewBox="0 0 100 100"><path d="M50 7 58 39 91 50 58 61 50 93 42 61 9 50 42 39 50 7Z" fill="none" stroke="currentColor" stroke-width="8" stroke-linejoin="round"/></svg></div>
+    <div class="doodle d3"><svg viewBox="0 0 96 84"><path d="M48 74C18 50 9 36 14 21c4-12 18-16 30-5l4 4 4-4c12-11 26-7 30 5 5 15-4 29-34 53Z" fill="none" stroke="currentColor" stroke-width="8" stroke-linejoin="round"/></svg></div>
+    <div class="doodle d4"><svg viewBox="0 0 80 100"><path d="M48 4 18 53h20L30 96l32-55H42L48 4Z" fill="none" stroke="currentColor" stroke-width="8" stroke-linejoin="round"/></svg></div>
+  </div>
+  <div id="flash"></div>
+  <div id="color-flashes">
+    <span style="--fc:var(--y)"></span><span style="--fc:var(--r)"></span>
+    <span style="--fc:var(--g)"></span><span style="--fc:var(--t)"></span>
+    <span style="--fc:var(--b)"></span><span style="--fc:var(--o)"></span>
+  </div>
+  <canvas id="confetti-canvas"></canvas>
+
+  <!-- topbar -->
+  <header id="topbar">
+    <div>
+      <img class="logo-img" src="/themes/hype/assets/logo.svg" alt="De Hype"
+           onerror="this.style.display='none';document.getElementById('logo-text').className='logo-text show'">
+      <div id="logo-text" class="logo-text">
+        <span class="logo-de">de</span><span class="logo-hype">HYPE</span><span class="logo-bang">!</span>
+      </div>
+    </div>
+    <div id="console-label">HERSTART CONSOLE</div>
+    <div class="badges">
+      <div id="server-badge" class="badge off"><i></i></div>
+      <div id="ws-badge"     class="badge off"><i></i></div>
+    </div>
+  </header>
+
+  <!-- middle -->
+  <main id="middle">
+
+    <!-- idle -->
+    <div class="panel active" id="panel-idle">
+      <div id="idle">
+        <div class="i-leds">
+          <i></i><i></i><i></i><i></i>
+        </div>
+        <div class="i-err" id="i-err-code">ERR:0x4E4F &nbsp;·&nbsp; CRASH LOG #0047 &nbsp;·&nbsp; HERSTART VEREIST</div>
+        <div class="i-server" id="i-server-headline">HYPE SERVER</div>
+        <div class="i-is">IS</div>
+        <div class="i-offline">OFFLINE</div>
+
+        <div class="i-hud">
+          <div class="i-hud-item"><span class="i-hud-k">NODE</span><span class="i-hud-v">DEHYPE-01</span></div>
+          <div class="i-hud-item"><span class="i-hud-k">POORT</span><span class="i-hud-v">8080</span></div>
+          <div class="i-hud-item"><span class="i-hud-k">UPTIME</span><span class="i-hud-v" id="i-uptime">00:00:00</span></div>
+          <div class="i-hud-item"><span class="i-hud-k">BEVEILIGING</span><span class="i-hud-v i-hud-bad">GECOMPROMITTEERD</span></div>
+        </div>
+
+        <div class="i-log" id="i-log"></div>
+
+        <div class="i-sub">Harry heeft het platform gecrasht.<br>Draai de sleutel om het herstartsysteem te activeren.</div>
+        <div class="i-callout">↓ NOODSLEUTEL VEREIST BIJ POORT A1</div>
+      </div>
+    </div>
+
+    <!-- armed: key accepted, emergency power spins up (auto-advances) -->
+    <div class="panel" id="panel-armed">
+      <div id="armed">
+        <div id="ar-key">🔑</div>
+        <div id="ar-title">SLEUTEL GEACCEPTEERD</div>
+        <div id="ar-sub">NOODSTROOM WORDT INGESCHAKELD…</div>
+        <div id="ar-bar"><span></span></div>
+      </div>
+    </div>
+
+    <!-- recharge (two-stream co-op mini-game — mirrors the Arduino LED strip) -->
+    <div class="panel" id="panel-recharge">
+      <div id="recharge" class="game-card">
+        <div id="rc-title">⚡ LAAD DE SERVER OP</div>
+        <div id="rc-sub">HOUD <b style="color:var(--y)">GEEL</b> EN <b style="color:var(--r)">ROOD</b> INGEDRUKT — LAAT DE TWEE STROMEN ELKAAR IN HET MIDDEN RAKEN!</div>
+        <div id="rc-body">
+          <div class="rc-side">
+            <div class="rc-lbl y">GEEL</div>
+            <div class="rc-track"><div class="rc-fill y" id="rc-fill-a"></div></div>
+          </div>
+          <div id="countdown-wrap">
+            <svg viewBox="0 0 194 194">
+              <circle cx="97" cy="97" r="82" fill="none" stroke="rgba(255,255,255,0.07)" stroke-width="9"/>
+              <circle id="countdown-ring" cx="97" cy="97" r="82" fill="none" stroke="var(--b)" stroke-width="9"
+                stroke-linecap="round" transform="rotate(-90 97 97)"
+                style="filter:drop-shadow(0 0 8px rgba(0,178,255,0.8))"/>
+            </svg>
+            <div id="countdown-num"><span id="count-display">0%</span></div>
+          </div>
+          <div class="rc-side">
+            <div class="rc-lbl r">ROOD</div>
+            <div class="rc-track right"><div class="rc-fill r" id="rc-fill-b"></div></div>
+          </div>
+        </div>
+        <div id="rc-surge">⚡ LOSLATEN!</div>
+      </div>
+    </div>
+
+    <!-- startup checks: fans → handshake → simon (server boot checklist) -->
+    <div class="panel" id="panel-checks">
+      <div id="checks" class="game-card">
+        <div id="ck-list">
+          <div class="ck-item done" data-ck="power"><i></i>STROOM</div>
+          <div class="ck-item" data-ck="fans"><i></i>VENTILATOREN</div>
+          <div class="ck-item" data-ck="handshake"><i></i>NETWERK</div>
+          <div class="ck-item" data-ck="simon"><i></i>BOOT-CODE</div>
+        </div>
+
+        <div id="ck-pass">✓ CHECK GESLAAGD!</div>
+
+        <!-- gate: press both together to start the current check -->
+        <div id="ck-gate">
+          <div id="ck-gate-name">SYSTEEMCHECK</div>
+          <div id="gate-steps"></div>
+          <div id="gate-start">
+            <div class="gst" id="gst-key"><span>🔑</span><span>DRAAI DE SLEUTEL</span></div>
+            <div id="gate-arrow">→</div>
+            <div class="gst" id="gst-btn"><span class="gst-dots"><i class="y"></i><i class="r"></i></span><span>DRUK SAMEN</span></div>
+          </div>
+          <div id="ck-gate-count"></div>
+        </div>
+
+        <!-- check: fans -->
+        <div class="ck-game" id="ck-fans">
+          <div class="ck-title" style="color:var(--o)"><span id="fan-rotor">✻</span> VENTILATOREN</div>
+          <div class="ck-sub">TIK OM DE BEURT: <b style="color:var(--y)">GEEL</b> — <b style="color:var(--r)">ROOD</b> — <b style="color:var(--y)">GEEL</b> — <b style="color:var(--r)">ROOD</b>!<br>HOU HET RITME VAST TOT DE METER VOL IS!</div>
+          <div id="fan-bar-bg"><div id="fan-bar"></div></div>
+          <div id="fan-pct">0%</div>
+        </div>
+
+        <!-- check: handshake -->
+        <div class="ck-game" id="ck-handshake">
+          <div class="ck-title" style="color:var(--t)">📡 NETWERK</div>
+          <div class="ck-sub">KIJK WAAR HET LICHT HEEN VLIEGT —<br>DRUK OP <b>JOUW</b> KNOP ZODRA HET IN JOUW GEKLEURDE VAK IS!</div>
+          <div id="hs-turn" class="r">ROOD, VANG!</div>
+          <div id="hs-track">
+            <div class="hs-zone y"></div><div class="hs-zone r"></div>
+            <div id="hs-packet"></div>
+          </div>
+          <div id="hs-lamps">
+            <div class="hs-lamp"></div><div class="hs-lamp"></div><div class="hs-lamp"></div><div class="hs-lamp"></div>
+          </div>
+          <div id="hs-feedback"></div>
+        </div>
+
+        <!-- check: simon -->
+        <div class="ck-game" id="ck-simon">
+          <div class="ck-title" style="color:var(--b)">🔐 BOOT-CODE</div>
+          <div class="ck-sub" id="sm-sub">KIJK GOED NAAR DE KLEUREN…</div>
+          <div id="sm-stage">
+            <div id="sm-round">RONDE 1</div>
+            <div id="sm-flash"></div>
+            <div id="sm-dots"></div>
+            <div id="sm-msg"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ignite (spark timing mini-game — watch the LED strip, slam together) -->
+    <div class="panel" id="panel-ignite">
+      <div id="ignite" class="game-card">
+        <div id="ig-title">🔥 START DE SERVER</div>
+        <div id="ig-sub">KIJK NAAR DE LICHTBAAN — DRUK <b>SAMEN</b> OP BEIDE KNOPPEN<br>ALS DE VONK IN HET GROENE VAK KOMT!</div>
+        <div id="ig-lamps">
+          <div class="ig-lamp"></div><div class="ig-lamp"></div><div class="ig-lamp"></div>
+        </div>
+        <div id="ig-feedback"></div>
+      </div>
+    </div>
+
+    <!-- booting (mirrors the hype-restart terminal on the big screens) -->
+    <div class="panel" id="panel-boot">
+      <div id="boot-wrap">
+        <div id="boot-title">HYPE-SERVER.NL</div>
+        <div id="boot-sub">systeem herstart gedetecteerd — verbinding herstellen…</div>
+        <div id="boot-bar-bg"><div id="boot-bar"></div></div>
+        <div id="boot-pct">0%</div>
+        <div id="boot-lines"></div>
+        <div id="boot-chips"></div>
+      </div>
+    </div>
+
+    <!-- online -->
+    <div class="panel" id="panel-online">
+      <div id="online">
+        <div id="online-main">
+          <div id="online-logo">
+            <img class="ol-img" src="/themes/hype/assets/logo.svg" alt="De Hype"
+                 onerror="this.style.display='none';document.getElementById('ol-text').className='ol-text show'">
+            <div id="ol-text" class="ol-text">
+              <span class="ol-de">de</span><span class="ol-hype">HYPE</span><span class="ol-bang">!</span>
+            </div>
+          </div>
+          <div id="online-tag">IS TERUG ONLINE!</div>
+          <div id="online-sub">Geweldig! Jullie hebben het platform gered!</div>
+          <div id="trigger-label"></div>
+        </div>
+        <div id="online-side">
+          <div class="band-tag band-live"><span>LIVE.</span></div>
+          <div class="band-tag band-deel"><span>DEEL.</span></div>
+          <div class="band-tag band-hype"><span>HYPE.</span></div>
+        </div>
+      </div>
+    </div>
+
+  </main>
+</div>
+
+<div id="gm-hint">K sleutel · Y/R laad · S surge · O storing · B stap · M mis · X reset</div>
+
+<script>
+// ── CONFIG ─────────────────────────────────────────────────────────────────────
+// Empty = same origin. Served from photodisplay at /modules/hype/reboot/.
+const SERVER_URL = '';
+const WS_URL = 'ws://192.168.1.201/ws';
+
+// ── BOOT LOG (audio-locked to reboot.wav, 13.842s, 122 BPM) ──────────────────
+// Identical steps to the display sequence — same text, same audio-locked times.
+// Line appearance times from T=0 (ms): 3616  4107  4416  6315  7051  7787
+// ms field = gap before next line. Last ms = gap before done+700ms fixed delay.
+const BOOT_LINES = [
+  { text: 'Noodverbinding herstellen…',         ms: 491,  type: 'ok' },
+  { text: 'Creator-kanalen opnieuw verbinden…',  ms: 309,  type: 'ok' },
+  { text: 'Volgersdata synchroniseren…',        ms: 1899, type: 'ok' },
+  { text: 'Beveiligingsprotocol herstellen…',    ms: 736,  type: 'ok',   status: 'OK' },
+  { text: 'Beveiliging extra versterkt na lek…', ms: 736,  type: 'special', status: 'VERSTERKT' },
+  { text: 'De Hype opnieuw opstarten…',         ms: 2254, type: 'done', status: 'ONLINE' },
+];
+
+// ── STATE ─────────────────────────────────────────────────────────────────────
+// The Arduino owns the ritual and pushes its authoritative phase over WebSocket;
+// this console is a reflector.
+// Phases: idle → armed → recharge → sync → ignite → booting → online.
+let phase = 'idle', ws = null, wsOn = false;
+let simonRoundLive = 0;
+let wsReconnectTimer = null;
+let wsConnectTimer = null;
+let wsWatchdogTimer = null;
+let lastWsMsgAt = 0;
+
+const WS_RECONNECT_MS = 500;
+const WS_CONNECT_TIMEOUT_MS = 4000;
+const WS_STALE_MS = 7000;
+
+// Delay between receiving "booting" (and firing the big-screen trigger) and
+// starting this console's own boot visuals — matches the Arduino's
+// BOOT_AUDIO_LEAD_MS minus the WS hop, so tablet + strip + big screens all
+// start reboot.wav's choreography together. Tune by ear alongside that constant.
+const TABLET_BOOT_DELAY_MS = 450;
+
+const PHASE_CLASS = { idle:'s-idle', armed:'s-keyin', recharge:'s-both', sync:'s-both',
+  fans:'s-both', handshake:'s-both', simon:'s-both', ignite:'s-both', booting:'s-booting', online:'s-online' };
+
+const panels = {
+  idle:'panel-idle', armed:'panel-armed', recharge:'panel-recharge', sync:'panel-recharge',
+  fans:'panel-checks', handshake:'panel-checks', simon:'panel-checks',
+  ignite:'panel-ignite', booting:'panel-boot', online:'panel-online',
+};
+
+// startup-check phases in order, for the checklist ticks
+const CHECK_ORDER = ['fans', 'handshake', 'simon'];
+
+// ── RENDER ────────────────────────────────────────────────────────────────────
+function setPhase(p) {
+  phase = p;
+  // update panels
+  Object.values(panels).forEach(id => document.getElementById(id).classList.remove('active'));
+  document.getElementById(panels[p]).classList.add('active');
+  // update body class for CSS state-driven bg
+  Object.values(PHASE_CLASS).forEach(c => document.body.classList.remove(c));
+  document.body.classList.add(PHASE_CLASS[p]);
+  // doodles on online
+  document.getElementById('doodles').classList.toggle('show', p === 'online');
+  clearCheckPassed();
+  // reset the recharge readout on entry; drop any stale surge prompt otherwise
+  if (p === 'recharge') updateCharge(0, 0); else clearSurge();
+  if (p === 'ignite') resetIgnite();
+  if (CHECK_ORDER.includes(p)) showCheck(p);
+}
+
+// swap the visible check game + tick the checklist; opens on the start gate
+const CHECK_NAMES = { fans: 'SYSTEEMCHECK: VENTILATOREN', handshake: 'SYSTEEMCHECK: NETWERK', simon: 'SYSTEEMCHECK: BOOT-CODE' };
+const CHECK_STEPS = {
+  fans: ['TIK <b class="y">GEEL</b>', 'TIK <b class="r">ROOD</b>', 'OM &amp; OM,<br>METER VOL!'],
+  handshake: ['HET <b class="b">LICHT</b> STUITERT<br>HEEN EN WEER', '<b class="y">GEEL</b> VANGT LINKS<br><b class="r">ROOD</b> VANGT RECHTS', 'DRUK ALS HET LICHT<br>IN JOUW VAK KOMT — <b class="b">4× RAAK!</b>'],
+  simon: ['KIJK NAAR<br>DE KLEUREN', 'ONTHOUD<br>DE VOLGORDE', 'DRUK HEM NA:<br><b class="y">GEEL</b> &amp; <b class="r">ROOD</b>'],
+};
+function showCheck(p) {
+  const idx = CHECK_ORDER.indexOf(p);
+  document.querySelectorAll('#ck-list .ck-item').forEach(el => {
+    const ck = el.dataset.ck;
+    if (ck === 'power') return; // recharge already done by definition here
+    const ckIdx = CHECK_ORDER.indexOf(ck);
+    el.classList.toggle('done', ckIdx > -1 && ckIdx < idx);
+    el.classList.toggle('active', ck === p);
+  });
+  if (p === 'fans') updateFans(0);
+  if (p === 'handshake') { renderHandshake(0, 'r'); document.getElementById('hs-feedback').textContent = ''; }
+  if (p === 'simon') resetSimon();
+  gateState('key', 0); // every check opens on its gate: key first, then buttons
+}
+
+// ── CHECK PASSED (green splash while the strip runs its victory sweep) ────────
+function checkPassed() {
+  // shown until the next phase event arrives (setPhase clears it) — a timer here
+  // races the strip's 1.5s sweep + WS latency and lets the old game peek through
+  document.getElementById('checks').classList.add('passing');
+  document.getElementById('ck-pass').classList.add('show');
+  colorFlash(2); shake('l'); doFlash();
+}
+function clearCheckPassed() {
+  document.getElementById('checks').classList.remove('passing');
+  document.getElementById('ck-pass').classList.remove('show');
+}
+
+// ── START GATE (server asks for confirmation; both buttons together = go) ─────
+function gateState(state, n) {
+  const gate = document.getElementById('ck-gate');
+  const count = document.getElementById('ck-gate-count');
+  document.getElementById('ck-gate-name').textContent = CHECK_NAMES[phase] || 'SYSTEEMCHECK';
+  document.getElementById('gate-steps').innerHTML = (CHECK_STEPS[phase] || [])
+    .map((t, i) => `<div class="gstep"><span class="gnum">${i + 1}</span><span class="gtxt">${t}</span></div>`).join('');
+  gate.classList.toggle('stage-count', state === 'count');
+  document.getElementById('gst-key').className = 'gst' + (state === 'key' ? ' active' : ' done');
+  document.getElementById('gst-btn').className = 'gst' + (state === 'wait' ? ' active' : '');
+  if (state === 'run') {
+    gate.classList.remove('show');
+    document.getElementById('ck-' + phase)?.classList.add('active');
+    doFlash();
+    return;
+  }
+  document.querySelectorAll('.ck-game').forEach(el => el.classList.remove('active'));
+  gate.classList.add('show');
+  if (state === 'count') {
+    count.textContent = n > 0 ? n : '';
+    if (n > 0) {
+      count.classList.remove('pop'); void count.offsetWidth; count.classList.add('pop');
+    }
+  } else {
+    count.textContent = '';
+  }
+}
+
+// ── FANS readout ──────────────────────────────────────────────────────────────
+function updateFans(rpm) {
+  document.getElementById('fan-bar').style.width = rpm + '%';
+  document.getElementById('fan-pct').textContent = rpm + '%';
+  // rotor spins faster as rpm climbs (2.5s at rest → 0.25s at full)
+  document.getElementById('fan-rotor').style.animationDuration = (2.5 - rpm * 0.0225) + 's';
+}
+
+// ── HANDSHAKE readout ─────────────────────────────────────────────────────────
+function renderHandshake(catches, turn) {
+  document.querySelectorAll('#hs-lamps .hs-lamp').forEach((el, i) => el.classList.toggle('lit', i < catches));
+  const t = document.getElementById('hs-turn');
+  t.className = turn;
+  t.textContent = (turn === 'y' ? 'GEEL' : 'ROOD') + ', VANG!';
+  document.getElementById('hs-track').className = 'turn-' + turn;
+  // anchor: a turn change means the packet just bounced (catch) or fizzled (drop)
+  // at the end opposite the new receiver — snap the dot there so the ~150ms of
+  // streaming lag can't make a drop look like it happened mid-flight
+  snapPacket(turn === 'y' ? 100 : 0);
+  if (catches > 0) { colorFlash(3); }
+}
+function snapPacket(pct) {
+  document.getElementById('hs-packet').style.left = pct + '%';
+}
+// live mirror of the packet on the LED strip (streamed ~12Hz by the Arduino)
+function updatePacket(p, flying) {
+  const el = document.getElementById('hs-packet');
+  el.style.left = Math.max(0, Math.min(100, p)) + '%';
+  el.classList.toggle('waiting', !flying);
+}
+function handshakeDrop() {
+  const fb = document.getElementById('hs-feedback');
+  fb.textContent = 'GEMIST — DAAR KOMT-IE WEER!';
+  setTimeout(() => { if (fb.textContent.startsWith('GEMIST')) fb.textContent = ''; }, 1400);
+}
+
+// ── SIMON readout ─────────────────────────────────────────────────────────────
+// The Arduino streams the flash it is showing RIGHT NOW (simon_flash events),
+// so tablet and strip blink in lockstep — no client-side timing to drift.
+function resetSimon() {
+  simonRoundLive = 0;
+  document.getElementById('sm-flash').className = '';
+  document.getElementById('sm-dots').innerHTML = '';
+  document.getElementById('sm-msg').textContent = '';
+  document.getElementById('sm-msg').className = '';
+  document.getElementById('sm-sub').textContent = 'KIJK GOED NAAR DE KLEUREN…';
+}
+function simonSeq(seq, round) {
+  resetSimon();
+  simonRoundLive = round | 0;
+  document.getElementById('sm-round').textContent = 'RONDE ' + round;
+}
+function simonFlash(d) {
+  if (d.round && simonRoundLive && (d.round | 0) !== simonRoundLive) return;
+  const c = d.c;
+  document.getElementById('sm-flash').className = c === 'Y' ? 'y' : c === 'R' ? 'r' : '';
+}
+function simonState(d) {
+  if (d.round) simonRoundLive = d.round | 0;
+  const dots = document.getElementById('sm-dots');
+  if (dots.children.length !== d.len) {
+    dots.innerHTML = '';
+    for (let i = 0; i < d.len; i++) { const el = document.createElement('div'); el.className = 'sm-dot'; dots.appendChild(el); }
+  }
+  [...dots.children].forEach((el, i) => el.classList.toggle('ok', i < d.pos));
+  document.getElementById('sm-sub').textContent = d.show ? 'KIJK GOED NAAR DE KLEUREN…' : 'JULLIE BEURT — DRUK DE CODE NA!';
+  if (!d.show && d.pos > 0) { const m = document.getElementById('sm-msg'); m.textContent = 'GOED!'; m.className = 'good'; }
+}
+function simonFail() {
+  const m = document.getElementById('sm-msg');
+  m.textContent = 'FOUT — KIJK NOG EEN KEER!';
+  m.className = ''; void m.offsetWidth; m.className = 'bad';
+}
+
+function renderWS() {
+  document.getElementById('ws-badge').className = 'badge ' + (wsOn ? 'on' : 'off');
+}
+
+function renderServer(ok) {
+  document.getElementById('server-badge').className = 'badge ' + (ok ? 'on' : 'off');
+}
+
+async function checkServer() {
+  try {
+    const r = await fetch(`${SERVER_URL || location.origin}/api/modules/hype/snapshot`, { method: 'GET' });
+    renderServer(r.ok);
+  } catch {
+    renderServer(false);
+  }
+}
+
+// ── CHANNEL CHIPS (mirrors the step-2 chip reveal on the big-screen terminal) ──
+let channels = [];
+async function fetchChannels() {
+  try {
+    const r = await fetch(`${SERVER_URL || location.origin}/api/modules/hype/snapshot`);
+    const data = await r.json();
+    channels = Array.isArray(data.channels) ? data.channels : [];
+  } catch {}
+}
+
+function revealChips() {
+  const box = document.getElementById('boot-chips');
+  if (!box || !channels.length) return;
+  box.innerHTML = '';
+  channels.slice(0, 6).forEach((c, i) => {
+    const chip = document.createElement('div');
+    chip.className = 'boot-chip';
+    chip.style.cssText = `--ch-color:${c.color || '#7c5cff'};animation-delay:${i * 0.1}s`;
+    chip.innerHTML = `<span class="boot-chip-dot"></span><span>${c.handle || '@?'}</span>`;
+    box.appendChild(chip);
+  });
+  box.classList.add('visible');
+}
+
+// ── RECHARGE READOUT (mirrors the two Arduino streams) ──────────────────────────
+const RING_CIRC = 2 * Math.PI * 82; // r=82
+function updateCharge(a, b) {
+  a = Math.max(0, Math.min(100, a | 0));
+  b = Math.max(0, Math.min(100, b | 0));
+  document.getElementById('rc-fill-a').style.width = a + '%';
+  document.getElementById('rc-fill-b').style.width = b + '%';
+  const combined = Math.round((a + b) / 2);
+  document.getElementById('count-display').textContent = combined + '%';
+  document.getElementById('countdown-ring').style.strokeDashoffset = Math.round(RING_CIRC * (1 - combined / 100));
+}
+function showSurge() { // warning: LOS LATEN!
+  const rc = document.getElementById('recharge');
+  rc.classList.remove('overload'); rc.classList.add('surging');
+  document.getElementById('rc-surge').textContent = '⚡ LOSLATEN!';
+  doFlash();
+}
+function showOverload() { // still held past the warning — error mode, charge drains
+  const rc = document.getElementById('recharge');
+  rc.classList.remove('surging'); rc.classList.add('overload');
+  document.getElementById('rc-surge').textContent = '🔥 OVERBELAST! LAAT LOS!';
+  shake('l');
+}
+function clearSurge() {
+  document.getElementById('recharge')?.classList.remove('surging', 'overload');
+}
+
+// ── IGNITE READOUT (hits/misses pushed by the Arduino spark game) ──────────────
+function renderIgnite(hits) {
+  document.querySelectorAll('#ig-lamps .ig-lamp').forEach((el, i) => el.classList.toggle('lit', i < hits));
+  const fb = document.getElementById('ig-feedback');
+  if (hits > 0) {
+    fb.textContent = hits >= 3 ? 'SERVER START!' : 'RAAK! NOG ' + (3 - hits) + '…';
+    fb.className = 'hit'; colorFlash(2); shake();
+  }
+}
+function igniteMiss() {
+  const fb = document.getElementById('ig-feedback');
+  fb.textContent = 'NET NIET — WACHT OP DE VONK!';
+  fb.className = ''; void fb.offsetWidth; fb.className = 'miss';
+}
+function resetIgnite() {
+  document.querySelectorAll('#ig-lamps .ig-lamp').forEach(el => el.classList.remove('lit'));
+  const fb = document.getElementById('ig-feedback');
+  fb.textContent = ''; fb.className = '';
+}
+
+// ── FLASH / COLOUR-FLASH / SHAKE (boot-beat energy, à la the launch takeover) ──
+function doFlash() {
+  const f = document.getElementById('flash');
+  f.classList.remove('pop'); void f.offsetWidth; f.classList.add('pop');
+}
+function colorFlash(i) {
+  const s = document.querySelectorAll('#color-flashes span')[i % 6];
+  if (!s) return;
+  s.classList.remove('pop'); void s.offsetWidth; s.classList.add('pop');
+}
+function shake(level) {
+  const a = document.getElementById('app');
+  const c = level === 'l' ? 'shake-l' : 'shake';
+  a.classList.remove('shake', 'shake-l'); void a.offsetWidth; a.classList.add(c);
+  setTimeout(() => a.classList.remove(c), 540);
+}
+
+// ── BOOT (mirrors hr-boot terminal on the big screens — same audio-locked timings) ──
+function _bootPulse() {
+  const w = document.getElementById('boot-wrap');
+  if (!w) return;
+  w.classList.add('beat');
+  setTimeout(() => w.classList.remove('beat'), 320);
+}
+
+function startBoot() {
+  // Fire the big screens FIRST (network hop), then hold our own visuals for
+  // TABLET_BOOT_DELAY_MS — together with the Arduino's BOOT_AUDIO_LEAD_MS this
+  // lines up reboot.wav on strip, tablet and pixelplein.
+  triggerScreen();
+  setPhase('booting');
+  setTimeout(_runBootTimeline, TABLET_BOOT_DELAY_MS);
+}
+
+function _runBootTimeline() {
+  const sub = document.getElementById('boot-sub');
+  sub.textContent = 'systeem herstart gedetecteerd — verbinding herstellen…';
+  sub.classList.remove('found');
+  document.getElementById('boot-lines').innerHTML = '';
+  document.getElementById('boot-bar').style.width = '0%';
+  document.getElementById('boot-pct').textContent = '0%';
+  const chips = document.getElementById('boot-chips');
+  chips.innerHTML = ''; chips.classList.remove('visible');
+  doFlash();
+  if (!channels.length) fetchChannels();
+
+  // Same strong-onset beat punches as the big-screen terminal
+  setTimeout(() => { sub.textContent = 'VERBINDING GEVONDEN — OPSTART INITIËREN'; sub.classList.add('found'); _bootPulse(); }, 2880);
+  [8032, 9760, 10613].forEach(t => setTimeout(_bootPulse, t));
+
+  // Launch-style colour-flash + shake punches locked to the reboot.wav beats
+  [[2880,4,'l'],[3616,0],[4107,0],[4416,5,'l'],[6315,0],[7051,0,'l'],[7787,1,'l'],[8032,5],[9760,1],[10613,4,'l']]
+    .forEach(([t, ci, lv]) => setTimeout(() => { colorFlash(ci); if (lv) shake(lv); }, t));
+
+  let step = 0;
+  function addLine() {
+    document.querySelector('.boot-cursor')?.remove();
+    if (step >= BOOT_LINES.length) {
+      setTimeout(() => {
+        setPhase('online'); doFlash(); shake('l'); colorFlash(0); spawnConfetti();
+        setTimeout(() => { if (phase === 'online') spawnConfetti(); }, 2208); // second burst on the final snap
+      }, 700);
+      return;
+    }
+    const { text, ms, type, status } = BOOT_LINES[step];
+    const div = document.createElement('div');
+    div.className = `boot-line ${type}`;
+    div.style.animationDelay = '0s';
+    const icon = type === 'err' ? '✕' : '✓';
+    div.innerHTML = `<span class="boot-arrow">${icon}</span><span class="boot-text">${text}<span class="boot-cursor">_</span></span><span class="boot-status">${status || 'OK'}</span>`;
+    document.getElementById('boot-lines').appendChild(div);
+    if (type === 'special') { doFlash(); _bootPulse(); setTimeout(_bootPulse, 140); }
+    if (step === 1) revealChips(); // second line: "Creator-kanalen opnieuw verbinden…"
+    step++;
+    const pct = Math.round(step / BOOT_LINES.length * 100);
+    document.getElementById('boot-bar').style.width = pct + '%';
+    document.getElementById('boot-pct').textContent = pct + '%';
+    setTimeout(addLine, ms); // exact delay — no random jitter, audio-locked
+  }
+  setTimeout(addLine, 3616); // first line at T=3616ms — matches display step 1 and audio snap
+}
+
+// ── CONFETTI ──────────────────────────────────────────────────────────────────
+function spawnConfetti() {
+  const canvas = document.getElementById('confetti-canvas');
+  const ctx = canvas.getContext('2d');
+  const dpr = Math.min(2, devicePixelRatio || 1);
+  canvas.width  = innerWidth  * dpr;
+  canvas.height = innerHeight * dpr;
+
+  const colors = ['#f5d904','#f52368','#32d74b','#ff8a00','#7c4dff','#27d6c6','#00b2ff','#fff'];
+  const parts = Array.from({ length: 260 }, (_, i) => {
+    const angle = -Math.PI / 2 + (Math.random() - 0.5) * Math.PI * 1.88;
+    const speed = (5 + Math.random() * 13) * dpr;
+    const ribbon = Math.random() < 0.28;
+    return {
+      x: canvas.width / 2, y: canvas.height * 0.5,
+      vx: Math.cos(angle) * speed, vy: Math.sin(angle) * speed - 5 * dpr,
+      g: (ribbon ? 0.11 : 0.18) * dpr,
+      size: (3 + Math.random() * 5) * dpr,
+      len: ribbon ? (18 + Math.random() * 28) * dpr : 0, ribbon,
+      color: colors[i % colors.length],
+      rot: Math.random() * Math.PI, vr: (Math.random() - 0.5) * (ribbon ? 0.15 : 0.36),
+      life: 1,
+    };
+  });
+
+  const dur = 2400, t0 = performance.now();
+  (function frame(now) {
+    const t = now - t0;
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    for (const p of parts) {
+      p.vy += p.g; p.x += p.vx; p.y += p.vy; p.rot += p.vr;
+      p.life = Math.max(0, 1 - t / dur);
+      ctx.save(); ctx.translate(p.x, p.y); ctx.rotate(p.rot); ctx.globalAlpha = p.life;
+      ctx.fillStyle = p.color;
+      p.ribbon
+        ? ctx.fillRect(-p.len / 2, -p.size * 0.25, p.len, p.size * 0.5)
+        : ctx.fillRect(-p.size, -p.size * 0.4, p.size * 2, p.size * 0.8);
+      ctx.restore();
+    }
+    if (t < dur) requestAnimationFrame(frame);
+    else ctx.clearRect(0, 0, canvas.width, canvas.height);
+  })(t0);
+}
+
+// ── SCREEN TRIGGER ────────────────────────────────────────────────────────────
+async function triggerScreen() {
+  const base = SERVER_URL || location.origin;
+  if (!base) return;
+  const el = document.getElementById('trigger-label');
+  try {
+    const r = await fetch(`${base}/api/modules/hype/reboot-trigger`, { method:'POST' });
+    renderServer(r.ok);
+    el.className = r.ok ? 'ok' : 'err';
+    el.textContent = r.ok ? '✓ schermsequentie geactiveerd' : '✗ server gaf fout terug';
+  } catch {
+    renderServer(false);
+    el.className = 'err';
+    el.textContent = '✗ server niet bereikbaar';
+  }
+}
+
+// ── WEBSOCKET ─────────────────────────────────────────────────────────────────
+// Arduino → console: {event:'phase',phase}, {event:'charge',a,b}, {event:'surge'|'surge_end'}.
+function scheduleWSReconnect() {
+  if (wsReconnectTimer) return;
+  wsReconnectTimer = setTimeout(() => {
+    wsReconnectTimer = null;
+    connectWS();
+  }, WS_RECONNECT_MS);
+}
+function cleanupWS() {
+  if (wsConnectTimer) { clearTimeout(wsConnectTimer); wsConnectTimer = null; }
+}
+function connectWS() {
+  if (ws && (ws.readyState === WebSocket.CONNECTING || ws.readyState === WebSocket.OPEN)) return;
+  cleanupWS();
+  try {
+    ws = new WebSocket(WS_URL);
+    wsConnectTimer = setTimeout(() => {
+      if (ws && ws.readyState === WebSocket.CONNECTING) ws.close();
+    }, WS_CONNECT_TIMEOUT_MS);
+    ws.onopen  = () => { cleanupWS(); lastWsMsgAt = Date.now(); wsOn = true; renderWS(); };
+    ws.onclose = () => { cleanupWS(); wsOn = false; ws = null; renderWS(); scheduleWSReconnect(); };
+    ws.onerror = () => {};
+    ws.onmessage = e => {
+      try {
+        lastWsMsgAt = Date.now();
+        const d = JSON.parse(e.data);
+        if (d.event === 'phase')          { if (d.phase === 'booting') startBoot(); else setPhase(d.phase); }
+        else if (d.event === 'heartbeat') { if (d.phase && d.phase !== phase && d.phase !== 'booting') setPhase(d.phase); }
+        else if (d.event === 'charge')      updateCharge(d.a, d.b);
+        else if (d.event === 'surge')       showSurge();
+        else if (d.event === 'overload')    showOverload();
+        else if (d.event === 'surge_end')   clearSurge();
+        else if (d.event === 'ignite')      renderIgnite(d.hits | 0);
+        else if (d.event === 'ignite_miss') igniteMiss();
+        else if (d.event === 'fans')        updateFans(d.rpm | 0);
+        else if (d.event === 'handshake')   renderHandshake(d.catches | 0, d.turn);
+        else if (d.event === 'handshake_drop') handshakeDrop();
+        else if (d.event === 'packet')      updatePacket(d.p | 0, !!d.f);
+        else if (d.event === 'simon_seq')   simonSeq(String(d.seq || ''), d.round | 0);
+        else if (d.event === 'simon_flash') simonFlash(d);
+        else if (d.event === 'simon')       simonState(d);
+        else if (d.event === 'simon_fail')  simonFail();
+        else if (d.event === 'gate')        gateState(d.state, d.n | 0);
+        else if (d.event === 'check_passed') checkPassed();
+      } catch {}
+    };
+  } catch { scheduleWSReconnect(); }
+}
+
+wsWatchdogTimer = setInterval(() => {
+  if (!ws || ws.readyState !== WebSocket.OPEN) return;
+  if (Date.now() - lastWsMsgAt > WS_STALE_MS) ws.close();
+}, 500);
+
+// ── KEYBOARD SIM (laptop rehearsal ONLY) ────────────────────────────────────────
+// On-site the Arduino owns the sequence and pushes phase/charge/surge/ignite;
+// there is no Arduino when previewing on a computer, so these keys fake it:
+//   k = insert key (armed → recharge)   y/r = pump the yellow/pink stream +25%
+//   s = surge prompt   o = overload prompt   b = ignition hit   m = ignition miss
+//   x = reset to idle (also nudges a real rig)
+let simA = 0, simB = 0, simN = 0;
+function simCharged() {
+  if (simA >= 100 && simB >= 100) {
+    setPhase('sync');
+    setTimeout(() => { simN = 0; simGated = false; simKeyed = false; setPhase('fans'); }, 700);
+  }
+}
+// 'b' advances whichever check is active (rpm pump / catch / simon step);
+// the first press on a check runs its start gate countdown
+let simGated = false, simKeyed = false;
+function simAdvance() {
+  if (CHECK_ORDER.includes(phase) && !simKeyed) { simKeyed = true; gateState('wait', 0); return; } // key turned
+  if (CHECK_ORDER.includes(phase) && !simGated) {
+    simGated = true;
+    gateState('count', 0);
+    [3, 2, 1].forEach((n, i) => setTimeout(() => gateState('count', n), 180 + i * 700));
+    setTimeout(() => { gateState('run', 0); if (phase === 'simon') { simonSeq('YR', 1); simonState({len:2,pos:0,show:true}); } }, 2280);
+    return;
+  }
+  if (phase === 'fans') {
+    simN = Math.min(100, simN + 20); updateFans(simN);
+    if (simN >= 100) setTimeout(() => { simN = 0; simGated = false; simKeyed = false; setPhase('handshake'); }, 700);
+  } else if (phase === 'handshake') {
+    renderHandshake(++simN, simN % 2 ? 'y' : 'r');
+    if (simN >= 4) setTimeout(() => { simN = 0; simGated = false; simKeyed = false; setPhase('simon'); }, 700);
+  } else if (phase === 'simon') {
+    simonState({ len: 2, pos: ++simN, show: false });
+    if (simN >= 2) setTimeout(startBoot, 800);
+  } else if (phase === 'ignite') {
+    renderIgnite(++simN);
+    if (simN >= 3) setTimeout(startBoot, 600);
+  }
+}
+document.addEventListener('keydown', e => {
+  if (e.repeat) return;
+  const k = e.key.toLowerCase();
+  if (k === 'k')      { simA = simB = 0; setPhase('armed'); setTimeout(() => setPhase('recharge'), 1800); }
+  else if (k === 'y') { simA = Math.min(100, simA + 25); updateCharge(simA, simB); simCharged(); }
+  else if (k === 'r') { simB = Math.min(100, simB + 25); updateCharge(simA, simB); simCharged(); }
+  else if (k === 's') { showSurge(); setTimeout(clearSurge, 900); }
+  else if (k === 'o') { showOverload(); setTimeout(clearSurge, 1400); }
+  else if (k === 'b') { simAdvance(); }
+  else if (k === 'm') { if (phase === 'ignite') igniteMiss(); else if (phase === 'handshake') handshakeDrop(); else if (phase === 'simon') simonFail(); }
+  else if (k === 'x') { simA = simB = 0; simN = 0; setPhase('idle'); if (ws && ws.readyState === 1) ws.send(JSON.stringify({ cmd:'reset' })); }
+});
+
+// ── IDLE DIAGNOSTICS (crash log ticker, uptime, glitch blips) ────────────────
+const LOG_LINES = [
+  'harry_ecker.exe heeft root toegang',
+  'beveiliging: 0% actief',
+  'volgers-server: TIMEOUT',
+  'auth-token verlopen na inbraak',
+  'noodverbinding: WACHTEND OP SLEUTEL',
+  'backup-cluster: OFFLINE',
+];
+let logIdx = 0;
+function pushLogLine() {
+  const box = document.getElementById('i-log');
+  if (!box || phase !== 'idle') return;
+  const line = document.createElement('div');
+  line.className = 'i-log-line';
+  const tag = '[' + String(Math.floor(Math.random() * 900) + 100) + ']';
+  line.innerHTML = `<span>${tag}</span>${LOG_LINES[logIdx % LOG_LINES.length]}`;
+  logIdx++;
+  box.appendChild(line);
+  while (box.children.length > 3) box.removeChild(box.firstChild);
+}
+
+const uptimeStart = Date.now();
+function tickUptime() {
+  if (phase !== 'idle') return;
+  const s = Math.floor((Date.now() - uptimeStart) / 1000);
+  const hh = String(Math.floor(s / 3600)).padStart(2, '0');
+  const mm = String(Math.floor((s % 3600) / 60)).padStart(2, '0');
+  const ss = String(s % 60).padStart(2, '0');
+  const el = document.getElementById('i-uptime');
+  if (el) el.textContent = `${hh}:${mm}:${ss}`;
+}
+
+function glitchBlip() {
+  if (phase !== 'idle') return;
+  const el = document.getElementById('i-server-headline');
+  if (!el) return;
+  el.classList.remove('glitch-blip'); void el.offsetWidth; el.classList.add('glitch-blip');
+}
+
+// randomize the crash-log error code once per load so reloads feel "live"
+const errCodeEl = document.getElementById('i-err-code');
+if (errCodeEl) {
+  const code = Math.floor(Math.random() * 0xFFFF).toString(16).toUpperCase().padStart(4, '0');
+  const num = String(Math.floor(Math.random() * 90) + 10).padStart(4, '0');
+  errCodeEl.textContent = `ERR:0x${code}  ·  CRASH LOG #${num}  ·  HERSTART VEREIST`;
+}
+
+setInterval(pushLogLine, 2600);
+setInterval(tickUptime, 1000);
+setInterval(glitchBlip, 7000 + Math.random() * 4000);
+pushLogLine();
+
+// ── INIT ──────────────────────────────────────────────────────────────────────
+// Fix countdown ring circumference
+document.getElementById('countdown-ring').style.strokeDasharray = String(Math.round(2 * Math.PI * 82));
+
+setPhase('idle');
+renderWS();
+connectWS();
+checkServer();
+fetchChannels();
+setInterval(checkServer, 5000);
+</script>
+</body>
+</html>

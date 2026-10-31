@@ -1,11 +1,15 @@
 'use strict';
 
-const crypto  = require('crypto');
+const { execFile } = require('child_process');
+const crypto       = require('crypto');
+const fs           = require('fs');
+const fsp          = require('fs').promises;
+const path         = require('path');
+const { promisify }  = require('util');
+
 const express = require('express');
 const multer  = require('multer');
-const path    = require('path');
-const fsp     = require('fs').promises;
-const fs      = require('fs');
+const sharp   = require('sharp');
 
 const state   = require('../../state');
 const { getConfig, getPublicConfig, saveConfig } = require('../../config');
@@ -13,10 +17,13 @@ const { broadcast }  = require('../ws/broadcast');
 const { serializePhoto, getAllPhotos } = require('./serialize');
 const { upsertPhotoFromPath, PHOTOS_DIR } = require('../ingest/index');
 const { toCacheFilePath, toThumbFilePath } = require('../ingest/process');
-const { setHeroCandidate, deletePhotoMetadata, upsertPhotoMetadata } = require('../../db');
+const db = require('../../db');
+const { setHeroCandidate, deletePhotoMetadata, upsertPhotoMetadata, clearAllPhotoMetadata, run: dbRun } = db;
+const { clearModulePhotoData } = require('../../modules/loader');
 
 const router = express.Router();
 const UPLOAD_TMP_DIR = path.join(__dirname, '..', '..', '..', 'cache', 'upload-tmp');
+const execFileAsync = promisify(execFile);
 
 fs.mkdirSync(UPLOAD_TMP_DIR, { recursive: true });
 
@@ -49,6 +56,34 @@ function sanitizeUploadFilename(name) {
   return safeName || `upload-${Date.now()}.jpg`;
 }
 
+function isHeicUpload(name) {
+  return /\.(heic|heif)$/i.test(name || '');
+}
+
+function toJpegUploadFilename(name) {
+  const safeName = sanitizeUploadFilename(name);
+  const ext      = path.extname(safeName);
+  const base     = ext ? safeName.slice(0, -ext.length) : safeName;
+  return `${base || `upload-${Date.now()}`}.jpg`;
+}
+
+async function uniqueUploadPath(destDir, safeName) {
+  const ext  = path.extname(safeName);
+  const base = ext ? safeName.slice(0, -ext.length) : safeName;
+
+  for (let i = 0; i < 1000; i++) {
+    const name = i === 0 ? safeName : `${base}-${i}${ext}`;
+    const candidate = path.join(destDir, name);
+    try {
+      await fsp.access(candidate);
+    } catch {
+      return candidate;
+    }
+  }
+
+  return path.join(destDir, `${base}-${Date.now()}${ext}`);
+}
+
 async function cleanupTempFiles(files) {
   await Promise.all((files || []).map(async file => {
     if (!file?.path) return;
@@ -64,6 +99,42 @@ async function moveUploadedFile(srcPath, destPath) {
     await fsp.copyFile(srcPath, destPath);
     try { await fsp.unlink(srcPath); } catch {}
   }
+}
+
+async function convertUploadedHeicToJpeg(srcPath, destPath) {
+  const errors = [];
+
+  try {
+    await sharp(srcPath)
+      .rotate()
+      .jpeg({ quality: 92, mozjpeg: true })
+      .toFile(destPath);
+    try { await fsp.unlink(srcPath); } catch {}
+    return;
+  } catch (err) {
+    errors.push(`sharp: ${err.message}`);
+    try { await fsp.unlink(destPath); } catch {}
+  }
+
+  try {
+    await execFileAsync('heif-convert', [srcPath, destPath], { timeout: 60_000 });
+    try { await fsp.unlink(srcPath); } catch {}
+    return;
+  } catch (err) {
+    errors.push(`heif-convert: ${err.message}`);
+    try { await fsp.unlink(destPath); } catch {}
+  }
+
+  try {
+    await execFileAsync('magick', [srcPath, destPath], { timeout: 60_000 });
+    try { await fsp.unlink(srcPath); } catch {}
+    return;
+  } catch (err) {
+    errors.push(`magick: ${err.message}`);
+    try { await fsp.unlink(destPath); } catch {}
+  }
+
+  throw new Error(`Could not convert HEIC upload to JPG (${errors.join('; ')})`);
 }
 
 function handleUploadMiddleware(req, res, next) {
@@ -193,20 +264,27 @@ router.post('/upload', handleUploadMiddleware, async (req, res) => {
   const errors   = [];
 
   for (const file of files) {
-    const safeName = sanitizeUploadFilename(file.originalname);
-    const destPath = path.join(destDir, safeName);
+    const convertHeic = isHeicUpload(file.originalname);
+    const safeName = convertHeic
+      ? toJpegUploadFilename(file.originalname)
+      : sanitizeUploadFilename(file.originalname);
+    const destPath = await uniqueUploadPath(destDir, safeName);
+    const finalName = path.basename(destPath);
 
     try {
-      await moveUploadedFile(file.path, destPath);
+      if (convertHeic) await convertUploadedHeicToJpeg(file.path, destPath);
+      else             await moveUploadedFile(file.path, destPath);
+
       // chokidar will pick this up; also kick off processing immediately.
       // If the enqueue step fails, the file is still on disk and the watcher
       // can recover it, so keep the upload itself successful.
       await upsertPhotoFromPath(destPath).catch(err => {
-        console.warn(`[photos] failed to enqueue ${safeName}: ${err.message}`);
+        console.warn(`[photos] failed to enqueue ${finalName}: ${err.message}`);
       });
-      uploaded.push({ name: safeName, group: group || 'ungrouped' });
+      uploaded.push({ name: finalName, group: group || 'ungrouped' });
     } catch (err) {
       try { await fsp.unlink(file.path); } catch {}
+      try { await fsp.unlink(destPath); } catch {}
       errors.push({ name: safeName, error: err.message });
     }
   }
@@ -243,6 +321,37 @@ router.delete('/group/:group', async (req, res) => {
 });
 
 // ---------------------------------------------------------------------------
+// DELETE /api/photos/all — wipe the ENTIRE photo database: files, caches,
+// metadata, tags (all namespaces) and photo-linked module data.
+// Guarded by an explicit confirm phrase from the admin UI.
+// ---------------------------------------------------------------------------
+router.delete('/all', async (req, res) => {
+  if (req.body?.confirm !== 'ALLES WISSEN') {
+    return res.status(400).json({ ok: false, error: 'Bevestiging ontbreekt' });
+  }
+
+  const photos = Array.from(state.photosById.values());
+  for (const photo of photos) {
+    await _deletePhotoRecord(photo);
+  }
+
+  // Leftover group directories in photos/
+  try {
+    for (const entry of await fsp.readdir(PHOTOS_DIR, { withFileTypes: true })) {
+      await fsp.rm(path.join(PHOTOS_DIR, entry.name), { recursive: true, force: true }).catch(() => {});
+    }
+  } catch {}
+
+  // All photo-linked rows: metadata (safety net), tags in every namespace,
+  // and whatever photo data loaded modules keep.
+  await clearAllPhotoMetadata().catch(() => {});
+  await dbRun('DELETE FROM photo_tags').catch(() => {});
+  await clearModulePhotoData(db);
+
+  res.json({ ok: true, deleted: photos.length });
+});
+
+// ---------------------------------------------------------------------------
 // PATCH /api/photos/:id — set heroCandidate flag
 // id is URL-encoded, e.g. "ceremony%2Fimg001.jpg"
 // ---------------------------------------------------------------------------
@@ -252,21 +361,28 @@ router.patch('/:id(*)', async (req, res) => {
     return res.status(404).json({ ok: false, error: 'Photo not found' });
   }
 
-  const { heroCandidate } = req.body;
-  if (typeof heroCandidate !== 'boolean') {
-    return res.status(400).json({ ok: false, error: 'heroCandidate must be a boolean' });
+  const { heroCandidate, eventGroup } = req.body;
+  const photo = state.photosById.get(id);
+
+  if (typeof heroCandidate === 'boolean') {
+    const existing = state.photoOverrides.get(id) || {};
+    state.photoOverrides.set(id, { ...existing, heroCandidate });
+    setHeroCandidate(id, heroCandidate).catch(err => {
+      console.warn(`[photos] failed to persist heroCandidate for ${id}: ${err.message}`);
+    });
   }
 
-  const existing = state.photoOverrides.get(id) || {};
-  state.photoOverrides.set(id, { ...existing, heroCandidate });
-  setHeroCandidate(id, heroCandidate).catch(err => {
-    console.warn(`[photos] failed to persist heroCandidate for ${id}: ${err.message}`);
-  });
+  if (typeof eventGroup === 'string' || eventGroup === null) {
+    // null or empty string → reset to ungrouped
+    photo.eventGroup = eventGroup || null;
+  }
 
-  const photo = state.photosById.get(id);
-  upsertPhotoMetadata(photo).catch(err => {
+  try {
+    await upsertPhotoMetadata(photo);
+  } catch (err) {
     console.warn(`[photos] failed to persist metadata for ${id}: ${err.message}`);
-  });
+    return res.status(500).json({ ok: false, error: 'Failed to persist photo metadata' });
+  }
   broadcast({ type: 'photo_update', photo: serializePhoto(photo) });
 
   res.json({ ok: true });

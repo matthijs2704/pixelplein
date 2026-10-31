@@ -5,7 +5,7 @@
 // IMPORTANT: bump SHELL_VERSION whenever screen JS or CSS files change so
 // that all NUC clients pick up the new app shell on their next load.
 
-const SHELL_VERSION = 18;
+const SHELL_VERSION = 36;
 const SHELL_CACHE   = `pixelplein-shell-v${SHELL_VERSION}`;
 const MEDIA_CACHE   = 'pixelplein-media';
 
@@ -24,6 +24,8 @@ const SHELL_URLS = [
   '/screen/heartbeat.js',
   '/screen/idb.js',
   '/screen/layout-lifecycle.js',
+  '/screen/module-registry.js',
+  '/screen/modules-loader.js',
   '/screen/photo-selection.js',
   '/screen/photos.js',
   '/screen/preload.js',
@@ -49,6 +51,7 @@ const SHELL_URLS = [
   '/screen/layouts/sidebyside.js',
   '/screen/layouts/submissionwall.js',
   '/screen/layouts/triptych.js',
+  '/screen/layouts/video-fullscreen.js',
 
   // Overlays
   '/screen/overlays/index.js',
@@ -142,10 +145,19 @@ self.addEventListener('fetch', event => {
   const { request } = event;
   const url = new URL(request.url);
 
-  // Only handle same-origin GET requests
   if (request.method !== 'GET' || url.origin !== self.location.origin) return;
 
   const p = url.pathname;
+
+  // Kiosk startup may race the local server. Once this SW has been installed
+  // by a previous successful load, serve the screen shell for screen
+  // navigations so Chromium does not show its own connection error page.
+  if (request.mode === 'navigate') {
+    if (p === '/screen' || p === '/screen.html') {
+      event.respondWith(_screenNavigation(request));
+    }
+    return;
+  }
 
   // Photos and thumbs: Cache-first (URLs are already versioned with ?v=...)
   if (p.startsWith('/photos/') || p.startsWith('/thumbs/')) {
@@ -160,9 +172,10 @@ self.addEventListener('fetch', event => {
     return;
   }
 
-  // Theme files are dynamically loaded after config arrives. Cache-first lets
-  // a previously-used theme survive an offline cold start.
-  if (p.startsWith('/themes/')) {
+  // Theme and module files are dynamically loaded after config arrives.
+  // Cache-first lets previously-used modules survive an offline cold start
+  // without hard-coding module-owned assets in the shell manifest.
+  if (p.startsWith('/themes/') || p.startsWith('/modules/')) {
     event.respondWith(_cacheFirst(request, SHELL_CACHE));
     return;
   }
@@ -211,8 +224,29 @@ async function _cacheFirst(request, cacheName) {
 
   try {
     const response = await fetch(request);
-    if (response.ok) {
+    if (response.status === 200 && response.type === 'basic') {
       cache.put(request, response.clone());
+    }
+    return response;
+  } catch {
+    return new Response('Offline', { status: 503, statusText: 'Service Unavailable' });
+  }
+}
+
+/**
+ * Navigation fallback for the screen page.
+ * Keeps the real browser URL (/screen?screen=1) while returning the cached app
+ * shell. On a fresh browser profile without cache, fall back to network.
+ */
+async function _screenNavigation(request) {
+  const cache  = await caches.open(SHELL_CACHE);
+  const cached = await cache.match('/screen') || await cache.match('/screen.html');
+  if (cached) return cached;
+
+  try {
+    const response = await fetch(request);
+    if (response.status === 200 && response.type === 'basic') {
+      await cache.put('/screen', response.clone());
     }
     return response;
   } catch {

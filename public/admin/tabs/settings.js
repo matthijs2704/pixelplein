@@ -13,7 +13,8 @@ import {
   updateScreenDevice,
   sendScreenDeviceCommand,
 } from '../api.js';
-import { showToast as _toast } from '../app.js';
+import { deleteAllPhotos } from '../api.js';
+import { showToast as _toast, showConfirm as _confirm } from '../app.js';
 import { esc as _esc } from '/shared/utils.js';
 
 let _getConfig = null;
@@ -38,6 +39,7 @@ export function refreshFromConfig() {
   _setVal('settings-display-height', cfg.displayHeight || 1080);
   _setVal('settings-health-interval', Math.round((cfg.healthBroadcastIntervalMs || 3000) / 1000));
   _setChecked('settings-transcode-videos', cfg.transcodeVideos ?? false);
+  _setChecked('settings-blackout', cfg.screensBlackout ?? false);
 
   // Submissions settings
   _setVal('submissions-enabled',            String(cfg.submissionEnabled !== false));
@@ -61,6 +63,30 @@ export function refreshScreenDevices() {
 }
 
 function _bind() {
+  // Danger zone: wipe the entire photo database (files + metadata + tags +
+  // module data). Double confirm — this is the start-of-event reset.
+  document.getElementById('settings-delete-all-photos')?.addEventListener('click', async (e) => {
+    const btn = e.currentTarget;
+    const ok = await _confirm(
+      'Alle foto’s wissen',
+      'ALLE foto’s permanent verwijderen, inclusief metadata, tags en module-data? Dit kan niet ongedaan worden gemaakt.',
+      'Ja, wis alles',
+    );
+    if (!ok) return;
+    const ok2 = await _confirm('Zeker weten?', 'Laatste kans — de complete fotodatabase wordt geleegd.', 'Wis alles definitief');
+    if (!ok2) return;
+    btn.disabled = true;
+    try {
+      const result = await deleteAllPhotos();
+      _toast(`${result?.deleted ?? 'Alle'} foto's gewist`);
+      _onChanged?.();
+    } catch (err) {
+      _toast(`Wissen mislukt: ${err.message}`, true);
+    } finally {
+      btn.disabled = false;
+    }
+  });
+
   document.getElementById('settings-event-name')?.addEventListener('input', e => {
     const cfg = _getConfig();
     cfg.eventName = e.target.value;
@@ -96,6 +122,13 @@ function _bind() {
   document.getElementById('settings-transcode-videos')?.addEventListener('change', e => {
     const cfg = _getConfig();
     cfg.transcodeVideos = e.target.checked;
+    _onChanged?.();
+  });
+
+  // Kill switch: black out every screen (no photos, no video) until unchecked.
+  document.getElementById('settings-blackout')?.addEventListener('change', e => {
+    const cfg = _getConfig();
+    cfg.screensBlackout = e.target.checked;
     _onChanged?.();
   });
 

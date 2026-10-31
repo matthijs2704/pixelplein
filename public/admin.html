@@ -27,6 +27,9 @@
       <button class="nav-item" data-page="photos">
         <span class="nav-icon"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" class="icon" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="m2.25 15.75 5.159-5.159a2.25 2.25 0 0 1 3.182 0l5.159 5.159m-1.5-1.5 1.409-1.409a2.25 2.25 0 0 1 3.182 0l2.909 2.909m-18 3.75h16.5a1.5 1.5 0 0 0 1.5-1.5V6a1.5 1.5 0 0 0-1.5-1.5H3.75A1.5 1.5 0 0 0 2.25 6v12a1.5 1.5 0 0 0 1.5 1.5Zm10.5-11.25h.008v.008h-.008V8.25Zm.375 0a.375.375 0 1 1-.75 0 .375.375 0 0 1 .75 0Z"/></svg></span> Photos
       </button>
+      <button class="nav-item" data-page="videos">
+        <span class="nav-icon"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" class="icon" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="m15.75 10.5 4.72-4.72a.75.75 0 0 1 1.28.53v11.38a.75.75 0 0 1-1.28.53l-4.72-4.72M4.5 18.75h9a2.25 2.25 0 0 0 2.25-2.25v-9a2.25 2.25 0 0 0-2.25-2.25h-9A2.25 2.25 0 0 0 2.25 7.5v9a2.25 2.25 0 0 0 2.25 2.25Z"/></svg></span> Videos
+      </button>
       <button class="nav-item" data-page="submissions">
         <span class="nav-icon"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" class="icon" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M12 6v12m6-6H6"/><path stroke-linecap="round" stroke-linejoin="round" d="M4.5 12a7.5 7.5 0 1 0 15 0 7.5 7.5 0 0 0-15 0Z"/></svg></span> Submissions
         <span class="nav-badge" id="nav-submissions-badge" style="display:none">0</span>
@@ -193,6 +196,17 @@
                 </label>
               </div>
 
+              <div class="field" style="border-top:1px solid var(--border);padding-top:12px;margin-top:4px">
+                <label style="display:flex;align-items:center;gap:8px;cursor:pointer">
+                  <input type="checkbox" id="q-video-disabled">
+                  Disable video playback
+                </label>
+                <label style="display:flex;align-items:center;gap:8px;cursor:pointer;margin-top:8px">
+                  <input type="checkbox" id="q-blackout">
+                  <span class="btn-danger" style="padding:2px 8px;border-radius:6px">Blackout all screens</span>
+                </label>
+              </div>
+
             </div>
           </div>
 
@@ -294,7 +308,7 @@
                   <option value="image">Image</option>
                   <option value="text-card">Text Card</option>
                   <option value="article">Article</option>
-                  <option value="video">Video</option>
+                  <option value="video">Video clip</option>
                   <option value="qr">QR Code</option>
                   <option value="webpage">Webpage</option>
                 </select>
@@ -307,7 +321,7 @@
             <div class="slides-type-filters" id="slides-type-filters">
               <button class="slides-type-btn active" data-type="all">All</button>
               <button class="slides-type-btn" data-type="image">Images</button>
-              <button class="slides-type-btn" data-type="video">Videos</button>
+              <button class="slides-type-btn" data-type="video">Video clips</button>
               <button class="slides-type-btn" data-type="text-card">Text</button>
               <button class="slides-type-btn" data-type="article">Articles</button>
               <button class="slides-type-btn" data-type="qr">QR</button>
@@ -389,6 +403,37 @@
 
         <div id="photos-grid">
           <div class="photos-empty">Loading photos…</div>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- ── Videos page ──────────────────────────────────────────────────── -->
+    <div class="page" data-page="videos">
+      <div class="page-body">
+
+        <div class="upload-section">
+          <div id="videos-upload-zone" class="upload-zone-video">
+            Drop video files here, or click to browse
+            <input type="file" id="videos-upload-input" accept="video/mp4,video/webm,video/quicktime" style="display:none">
+          </div>
+          <div id="videos-upload-status" class="slides-inline-status"></div>
+        </div>
+
+        <div class="videos-hint">
+          Enabled videos play as sessions between photo layouts (frequency and batch size are in Advanced → Core playback). Toggle the switch to add or remove a video from the pool.
+        </div>
+
+        <div class="videos-actions">
+          <button id="videos-play-batch" class="btn">▶ Play a batch now</button>
+          <button id="videos-play-all" class="btn">▶ Play all videos now</button>
+          <input id="videos-play-count" type="number" min="1" max="50" value="3" style="width:56px">
+          <button id="videos-play-count-btn" class="btn">▶ Play N now</button>
+          <span id="videos-play-status" class="slides-inline-status"></span>
+        </div>
+
+        <div id="videos-grid" class="videos-grid">
+          <div class="photos-empty">Loading videos…</div>
         </div>
 
       </div>
@@ -631,8 +676,8 @@
               <label for="ov-global-clock24h">24-hour clock (applies to all info bars)</label>
             </div>
             <div class="field" style="max-width:160px;margin-top:10px">
-              <label for="ov-global-infobar-font-size">Font size (px)</label>
-              <input type="number" id="ov-global-infobar-font-size" min="8" max="60">
+              <label for="ov-global-infobar-font-size">Font size (px, 0 = theme default)</label>
+              <input type="number" id="ov-global-infobar-font-size" min="0" max="60">
             </div>
             <div class="check-row" style="margin-top:8px">
               <input type="checkbox" id="ov-global-infobar-enabled">
@@ -654,15 +699,19 @@
               <input type="checkbox" id="ov-global-infobar-device-info">
               <label for="ov-global-infobar-device-info">Show screen ID &amp; IP</label>
             </div>
+            <div class="check-row">
+              <input type="checkbox" id="ov-global-infobar-show-ticker">
+              <label for="ov-global-infobar-show-ticker">Show ticker in bar</label>
+            </div>
           </div>
         </details>
 
         <details class="section" style="margin-top:8px">
-          <summary>Ticker <span class="adv-section-hint">Scrolling or fading text messages</span></summary>
+          <summary>Ticker <span class="adv-section-hint">Messages shown in the info bar (or as standalone strip when bar is off)</span></summary>
           <div class="section-body">
             <div class="check-row">
               <input type="checkbox" id="ov-global-ticker-enabled">
-              <label for="ov-global-ticker-enabled">Enabled</label>
+              <label for="ov-global-ticker-enabled">Enable as standalone strip (when info bar is off)</label>
             </div>
             <div class="field">
               <label>Messages</label>
@@ -1189,6 +1238,23 @@
             <div class="action-row">
               <button class="btn btn-primary btn-sm" id="btn-save-oidc">Save OIDC config</button>
               <button class="btn btn-danger btn-sm" id="btn-disable-oidc">Disable OIDC</button>
+            </div>
+          </div>
+        </details>
+
+        <details class="section" open>
+          <summary>Danger zone</summary>
+          <div class="section-body">
+            <div class="section-label" style="margin-bottom:8px">Blackout</div>
+            <div class="quick-hint">Blackt alle schermen direct volledig zwart en stopt alle foto- en videoweergave. Blijft actief tot je hem hier weer uitzet.</div>
+            <div class="check-row" style="margin-top:8px">
+              <input type="checkbox" id="settings-blackout">
+              <label for="settings-blackout" class="btn-danger" style="padding:4px 10px;border-radius:6px">Alle schermen zwart</label>
+            </div>
+            <div class="section-label" style="margin:16px 0 8px">Fotodatabase wissen</div>
+            <div class="quick-hint">Verwijdert permanent alle foto's, caches, metadata, tags en module-data. Voor de start van een nieuw evenement.</div>
+            <div class="action-row" style="margin-top:8px">
+              <button class="btn btn-danger btn-sm" id="settings-delete-all-photos">Alle foto's wissen</button>
             </div>
           </div>
         </details>

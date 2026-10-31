@@ -87,6 +87,17 @@ export function removePhotos(ids) {
   }));
 }
 
+export function clearAllData() {
+  return _open().then(db => new Promise((resolve, reject) => {
+    const tx = db.transaction(['photos', 'meta'], 'readwrite');
+    tx.objectStore('photos').clear();
+    tx.objectStore('meta').clear();
+    tx.oncomplete = resolve;
+    tx.onerror    = e => reject(e.target.error);
+    tx.onabort    = e => reject(e.target.error);
+  }));
+}
+
 // ---------------------------------------------------------------------------
 // Meta store  (config, slides, playlists, etc.)
 // ---------------------------------------------------------------------------

@@ -1,0 +1,387 @@
+/* Hype admin tab styles. Loaded on register(). */
+
+.page[data-page="module-hype"] { display: none; padding: 24px; overflow-y: auto; }
+.page[data-page="module-hype"].active { display: block; }
+
+.hype-admin h2 { font-size: 20px; margin: 0 0 12px; font-weight: 700; }
+.hype-admin h3 { font-size: 15px; margin: 0 0 8px; font-weight: 600; color: var(--text-muted, #9ca3b8); text-transform: uppercase; letter-spacing: 0.05em; }
+
+.hype-admin-section {
+  background: var(--surface, #1a1a24);
+  border: 1px solid var(--border, #2a2a36);
+  border-radius: 12px;
+  padding: 18px;
+  margin-bottom: 18px;
+}
+
+/* Collapsible sections (everything except Showtime) — keeps the tab scannable */
+details.hype-admin-section > summary {
+  cursor: pointer;
+  list-style: none;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  user-select: none;
+}
+details.hype-admin-section > summary::-webkit-details-marker { display: none; }
+details.hype-admin-section > summary::before {
+  content: '▸';
+  color: var(--text-muted, #888);
+  font-size: 13px;
+  transition: transform 0.15s ease;
+}
+details.hype-admin-section[open] > summary::before { transform: rotate(90deg); }
+details.hype-admin-section > summary h2 { margin: 0; display: inline; }
+details.hype-admin-section:not([open]) { padding-bottom: 14px; padding-top: 14px; }
+details.hype-admin-section[open] > summary { margin-bottom: 12px; }
+
+.hype-admin-row { display: flex; gap: 12px; align-items: center; margin-bottom: 8px; flex-wrap: wrap; }
+.hype-admin-row label { font-size: 12px; color: var(--text-muted, #9ca3b8); }
+.hype-admin-row input, .hype-admin-row select, .hype-admin-row textarea {
+  background: var(--input-bg, #0e0e16); color: var(--text, #fff);
+  border: 1px solid var(--border, #2a2a36); border-radius: 6px;
+  padding: 6px 8px; font-size: 13px;
+}
+.hype-admin-row textarea { width: 100%; min-height: 80px; font-family: monospace; }
+
+.hype-settings-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+  gap: 10px;
+  margin-bottom: 12px;
+}
+
+.hype-settings-grid label,
+.hype-activity-compose {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  font-size: 12px;
+  color: var(--text-muted, #9ca3b8);
+}
+
+.hype-settings-grid input,
+.hype-settings-grid select,
+.hype-activity-compose input,
+.hype-activity-compose select {
+  background: var(--input-bg, #0e0e16);
+  color: var(--text, #fff);
+  border: 1px solid var(--border, #2a2a36);
+  border-radius: 6px;
+  padding: 7px 8px;
+  font-size: 13px;
+}
+
+.hype-account-avatar-upload {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 54px;
+}
+
+.hype-activity-compose {
+  display: grid;
+  grid-template-columns: 140px minmax(0, 1fr) auto;
+  align-items: end;
+}
+
+.hype-stream-grid {
+  display: grid;
+  /* Fixed max width (not 1fr) so a handful of fields don't stretch to fill
+     a wide panel into one giant horizontal strip — extra items wrap instead. */
+  grid-template-columns: repeat(auto-fill, minmax(200px, 260px));
+  gap: 10px;
+  align-items: end;
+}
+
+.hype-stream-grid label {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  font-size: 12px;
+  color: var(--text-muted, #9ca3b8);
+}
+
+.hype-stream-grid input,
+.hype-stream-grid select {
+  background: var(--input-bg, #0e0e16);
+  color: var(--text, #fff);
+  border: 1px solid var(--border, #2a2a36);
+  border-radius: 6px;
+  padding: 7px 8px;
+  font-size: 13px;
+}
+
+.hype-stream-grid .hype-check-row {
+  flex-direction: row;
+  align-items: center;
+  gap: 8px;
+  color: var(--text, #fff);
+}
+
+.hype-admin-btn {
+  background: #7c5cff; color: #fff; border: 0; border-radius: 6px;
+  padding: 8px 14px; font-size: 13px; font-weight: 600; cursor: pointer;
+}
+.hype-admin-btn:hover { background: #6a4cf0; }
+.hype-admin-btn.secondary { background: transparent; border: 1px solid var(--border, #2a2a36); }
+.hype-admin-btn.danger { background: #d44; }
+.hype-admin-btn.big { padding: 14px 18px; font-size: 14px; }
+.hype-admin-btn.launch { background: #d7263d; margin-left: 8px; }
+.hype-admin-btn.launch:hover { background: #bd2034; }
+
+/* Showtime header */
+.hype-admin-section.showtime { border-top: 3px solid #7c5cff; }
+.showtime-head {
+  display: flex; gap: 12px; align-items: center; flex-wrap: wrap;
+  margin-bottom: 14px;
+}
+.showtime-head h2 { margin: 0; flex: 0 0 auto; }
+.phase-pill {
+  font-size: 11px; font-weight: 800; letter-spacing: 0.1em;
+  padding: 4px 10px; border-radius: 999px; text-transform: uppercase;
+  background: #2a2a36; color: #fff;
+}
+.phase-pill.phase-live      { background: #d7263d; }
+.phase-pill.phase-idle      { background: #3b4a66; }
+.phase-pill.phase-launching { background: #ffb347; color: #1a1a24; }
+.phase-pill.phase-off       { background: #444; color: #cfd8e6; }
+.showtime-day-label {
+  display: flex; align-items: center; gap: 6px;
+  font-size: 12px; color: var(--text-muted, #9ca3b8);
+}
+.showtime-day-label input { width: 48px; text-align: center; }
+
+/* Harry heat slider */
+.harry-heat-row {
+  background: #0e0e18; border: 1px solid #2a2a36; border-radius: 10px;
+  padding: 12px 14px; margin-bottom: 16px;
+}
+.harry-heat-info { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 6px; }
+.harry-heat-name { font-size: 13px; font-weight: 700; }
+.harry-heat-val  { font-size: 12px; color: #f5d904; font-weight: 700; }
+.harry-heat-row input[type=range] { width: 100%; accent-color: #f5d904; }
+.harry-heat-ticks {
+  display: flex; justify-content: space-between;
+  font-size: 10px; color: var(--text-muted, #9ca3b8);
+  margin-top: 2px;
+}
+
+/* Dismiss row */
+.dismiss-row {
+  display: flex; gap: 8px; flex-wrap: wrap;
+  padding-top: 4px; border-top: 1px solid #2a1a1a;
+}
+.dismiss-row .hype-admin-btn { font-size: 12px; }
+
+.hype-admin-btn.neutral  { background: #3b4a66; }
+.hype-admin-btn.neutral:hover { background: #475a7e; }
+.hype-admin-btn.restart  { background: #2bc1ff; color: #0a1622; }
+.hype-admin-btn.restart:hover { background: #4dcdff; }
+.hype-admin-btn.danger:hover  { background: #c33; }
+/* lc-label/sub on standalone big buttons (nachtspel block) */
+.hype-admin-btn.big:has(.lc-label) {
+  display: flex; flex-direction: column; align-items: flex-start;
+  gap: 3px; text-align: left;
+}
+.lc-label { font-size: 15px; font-weight: 800; }
+.lc-sub   { font-size: 11px; opacity: 0.85; font-weight: 400; }
+
+/* Trigger panel */
+.hype-triggers { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 10px; }
+.hype-trigger-card {
+  background: var(--input-bg, #0e0e16);
+  border: 1px solid var(--border, #2a2a36); border-radius: 10px;
+  padding: 14px; display: flex; flex-direction: column; gap: 8px;
+}
+.hype-trigger-card h4 { font-size: 14px; margin: 0; font-weight: 700; }
+.hype-trigger-card .hype-trigger-desc { font-size: 12px; color: var(--text-muted, #9ca3b8); margin: 0 0 4px; }
+.hype-trigger-card.glitch  { border-top: 3px solid #ff003c; }
+.hype-trigger-card.hacker  { border-top: 3px solid #4dff70; }
+.hype-trigger-card.offline { border-top: 3px solid #ffb347; }
+.hype-trigger-card.comeback{ border-top: 3px solid #7c5cff; }
+
+/* Channel cards (one per influencer, contains meta + days + followers + pool) */
+.hype-channel-cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+  gap: 12px;
+}
+.hype-channel-card {
+  background: var(--input-bg, #0e0e16);
+  border: 1px solid var(--border, #2a2a36);
+  border-left: 4px solid var(--ch-color, #888);
+  border-radius: 10px;
+  padding: 12px;
+  display: flex; flex-direction: column; gap: 10px;
+}
+.hype-channel-card input,
+.hype-channel-card textarea,
+.hype-channel-card select {
+  background: #0a0a12; color: var(--text, #fff);
+  border: 1px solid var(--border, #2a2a36); border-radius: 6px;
+  padding: 6px 8px; font-size: 12px;
+}
+.cc-head { display: flex; gap: 10px; align-items: center; }
+.cc-head input[type=color] { width: 38px; height: 38px; padding: 2px; border-radius: 8px; }
+.cc-titles { display: flex; flex-direction: column; gap: 4px; flex: 1; min-width: 0; }
+.cc-row {
+  display: flex; gap: 8px; align-items: center;
+  font-size: 11px; color: var(--text-muted, #9ca3b8);
+  flex-wrap: wrap;
+}
+.cc-row input[type=number] { width: 90px; }
+.cc-avatar-preview { width: 32px; height: 32px; border-radius: 50%; object-fit: cover; }
+.cc-row.foll-row strong { color: var(--text, #fff); font-variant-numeric: tabular-nums; }
+.cc-pool summary { font-size: 12px; cursor: pointer; color: var(--text-muted, #9ca3b8); padding: 4px 0; }
+.cc-pool textarea { width: 100%; min-height: 100px; font-family: monospace; margin: 6px 0; }
+.hype-foll-cur { font-size: 12px; color: var(--text-muted); font-variant-numeric: tabular-nums; }
+
+/* Pool editor (per channel) */
+.hype-pool-row {
+  background: var(--input-bg, #0e0e16); padding: 10px; border-radius: 8px;
+  border-left: 4px solid var(--ch-color, #888); margin-bottom: 10px;
+}
+.hype-pool-row h4 { margin: 0 0 6px; font-size: 13px; font-weight: 700; display: flex; gap: 8px; align-items: center; }
+.hype-pool-help { font-size: 11px; color: var(--text-muted, #9ca3b8); margin: 4px 0; }
+
+/* Tagging grid */
+.hype-tagging-grid {
+  display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+  gap: 10px;
+}
+.hype-tag-card {
+  background: var(--input-bg, #0e0e16); border-radius: 8px; overflow: hidden;
+  display: flex; flex-direction: column;
+}
+.hype-tag-card img { width: 100%; aspect-ratio: 1/1; object-fit: cover; display: block; }
+.hype-tag-card .controls { padding: 6px 8px; display: flex; flex-direction: column; gap: 4px; }
+.hype-tag-card select { width: 100%; font-size: 12px; }
+.hype-tag-card .viral-toggle { display: flex; gap: 4px; align-items: center; font-size: 12px; }
+
+/* Live monitor */
+.hype-monitor { max-height: 240px; overflow-y: auto; font-size: 12px; }
+.hype-monitor-row {
+  padding: 6px 8px; border-bottom: 1px solid var(--border, #2a2a36);
+  display: grid; grid-template-columns: 60px 100px 60px 1fr; gap: 10px; align-items: center;
+}
+.hype-monitor-time { color: var(--text-muted, #9ca3b8); font-variant-numeric: tabular-nums; }
+.hype-monitor-ch   { font-weight: 700; }
+.hype-monitor-likes{ color: #ff5b8a; text-align: right; }
+.hype-monitor-text { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+/* Stream-chat regie (fake-chat sidecar) */
+.hype-regie-grid { display: flex; flex-direction: column; gap: 8px; }
+.hype-regie-grid input, .hype-regie-grid textarea {
+  width: 100%; box-sizing: border-box; padding: 8px 10px;
+  background: var(--input-bg, #0e0e16); color: var(--text, #fff);
+  border: 1px solid var(--border, #2a2a36); border-radius: 6px; font-size: 13px;
+}
+.hype-regie-btnrow { display: flex; gap: 8px; flex-wrap: wrap; }
+.hype-regie-leader { display: flex; gap: 8px; }
+.hype-regie-leader input { flex: 1; }
+.hype-regie-status {
+  font-size: 13px; padding: 8px 10px; border-radius: 6px; margin-bottom: 10px;
+  background: var(--input-bg, #0e0e16); border: 1px solid var(--border, #2a2a36);
+  color: var(--text-muted, #9ca3b8);
+}
+.hype-regie-status.live { border-color: #2fbf71; color: #2fbf71; }
+.hype-regie-status.off  { border-color: #d44; color: #ff8a8a; }
+.hype-regie-scene { color: var(--text-muted, #9ca3b8); font-size: 12px; }
+.hype-regie-tail {
+  max-height: 220px; overflow-y: auto; font-size: 12px;
+  background: var(--input-bg, #0e0e16); border: 1px solid var(--border, #2a2a36);
+  border-radius: 6px; padding: 6px 8px;
+}
+.hype-regie-row { padding: 2px 0; }
+.hype-regie-row.join { color: var(--text-muted, #9ca3b8); font-style: italic; }
+.hype-regie-photo-row { align-items: center; }
+.hype-admin-btn.is-recording { background: #d44; animation: hype-mic-pulse 1s infinite; }
+@keyframes hype-mic-pulse { 50% { opacity: 0.6; } }
+
+/* ── Draaiboek stepper (Showtime) ───────────────────────────────────── */
+.draaiboek {
+  list-style: none;
+  margin: 8px 0 16px;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.db-step {
+  display: flex;
+  gap: 12px;
+  padding: 12px 14px;
+  border: 1px solid var(--border, #2a2a36);
+  border-radius: 10px;
+  background: rgba(255,255,255,0.02);
+}
+.db-num {
+  flex: 0 0 auto;
+  width: 28px; height: 28px;
+  display: grid; place-items: center;
+  border-radius: 50%;
+  background: #2a2a36;
+  color: #cfd3e0;
+  font-weight: 700;
+  font-size: 13px;
+}
+.db-body { flex: 1; display: flex; flex-direction: column; gap: 8px; min-width: 0; }
+.db-info { display: flex; flex-direction: column; gap: 2px; }
+.db-info strong { font-size: 14px; }
+.db-info span { font-size: 11px; color: var(--text-muted, #9ca3b8); }
+.db-fields { display: flex; flex-wrap: wrap; gap: 12px; }
+.db-fields label {
+  display: flex; align-items: center; gap: 6px;
+  font-size: 12px; color: var(--text-muted, #9ca3b8);
+}
+.db-fields input[type="number"] { width: 56px; text-align: center; }
+.db-fields input[type="text"] { min-width: 200px; }
+.db-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+.db-actions .hype-admin-btn { font-size: 12px; }
+
+/* Live state: which step is on the screens right now */
+.db-step.db-active {
+  border-color: #7c5cff;
+  background: rgba(124,92,255,0.10);
+  box-shadow: 0 0 0 1px #7c5cff inset;
+}
+.db-step.db-active .db-num { background: #7c5cff; color: #fff; }
+.db-step.db-done .db-num { background: #2e7d4f; color: #fff; }
+
+.trace-preview {
+  width: 128px; height: 128px;
+  border-radius: 8px;
+  border: 1px solid var(--border, #2a2a36);
+  object-fit: cover;
+  filter: invert(1) hue-rotate(200deg) saturate(0.55) brightness(0.82);
+}
+
+/* ── Handmatig / nood ───────────────────────────────────────────────── */
+.hype-nood {
+  margin-top: 8px;
+  border: 1px solid var(--border, #2a2a36);
+  border-radius: 10px;
+  padding: 10px 14px;
+}
+.hype-nood summary {
+  cursor: pointer;
+  font-weight: 700;
+  color: #ff6666;
+  font-size: 13px;
+}
+.hype-nood h4 { margin: 14px 0 6px; font-size: 12px; color: var(--text-muted, #9ca3b8); }
+.nood-row { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
+.nood-row .hype-admin-btn { font-size: 12px; }
+
+/* ── Physical button (M5 Atom) arming ───────────────────────────────── */
+.trigger-arm-row {
+  display: flex; align-items: center; flex-wrap: wrap; gap: 10px;
+  padding: 10px 14px; margin-bottom: 14px;
+  border: 1px solid var(--border, #2a2a36);
+  border-radius: 10px;
+}
+.trigger-arm-name { font-weight: 700; font-size: 13px; }
+.trigger-arm-state { font-size: 12px; color: var(--text-muted, #9ca3b8); }
+.trigger-arm-state.armed { color: #ffb020; font-weight: 700; }
+.trigger-arm-row .hype-pool-help { flex-basis: 100%; margin: 0; }

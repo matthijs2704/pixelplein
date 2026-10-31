@@ -185,7 +185,7 @@ const OVERLAY_KEYS = [
   'bugEnabled', 'bugText', 'bugCorner', 'bugImageUrl',
   'qrBugEnabled', 'qrBugUrl', 'qrBugCorner', 'qrBugLabel',
   'infoBarEnabled', 'infoBarShowClock', 'infoBarShowCurrentEvent',
-  'infoBarShowNextEvent',
+  'infoBarShowNextEvent', 'infoBarShowDeviceInfo', 'infoBarShowTicker',
 ];
 
 export { OVERLAY_KEYS };

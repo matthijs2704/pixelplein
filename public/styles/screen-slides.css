@@ -102,7 +102,7 @@
 
 /* Title */
 .slide-textcard .tc-title {
-  font-size: var(--textcard-title-size, clamp(22px, 3.4vw, 62px));
+  font-size: var(--textcard-title-size, clamp(22px, 3.4vw, 124px));
   font-weight: 800;
   line-height: 1.1;
   letter-spacing: -0.02em;
@@ -126,7 +126,7 @@
 
 /* Body */
 .slide-textcard .tc-body {
-  font-size: var(--textcard-body-size, clamp(13px, 1.65vw, 30px));
+  font-size: var(--textcard-body-size, clamp(13px, 1.65vw, 60px));
   font-weight: 400;
   line-height: 1.65;
   opacity: 0.82;
@@ -159,13 +159,13 @@
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: clamp(10px, 2vh, 28px);
+  gap: clamp(10px, 2vh, 56px);
   max-width: 70%;
   text-align: center;
 }
 
 .slide-qr .qr-title {
-  font-size: clamp(18px, 2.6vw, 46px);
+  font-size: clamp(18px, 2.6vw, 92px);
   font-weight: 700;
   line-height: 1.15;
   letter-spacing: -0.01em;
@@ -173,7 +173,7 @@
 }
 
 .slide-qr .qr-rule {
-  width: clamp(28px, 2.8vw, 48px);
+  width: clamp(28px, 2.8vw, 96px);
   height: 3px;
   border-radius: 2px;
   background: var(--textcard-accent, #6c63ff);
@@ -181,8 +181,8 @@
 
 .slide-qr .qr-card {
   background: #fff;
-  border-radius: clamp(8px, 1vw, 16px);
-  padding: clamp(8px, 1.2vw, 20px);
+  border-radius: clamp(8px, 1vw, 32px);
+  padding: clamp(8px, 1.2vw, 40px);
   box-shadow: 0 4px 24px rgba(0, 0, 0, 0.12), 0 1px 4px rgba(0, 0, 0, 0.08);
   display: flex;
   align-items: center;
@@ -196,7 +196,7 @@
 }
 
 .slide-qr .qr-url {
-  font-size: clamp(10px, 1.2vw, 20px);
+  font-size: clamp(10px, 1.2vw, 40px);
   color: var(--qr-muted-color, #666);
   font-family: ui-monospace, SFMono-Regular, 'Cascadia Code', monospace;
   letter-spacing: 0.01em;
@@ -205,10 +205,10 @@
 }
 
 .slide-qr .qr-caption {
-  font-size: clamp(12px, 1.5vw, 26px);
+  font-size: clamp(12px, 1.5vw, 52px);
   font-weight: 600;
   color: var(--qr-color, #111);
-  margin-top: clamp(2px, 0.4vh, 8px);
+  margin-top: clamp(2px, 0.4vh, 16px);
 }
 
 /* ── Article slide ────────────────────────────────────────────────────────── */
@@ -322,7 +322,7 @@
 }
 
 .slide-article .al-title {
-  font-size: var(--textcard-title-size, clamp(20px, 3vw, 54px));
+  font-size: var(--textcard-title-size, clamp(20px, 3vw, 108px));
   font-weight: 800;
   line-height: 1.1;
   letter-spacing: -0.02em;
@@ -330,7 +330,7 @@
 }
 
 .slide-article .al-rule {
-  width: clamp(28px, 2.5vw, 44px);
+  width: clamp(28px, 2.5vw, 88px);
   height: 3px;
   border-radius: 2px;
   background: var(--textcard-accent, #6c63ff);
@@ -339,7 +339,7 @@
 }
 
 .slide-article .al-body {
-  font-size: var(--textcard-body-size, clamp(12px, 1.55vw, 28px));
+  font-size: var(--textcard-body-size, clamp(12px, 1.55vw, 56px));
   font-weight: 400;
   line-height: 1.65;
   opacity: 0.85;
@@ -403,7 +403,9 @@
 
 .slide-webpage {
   position: absolute;
-  inset: 0;
+  /* Respect the theme's top/bottom bars (nav + infobar) so the page isn't
+     covered; themes without bars resolve to 0 = full screen. */
+  inset: var(--screen-padding-top, 0px) 0 var(--screen-padding-bottom, 0px) 0;
   background: #000;
 }
 

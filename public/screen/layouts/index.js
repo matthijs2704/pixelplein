@@ -29,6 +29,8 @@ import {
 import { getBottomInset } from '../overlays/index.js';
 import { getScreenCfg } from '../../shared/utils.js';
 import { TEMPLATE_DEFS } from '../templates.js';
+import { getModuleLayouts, getActiveScreenTakeover, onScreenEvent, emitScreenEvent } from '../module-registry.js';
+import { pickVideo, getVideoPool } from '../video-pool.js';
 
 // ---------------------------------------------------------------------------
 // Constants
@@ -38,18 +40,20 @@ const POST_SLIDE_DELAY_MS   = 500;    // pause after slide before next photo cyc
 const NO_CONFIG_RETRY_MS    = 1000;   // retry interval when config not yet available
 const DEFAULT_LAYOUT_DUR_MS = 8000;   // fallback layout duration
 const DEFAULT_HERO_LOCK_SEC = 30;     // cross-screen hero lock TTL
+const BLACKOUT_RECHECK_MS   = 1000;   // poll interval while screensBlackout is on
 
 // Layout module paths, keyed by layout name.
 const _LAYOUT_PATHS = {
-  fullscreen:   './fullscreen.js',
-  sidebyside:   './sidebyside.js',
-  featuredduo:  './featuredduo.js',
-  polaroid:     './polaroid.js',
-  mosaic:       './mosaic.js',
-  dynamicsplit: './dynamicsplit.js',
-  triptych:     './triptych.js',
-  cascade:      './cascade.js',
-  filmstrip:    './filmstrip.js',
+  fullscreen:        './fullscreen.js',
+  sidebyside:        './sidebyside.js',
+  featuredduo:       './featuredduo.js',
+  polaroid:          './polaroid.js',
+  mosaic:            './mosaic.js',
+  dynamicsplit:      './dynamicsplit.js',
+  triptych:          './triptych.js',
+  cascade:           './cascade.js',
+  filmstrip:         './filmstrip.js',
+  'video-fullscreen': './video-fullscreen.js',
 };
 
 // Display state shared with heartbeat
@@ -71,6 +75,9 @@ let _cycleTimer            = null;
 let _running               = false;
 let _photoCycleCount       = 0;       // completed photo cycles since last slide interleave
 let _lastSubmissionWallAt  = Date.now();
+let _requestCycleUnsub     = null;
+let _activeTakeoverId      = null;
+let _mediaSessionActive    = false; // true while a video-fullscreen session is mid-playback
 
 /** @type {Map<string, Object>} name → layout descriptor */
 let _layouts = new Map();
@@ -94,6 +101,12 @@ async function _loadLayouts() {
       const reason = result.status === 'rejected' ? result.reason?.message : 'no layout export';
       console.warn(`[layouts] skipping ${name}: ${reason}`);
     }
+  }
+
+  // Merge in layouts registered by optional modules. Modules register before
+  // startCycle() runs (modules-loader.js awaits this on boot).
+  for (const [id, desc] of getModuleLayouts()) {
+    if (!_layouts.has(id)) _layouts.set(id, desc);
   }
 }
 
@@ -122,6 +135,7 @@ function _buildHelpers(cfg, selectionContext) {
     },
     pickAndClaimHero: (activeCfg, options = {}, useFallback = true) =>
       _pickAndClaimHero(activeCfg, options, useFallback, selectionContext),
+    pickVideo: (excludeId = null) => pickVideo(excludeId),
   };
 }
 
@@ -142,6 +156,18 @@ export function initCycle(container, screenId) {
   _container = container;
   _screenId  = screenId;
   _lifecycle = createLayoutLifecycle(container);
+  if (!_requestCycleUnsub) {
+    _requestCycleUnsub = onScreenEvent('layout:request-cycle', (detail = {}) => {
+      // Don't cut a playing video reel short — let it finish, then the
+      // requested cycle runs right after (POST_SLIDE_DELAY_MS later).
+      if (_mediaSessionActive) return;
+      if (detail.clear) {
+        _activeTakeoverId = null;
+        _lifecycle?.clear(detail.reason || 'request-cycle');
+      }
+      _scheduleCycle(0);
+    });
+  }
   initSlides(container, screenId);
 }
 
@@ -154,6 +180,17 @@ export function updateConfig(config) {
 
 export function updateHeroLocks(locks) {
   _heroLocks = new Map(locks.map(l => [l.photoId, l]));
+}
+
+export function canStartWithoutPhotos() {
+  if (!_config) return false;
+  return Boolean(getActiveScreenTakeover({
+    cfg: _config,
+    globalConfig: _globalConfig,
+    screenId: _screenId,
+    cycleStart: Date.now(),
+    displayState,
+  }));
 }
 
 export function startCycle() {
@@ -224,7 +261,20 @@ function _selectCandidates(cfg, poolSize) {
 
   let eligible = allNames.filter(name => {
     const desc = _layouts.get(name);
+    if (desc?.needsVideo) return !_globalConfig?.videoPlaybackDisabled && getVideoPool().length > 0;
     return poolSize >= (desc?.minPhotos || 1) && poolSize >= _layoutSlotNeed(name, cfg, poolSize);
+  });
+
+  // Optional scheduling hook: layouts can opt out of the random draw
+  // ('skip') or demand this cycle ('now', e.g. a video session that is due).
+  // Runs before the enabledLayouts filter — a 'now' from a scheduled layout
+  // is its own opt-in, like module layouts below.
+  let forced = null;
+  eligible = eligible.filter(name => {
+    const when = _layouts.get(name)?.schedule?.(cfg) || 'auto';
+    if (when === 'skip') return false;
+    if (when === 'now' && !forced) forced = name;
+    return true;
   });
 
   if (eligible.includes('mosaic')) {
@@ -238,10 +288,18 @@ function _selectCandidates(cfg, poolSize) {
   }
 
   const adminEnabled = cfg.enabledLayouts || allNames;
-  let candidates = eligible.filter(l => adminEnabled.includes(l));
+  // Module layouts respect enabledLayouts once the saved list mentions any
+  // module id ("mod:layout"). Legacy configs saved before module ids were
+  // stored have none — there the module being enabled is the opt-in.
+  const adminKnowsModules = adminEnabled.some(l => l.includes(':'));
+  let candidates = eligible.filter(l => {
+    const desc = _layouts.get(l);
+    if (desc?.module && !adminKnowsModules) return true;
+    return adminEnabled.includes(l);
+  });
   if (!candidates.length) candidates = ['fullscreen'];
 
-  return { candidates, cfg };
+  return { candidates, cfg, forced };
 }
 
 // ---------------------------------------------------------------------------
@@ -251,8 +309,26 @@ function _selectCandidates(cfg, poolSize) {
 async function runCycle() {
   await _layoutsReady;
 
+  // Merge any module layouts that registered after _loadLayouts() ran.
+  // Safe to call every cycle — just a Map read.
+  for (const [id, desc] of getModuleLayouts()) {
+    if (!_layouts.has(id)) _layouts.set(id, desc);
+  }
+
   if (!_running || !_config || !_lifecycle) {
     _scheduleCycle(NO_CONFIG_RETRY_MS);
+    return;
+  }
+
+  if (_globalConfig?.screensBlackout) {
+    _activeTakeoverId = null;
+    if (_lifecycle.getCurrentElement()?.dataset?.blackout !== '1') {
+      const el = document.createElement('div');
+      el.className = 'layout-blackout';
+      el.dataset.blackout = '1';
+      _lifecycle.showRenderable({ el }, 'fade', 300);
+    }
+    _scheduleCycle(BLACKOUT_RECHECK_MS);
     return;
   }
 
@@ -283,6 +359,60 @@ async function runCycle() {
   }
 
   const cycleStart = Date.now();
+  const takeover = getActiveScreenTakeover({
+    cfg,
+    globalConfig: _globalConfig,
+    screenId: _screenId,
+    cycleStart,
+    displayState,
+  });
+  if (!takeover && _activeTakeoverId) {
+    _activeTakeoverId = null;
+    _lifecycle?.clear('takeover-inactive');
+  }
+  if (takeover) {
+    let built = null;
+    try {
+      built = await takeover.build({
+        cfg,
+        globalConfig: _globalConfig,
+        screenId: _screenId,
+        cycleStart,
+        displayState,
+      });
+    } catch (err) {
+      console.warn('[layouts] takeover failed:', takeover.id, err && err.message);
+    }
+
+    if (built?.el) {
+      const duration = built.duration || cfg.layoutDuration || DEFAULT_LAYOUT_DUR_MS;
+      const shown = await _lifecycle.showRenderable({
+        el: built.el,
+        onWillShow({ signal }) {
+          if (typeof built.startMotion === 'function') built.startMotion(duration, signal);
+        },
+        destroy: built.destroy || null,
+      }, transType, transMs);
+
+      if (!_running || !shown) return;
+
+      _activeTakeoverId = takeover.id;
+      displayState.layoutType = takeover.id;
+      displayState.visibleIds = built.visibleIds || [];
+      displayState.lastCycleAt = cycleStart;
+      displayState.lastCycleDurationMs = Date.now() - cycleStart;
+      displayState.focusGroup = null;
+      emitScreenEvent('layout:cycle', {
+        layoutType: takeover.id,
+        visibleIds: displayState.visibleIds,
+        cycleStart,
+        duration,
+      });
+      _scheduleCycle(duration);
+      return;
+    }
+  }
+
   const submissionMode = _globalConfig?.submissionDisplayMode || 'off';
   const wallOptions = { ...getSubmissionWallOptions(), bottomInset: getBottomInset() };
   const wallState = getSubmissionWallState();
@@ -295,11 +425,11 @@ async function runCycle() {
   const shouldRunSubmissionWall = submissionsEnabled && ((cycleStart - _lastSubmissionWallAt) >= submissionIntervalMs);
 
   const poolSize = _readyPoolSize(cfg);
-  const { candidates, cfg: adjustedCfg } = _selectCandidates(cfg, poolSize);
+  const { candidates, cfg: adjustedCfg, forced } = _selectCandidates(cfg, poolSize);
   cfg = adjustedCfg;
 
-  let layoutType = candidates[Math.floor(Math.random() * candidates.length)];
-  if (shouldRunSubmissionWall) {
+  let layoutType = forced || candidates[Math.floor(Math.random() * candidates.length)];
+  if (shouldRunSubmissionWall && !forced) {
     layoutType = 'submissionwall';
   }
 
@@ -337,10 +467,12 @@ async function runCycle() {
     cfg = { ...cfg, _overrideDuration: scaled };
   }
 
-  const duration = cfg._overrideDuration || cfg.layoutDuration || DEFAULT_LAYOUT_DUR_MS;
+  const duration = built.duration || cfg._overrideDuration || cfg.layoutDuration || DEFAULT_LAYOUT_DUR_MS;
   const visibleIds = built.visibleIds || [];
   const startMotionAfterShow = resolvedType === 'submissionwall';
+  const isMediaDriven = !!built.onDidShow;
 
+  if (isMediaDriven) _mediaSessionActive = true;
   const shown = await _lifecycle.showRenderable({
     el: built.el,
     onWillShow() {
@@ -354,6 +486,13 @@ async function runCycle() {
       }
 
       selectionContext?.commitShown(visibleIds);
+
+      // Media-driven layouts (e.g. video-fullscreen) own their lifecycle via
+      // onDidShow — await them so showRenderable resolves after media ends.
+      if (built.onDidShow) {
+        await built.onDidShow({ signal });
+        return;
+      }
 
       if (!layoutDesc?.postMount || !slotEls || signal.aborted) return;
 
@@ -392,18 +531,28 @@ async function runCycle() {
       }).catch(() => {});
     },
     destroy: built.destroy || null,
-  }, transType, transMs);
+  }, built.transition || transType, built.transitionMs ?? transMs);
+  if (isMediaDriven) _mediaSessionActive = false;
 
   if (!_running || !shown) return;
 
+  _activeTakeoverId = null;
   displayState.layoutType          = resolvedType;
   displayState.visibleIds          = visibleIds;
   displayState.lastCycleAt         = cycleStart;
   displayState.lastCycleDurationMs = Date.now() - cycleStart;
   displayState.focusGroup          = cfg.groupMode === 'manual' ? cfg.activeGroup : null;
 
-  _photoCycleCount += 1;
-  _scheduleCycle(duration);
+  // Notify module overlays/slides about what's visible this cycle.
+  emitScreenEvent('layout:cycle', {
+    layoutType: resolvedType,
+    visibleIds,
+    cycleStart,
+    duration,
+  });
+
+  if (!isMediaDriven) _photoCycleCount += 1;
+  _scheduleCycle(isMediaDriven ? POST_SLIDE_DELAY_MS : duration);
 }
 
 // ---------------------------------------------------------------------------

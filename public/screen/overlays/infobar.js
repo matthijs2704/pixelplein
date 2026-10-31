@@ -34,6 +34,8 @@ const _dom = {
   ticker:      null,
   tickerInner: null,
   deviceInfo:  null,
+  slotStart:   null,
+  slotEnd:     null,
 };
 
 /** Timer IDs */
@@ -319,6 +321,10 @@ function _makeEventSlot(suffix) {
 function _buildBar(cfg, screenId) {
   const bar = el('div', { id: 'overlay-infobar' });
 
+  // Theme start-slot — e.g. logo, left badge
+  const slotStart = document.getElementById('overlay-infobar-slot-start');
+  if (slotStart) { _dom.slotStart = slotStart; bar.appendChild(slotStart); }
+
   // Clock slot
   if (cfg.infoBarShowClock !== false) {
     _dom.clock = el('div', { id: 'overlay-infobar-clock', text: _formatClock() });
@@ -351,10 +357,11 @@ function _buildBar(cfg, screenId) {
     _dom.event2Time = null;
   }
 
-  // Ticker slot — only shown when ticker is enabled and has messages
+  // Ticker slot — shown when infoBarShowTicker is set (falls back to tickerEnabled)
   const rawMessages = filterTickerMessages(cfg.tickerMessages);
+  const _showTicker = cfg.infoBarShowTicker ?? cfg.tickerEnabled;
 
-  if (cfg.tickerEnabled && rawMessages.length) {
+  if (_showTicker && rawMessages.length) {
     const mode  = cfg.tickerMode  || 'scroll';
     const align = cfg.tickerAlign || 'start';
 
@@ -382,30 +389,36 @@ function _buildBar(cfg, screenId) {
 
   // Device info slot — shown when infoBarShowDeviceInfo is on
   if (cfg.infoBarShowDeviceInfo) {
-    const serverHost = location.hostname
-      + (location.port && location.port !== '80' && location.port !== '443' ? `:${location.port}` : '');
     _dom.deviceInfo = el('div', { id: 'overlay-infobar-device' });
-    _dom.deviceInfo.textContent = `Screen ${screenId || '?'}  ·  server: ${serverHost}  ·  device: …`;
+    _dom.deviceInfo.textContent = `Screen ${screenId || '?'}  ·  …`;
     bar.appendChild(_dom.deviceInfo);
 
-    // Async: fill in the NUC's own LAN IP from local agent
-    fetch('http://127.0.0.1:3987/api/status', { signal: AbortSignal.timeout(1500) })
+    fetch('/api/screens/info', { signal: AbortSignal.timeout(2000) })
       .then(r => r.ok ? r.json() : null)
       .then(data => {
         if (!_dom.deviceInfo) return;
-        const ip = data?.lanIps?.[0];
-        _dom.deviceInfo.textContent = ip
-          ? `Screen ${screenId || '?'}  ·  server: ${serverHost}  ·  device: ${ip}`
-          : `Screen ${screenId || '?'}  ·  server: ${serverHost}`;
+        const port = data?.port;
+        const ip   = data?.lanIps?.[0];
+        const addr = ip ? `${ip}${port && port !== 80 && port !== 443 ? `:${port}` : ''}` : location.hostname;
+        _dom.deviceInfo.textContent = `Screen ${screenId || '?'}  ·  ${addr}`;
       })
       .catch(() => {
-        if (_dom.deviceInfo) {
-          _dom.deviceInfo.textContent = `Screen ${screenId || '?'}  ·  server: ${serverHost}`;
-        }
+        if (_dom.deviceInfo) _dom.deviceInfo.textContent = `Screen ${screenId || '?'}`;
       });
   } else {
     _dom.deviceInfo = null;
   }
+
+  // Flex spacer — pushes the end-slot to the right when no ticker is acting as spacer
+  if (!_dom.ticker) {
+    const spacer = document.createElement('div');
+    spacer.style.flex = '1';
+    bar.appendChild(spacer);
+  }
+
+  // Theme end-slot — e.g. nav icons, right badge
+  const slotEnd = document.getElementById('overlay-infobar-slot-end');
+  if (slotEnd) { _dom.slotEnd = slotEnd; bar.appendChild(slotEnd); }
 
   return bar;
 }
@@ -421,6 +434,7 @@ function _buildBar(cfg, screenId) {
  * @param {string} [screenId] Screen ID for the device info slot
  */
 export function mountInfoBar(cfg, schedule, screenId) {
+  const remounting = _dom.bar !== null;
   removeInfoBar();
 
   _cfg      = cfg || {};
@@ -431,6 +445,7 @@ export function mountInfoBar(cfg, schedule, screenId) {
   _tickerDwellMs  = Math.max(500, (Number(_cfg.tickerFadeDwellSec) || 5) * 1000);
 
   _dom.bar = _buildBar(_cfg, screenId);
+  if (remounting) _dom.bar.style.animation = 'none';
   if (_cfg.infoBarFontSize) {
     const fs = _cfg.infoBarFontSize;
     _dom.bar.style.setProperty('--infobar-font-size', `${fs}px`);
@@ -475,6 +490,8 @@ export function removeInfoBar() {
   _stopClock();
   _stopCountdownTimer();
   _stopTicker();
+  if (_dom.slotStart) document.body.appendChild(_dom.slotStart); // rescue before bar removal
+  if (_dom.slotEnd)   document.body.appendChild(_dom.slotEnd);
   if (_dom.bar) { _dom.bar.remove(); }
   document.documentElement.style.removeProperty('--infobar-height');
   for (const k of Object.keys(_dom)) _dom[k] = null;
