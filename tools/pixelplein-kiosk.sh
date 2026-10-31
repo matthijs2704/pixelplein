@@ -199,6 +199,8 @@ main() {
 	ensure_audio
 	if [[ "$KIOSK_BACKEND" == "x11" ]]; then
 		wait_for_x
+		xset s off -dpms 2>/dev/null || true
+		log_info "Disabled X11 screen saver and DPMS"
 	fi
 
 	local restart_count=0
