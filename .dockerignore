@@ -24,3 +24,9 @@ config.json
 .env.*
 Dockerfile
 docker-compose.yml
+
+# module dev leftovers
+.pio/
+*.zip
+modules/*/hardware/
+modules/*/scratch/

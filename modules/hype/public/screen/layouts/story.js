@@ -44,7 +44,7 @@ function _build(photo) {
   const head = el('div', { cls: 'hype-story-header' });
   head.style.setProperty('--ch-color', ch.color || '#00b2ff');
   head.innerHTML =
-    `<span class="hype-story-avatar">${monogramAvatar(ch.name, ch.color, 38)}</span>` +
+    `<span class="hype-story-avatar">${monogramAvatar(ch.name, ch.color, 38, ch.avatar_url || ch.avatarUrl || '')}</span>` +
     `<span class="hype-story-handle">${ch.handle} <span class="hype-story-verified">${icon.verified(14)}</span></span>` +
     `<span class="hype-story-time">nu</span>`;
   root.appendChild(head);
@@ -76,7 +76,11 @@ function _build(photo) {
       // Progress bar only — no Ken Burns: the photo is contain-fit inside
       // the safe area and zooming would push it under the top/bottom bars.
       progressFill.style.transition = `transform ${durationMs}ms linear`;
-      requestAnimationFrame(() => progressFill.style.transform = 'scaleX(1)');
+      // Force a reflow so the scaleX(0) start state is committed first —
+      // otherwise the browser may coalesce insert+transition+transform into
+      // one style pass and the bar just appears full.
+      void progressFill.offsetWidth;
+      progressFill.style.transform = 'scaleX(1)';
     },
   };
 }

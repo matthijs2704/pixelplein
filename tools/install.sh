@@ -179,12 +179,13 @@ install_chromium
 
 # Media processing (for server mode)
 # - ffmpeg: video transcoding for uploaded videos
+# - libheif-examples: HEIC/HEIF photo uploads to JPEG when Sharp lacks HEVC support
 # - bluez, bluetooth: Bluetooth controller and pairing tools
 # - alsa-utils, pulseaudio, pulseaudio-utils, pulseaudio-module-bluetooth, libasound2-plugins:
 #   browser audio playback, Bluetooth audio, output selection, and diagnostics
 # Note: Sharp (image processing) uses bundled libvips via npm
 apt-get install -y --no-install-recommends \
-	ffmpeg \
+	ffmpeg libheif-examples \
 	bluez bluetooth \
 	alsa-utils pulseaudio pulseaudio-utils pulseaudio-module-bluetooth libasound2-plugins
 
@@ -339,6 +340,7 @@ POLICY_JSON='{
   "DefaultMediaStreamAudioCaptureSetting": 1,
   "VideoCaptureAllowed": true,
   "AudioCaptureAllowed": true,
+  "TranslateEnabled": false,
   "BuiltInDnsClientEnabled": false,
   "InsecurePrivateNetworkRequestsAllowed": true
 }'

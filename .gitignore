@@ -32,3 +32,12 @@ npm-debug.log*
 # Environment
 .env
 .env.*
+
+# PlatformIO build output
+.pio/
+
+# Local backups
+*.zip
+
+# module scratch / design drafts
+modules/*/scratch/

@@ -14,7 +14,7 @@
 .ov-alert.banner {
   padding: 12px 20px;
   border-radius: 10px;
-  font-size: clamp(16px, 2vw, 26px);
+  font-size: clamp(16px, 2vw, 52px);
   font-weight: 700;
   background: var(--alert-banner-bg, rgba(12, 22, 34, 0.92));
   border: 1px solid var(--alert-banner-border, rgba(255, 255, 255, 0.2));
@@ -27,12 +27,12 @@
 }
 .ov-alert.banner.pos-h-left {
   left: 2vw;
-  max-width: min(54vw, 820px);
+  max-width: min(54vw, max(820px, 42.7vw));
   text-align: left;
 }
 .ov-alert.banner.pos-h-right {
   right: 2vw;
-  max-width: min(54vw, 820px);
+  max-width: min(54vw, max(820px, 42.7vw));
   text-align: right;
 }
 
@@ -43,8 +43,8 @@
 
 .ov-alert.popup {
   left: 50%;
-  width: min(74vw, 980px);
-  padding: clamp(20px, 3vw, 34px);
+  width: min(74vw, max(980px, 51vw));
+  padding: clamp(20px, 3vw, 68px);
   border-radius: 16px;
   background: var(--alert-popup-bg, rgba(9, 18, 30, 0.94));
   border: 1px solid var(--alert-popup-border, rgba(255, 255, 255, 0.18));
@@ -68,7 +68,7 @@
 /* Countdown */
 
 .ov-alert.countdown {
-  min-width: min(36vw, 560px);
+  min-width: min(36vw, max(560px, 29.2vw));
   padding: 14px 16px;
   border-radius: 12px;
   background: var(--alert-countdown-bg, rgba(7, 16, 28, 0.92));
@@ -89,7 +89,7 @@
 }
 
 .ov-alert .ov-alert-title {
-  font-size: clamp(14px, 1.8vw, 22px);
+  font-size: clamp(14px, 1.8vw, 44px);
   color: var(--alert-title-color, rgba(255, 255, 255, 0.75));
   text-transform: uppercase;
   letter-spacing: 0.08em;
@@ -98,18 +98,18 @@
 }
 
 .ov-alert .ov-alert-message {
-  font-size: clamp(24px, 4vw, 58px);
+  font-size: clamp(24px, 4vw, 116px);
   line-height: 1.12;
   font-weight: 800;
 }
 
 .ov-alert.countdown .ov-alert-message {
-  font-size: clamp(18px, 2.4vw, 34px);
+  font-size: clamp(18px, 2.4vw, 68px);
   margin-bottom: 6px;
 }
 
 .ov-alert.countdown .ov-alert-time {
-  font-size: clamp(28px, 3.6vw, 52px);
+  font-size: clamp(28px, 3.6vw, 104px);
   font-weight: 800;
   font-variant-numeric: tabular-nums;
   color: var(--alert-countdown-time, #ffdca8);
@@ -344,7 +344,7 @@
 }
 
 #overlay-bug img {
-  height: 28px;
+  height: clamp(28px, 2.6vh, 58px);
   width: auto;
   object-fit: contain;
 }
@@ -372,14 +372,14 @@
 }
 
 #overlay-qr-bug img {
-  width: var(--qr-bug-size, min(10vw, 100px));
+  width: var(--qr-bug-size, min(10vw, max(100px, 5.2vw)));
   height: auto;
   display: block;
   border-radius: 4px;
 }
 
 #overlay-qr-bug .qr-bug-label {
-  font-size: var(--qr-bug-label-size, 11px);
+  font-size: var(--qr-bug-label-size, clamp(11px, 0.9vw, 22px));
   font-family: var(--qr-bug-label-font-family, 'Segoe UI', system-ui, 'Noto Color Emoji', 'Apple Color Emoji', 'Segoe UI Emoji', sans-serif);
   color: var(--qr-bug-label-color, #fff);
   text-align: center;
@@ -405,11 +405,11 @@
 
 .settings-card {
   position: relative;
-  width: min(560px, 90vw);
+  width: min(90vw, max(560px, 29.2vw));
   background: rgba(10, 16, 24, 0.96);
   border: 1px solid rgba(255,255,255,0.14);
   border-radius: 20px;
-  padding: clamp(20px, 3vw, 36px);
+  padding: clamp(20px, 3vw, 72px);
   box-shadow: 0 32px 80px rgba(0,0,0,0.6);
   display: flex;
   flex-direction: column;
@@ -444,7 +444,7 @@
   text-transform: uppercase;
   color: rgba(255,255,255,0.38);
 }
-.settings-value { font-size: clamp(13px, 1.6vw, 15px); color: #e2eaf4; }
+.settings-value { font-size: clamp(13px, 1.6vw, 30px); color: #e2eaf4; }
 .settings-mono  { font-family: 'SF Mono', 'Consolas', monospace; }
 
 .settings-screen-btns { display: flex; gap: 8px; }

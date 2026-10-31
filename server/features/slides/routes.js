@@ -179,11 +179,17 @@ router.post('/upload-article-image', imageUpload.single('image'), (req, res) => 
 });
 
 // "Play videos now" — screens cut to a pool-video session immediately.
-// count: 'all' plays the whole pool once, 'batch' plays videoBatchSize videos.
+// count: 'all' plays the whole pool once, 'batch' plays videoBatchSize videos,
+// a positive integer plays exactly that many. videoId (optional) forces the
+// session to start with/only play that specific pool video.
 router.post('/play-videos-now', (req, res) => {
-  const count = req.body?.count === 'all' ? 'all' : 'batch';
-  broadcast({ type: 'play_videos_now', count });
-  res.json({ ok: true, count });
+  const n = Number(req.body?.count);
+  const count = req.body?.count === 'all' ? 'all'
+    : Number.isInteger(n) && n > 0 ? n
+    : 'batch';
+  const videoId = req.body?.videoId ? String(req.body.videoId) : null;
+  broadcast({ type: 'play_videos_now', count, videoId });
+  res.json({ ok: true, count, videoId });
 });
 
 router.post('/play-soon/:id', (req, res) => {

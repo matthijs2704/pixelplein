@@ -18,6 +18,8 @@ let _connected = false;
 let _connectedUrl = ''; // base-URL van de lopende verbinding
 let _msgSeq = 0;
 let _viewerOffset = 0;
+let _lastEventAt = 0;   // watchdog: sidecar stuurt elke ~2s een meta
+let _session = 0;       // sidecar-sessie; wisselt per /start → oude chat wissen
 
 function _sidecarBase() {
   const settings = state.getSettings();
@@ -63,6 +65,12 @@ function _ensureConnection() {
   const enabled = Boolean(state.getSettings().stream?.enabled);
   // Gewijzigde sidecar-URL → oude verbinding sluiten, volgende poll verbindt opnieuw.
   if (_abort && _connectedUrl && _connectedUrl !== _sidecarBase()) _disconnect();
+  // Watchdog: de sidecar stuurt elke ~2s een meta. >12s stilte op een "open"
+  // verbinding = half-open TCP (Mac in slaap, wifi-blip) → forceer reconnect.
+  if (_connected && _lastEventAt && Date.now() - _lastEventAt > 12000) {
+    console.warn('[hype] stream-chat sidecar stil — reconnect');
+    _disconnect();
+  }
   if (enabled && !_abort) _connect();
   else if (!enabled && _abort) _disconnect();
 }
@@ -78,6 +86,7 @@ async function _connect() {
     });
     if (!res.ok || !res.body) throw new Error(`sidecar ${res.status}`);
     _connected = true;
+    _lastEventAt = Date.now();
     console.log('[hype] stream-chat sidecar verbonden');
 
     let buf = '';
@@ -104,6 +113,17 @@ async function _connect() {
 
 function _handle(msg) {
   if (!msg || !msg.type || !_ctx) return;
+  _lastEventAt = Date.now();
+
+  // Nieuwe sidecar-sessie (chat opnieuw gestart) → oude berichten wissen,
+  // op alle schermen en in de regie-tail.
+  if (msg.type === 'meta' && msg.session && msg.session !== _session) {
+    if (_session) {
+      state.clearStreamChat();
+      _ctx.broadcast({ type: `${NS}:stream_chat_reset` });
+    }
+    _session = msg.session;
+  }
 
   if (msg.type === 'chat' || msg.type === 'join') {
     const item = { id: `sc_${Date.now()}_${_msgSeq++}`, ts: Date.now(), ...msg };

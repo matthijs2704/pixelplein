@@ -40,6 +40,7 @@ const POST_SLIDE_DELAY_MS   = 500;    // pause after slide before next photo cyc
 const NO_CONFIG_RETRY_MS    = 1000;   // retry interval when config not yet available
 const DEFAULT_LAYOUT_DUR_MS = 8000;   // fallback layout duration
 const DEFAULT_HERO_LOCK_SEC = 30;     // cross-screen hero lock TTL
+const BLACKOUT_RECHECK_MS   = 1000;   // poll interval while screensBlackout is on
 
 // Layout module paths, keyed by layout name.
 const _LAYOUT_PATHS = {
@@ -76,6 +77,7 @@ let _photoCycleCount       = 0;       // completed photo cycles since last slide
 let _lastSubmissionWallAt  = Date.now();
 let _requestCycleUnsub     = null;
 let _activeTakeoverId      = null;
+let _mediaSessionActive    = false; // true while a video-fullscreen session is mid-playback
 
 /** @type {Map<string, Object>} name → layout descriptor */
 let _layouts = new Map();
@@ -156,6 +158,9 @@ export function initCycle(container, screenId) {
   _lifecycle = createLayoutLifecycle(container);
   if (!_requestCycleUnsub) {
     _requestCycleUnsub = onScreenEvent('layout:request-cycle', (detail = {}) => {
+      // Don't cut a playing video reel short — let it finish, then the
+      // requested cycle runs right after (POST_SLIDE_DELAY_MS later).
+      if (_mediaSessionActive) return;
       if (detail.clear) {
         _activeTakeoverId = null;
         _lifecycle?.clear(detail.reason || 'request-cycle');
@@ -175,6 +180,17 @@ export function updateConfig(config) {
 
 export function updateHeroLocks(locks) {
   _heroLocks = new Map(locks.map(l => [l.photoId, l]));
+}
+
+export function canStartWithoutPhotos() {
+  if (!_config) return false;
+  return Boolean(getActiveScreenTakeover({
+    cfg: _config,
+    globalConfig: _globalConfig,
+    screenId: _screenId,
+    cycleStart: Date.now(),
+    displayState,
+  }));
 }
 
 export function startCycle() {
@@ -245,7 +261,7 @@ function _selectCandidates(cfg, poolSize) {
 
   let eligible = allNames.filter(name => {
     const desc = _layouts.get(name);
-    if (desc?.needsVideo) return getVideoPool().length > 0;
+    if (desc?.needsVideo) return !_globalConfig?.videoPlaybackDisabled && getVideoPool().length > 0;
     return poolSize >= (desc?.minPhotos || 1) && poolSize >= _layoutSlotNeed(name, cfg, poolSize);
   });
 
@@ -301,6 +317,18 @@ async function runCycle() {
 
   if (!_running || !_config || !_lifecycle) {
     _scheduleCycle(NO_CONFIG_RETRY_MS);
+    return;
+  }
+
+  if (_globalConfig?.screensBlackout) {
+    _activeTakeoverId = null;
+    if (_lifecycle.getCurrentElement()?.dataset?.blackout !== '1') {
+      const el = document.createElement('div');
+      el.className = 'layout-blackout';
+      el.dataset.blackout = '1';
+      _lifecycle.showRenderable({ el }, 'fade', 300);
+    }
+    _scheduleCycle(BLACKOUT_RECHECK_MS);
     return;
   }
 
@@ -442,7 +470,9 @@ async function runCycle() {
   const duration = built.duration || cfg._overrideDuration || cfg.layoutDuration || DEFAULT_LAYOUT_DUR_MS;
   const visibleIds = built.visibleIds || [];
   const startMotionAfterShow = resolvedType === 'submissionwall';
+  const isMediaDriven = !!built.onDidShow;
 
+  if (isMediaDriven) _mediaSessionActive = true;
   const shown = await _lifecycle.showRenderable({
     el: built.el,
     onWillShow() {
@@ -502,6 +532,7 @@ async function runCycle() {
     },
     destroy: built.destroy || null,
   }, built.transition || transType, built.transitionMs ?? transMs);
+  if (isMediaDriven) _mediaSessionActive = false;
 
   if (!_running || !shown) return;
 
@@ -520,7 +551,6 @@ async function runCycle() {
     duration,
   });
 
-  const isMediaDriven = !!built.onDidShow;
   if (!isMediaDriven) _photoCycleCount += 1;
   _scheduleCycle(isMediaDriven ? POST_SLIDE_DELAY_MS : duration);
 }

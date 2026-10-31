@@ -6,16 +6,16 @@
 
 :root {
   /* ── Layout safe area: tight margins just inside the thin frame ─────── */
-  --rsw-frame-inset-x:     clamp(12px, 0.75vw, 28px);
-  --rsw-frame-inset-y:     clamp(12px, 0.8vh, 26px);
-  --rsw-safe-top:          clamp(22px, 1.7vh, 38px);
-  --rsw-safe-right:        clamp(22px, 1.0vw, 38px);
+  --rsw-frame-inset-x:     clamp(12px, 0.75vw, 56px);
+  --rsw-frame-inset-y:     clamp(12px, 0.8vh, 52px);
+  --rsw-safe-top:          clamp(22px, 1.7vh, 76px);
+  --rsw-safe-right:        clamp(22px, 1.0vw, 76px);
   --rsw-safe-bottom:       calc(var(--infobar-height, 56px) + 10px);
-  --rsw-safe-left:         clamp(22px, 1.0vw, 38px);
-  --rsw-badge-left-size:   clamp(90px, 10.0vw, 340px);
-  --rsw-badge-right-size:  clamp(80px,  8.4vw, 286px);
-  --rsw-regio-logo-size:   clamp(82px,  8.8vw, 300px);
-  --rsw-event-logo-size:   clamp(150px, 14.5vw, 490px);
+  --rsw-safe-left:         clamp(22px, 1.0vw, 76px);
+  --rsw-badge-left-size:   clamp(90px, 10.0vw, 680px);
+  --rsw-badge-right-size:  clamp(80px, 8.4vw, 572px);
+  --rsw-regio-logo-size:   clamp(82px, 8.8vw, 600px);
+  --rsw-event-logo-size:   clamp(150px, 14.5vw, 980px);
 
   --screen-bg:
     radial-gradient(1000px 560px at 50% 46%, rgba(255, 196, 84, 0.06), transparent 42%),
@@ -26,7 +26,7 @@
   --screen-padding-right:  var(--rsw-safe-right);
   --screen-padding-bottom: var(--rsw-safe-bottom);
   --screen-padding-left:   var(--rsw-safe-left);
-  --tile-gap:              clamp(6px, 0.45vw, 12px);
+  --tile-gap:              clamp(6px, 0.45vw, 24px);
   --tile-radius:           4px;
   --tile-shadow:           0 8px 22px rgba(0, 0, 0, 0.28);
   --tile-border:           none;
@@ -51,15 +51,15 @@
 
   /* ── Ticker / info bar ──────────────────────────────────────────────── */
   --ticker-bg:             rgba(13, 13, 15, 0.84);
-  --ticker-height:         clamp(28px, 2.2vh, 42px);
+  --ticker-height:         clamp(28px, 2.2vh, 84px);
   --ticker-color:          #f4ead0;
-  --ticker-font-size:      clamp(16px, 1.05vw, 24px);
+  --ticker-font-size:      clamp(16px, 1.05vw, 48px);
   --ticker-font-weight:    600;
   --ticker-font-family:    'Source Sans 3', 'Segoe UI', system-ui, sans-serif;
   --ticker-letter-spacing: 0.04em;
   --ticker-radius:         999px;
   --ticker-offset-y:       0px;
-  --ticker-inset-x:        clamp(18px, 1.4vw, 36px);
+  --ticker-inset-x:        clamp(18px, 1.4vw, 72px);
 
   --infobar-bg:                   rgba(8, 8, 10, 0.86);
   --infobar-color:                #f4ead0;
@@ -76,25 +76,25 @@
   --bug-radius:            999px;
   --bug-padding:           6px 12px;
   --bug-color:             #f4ead0;
-  --bug-font-size:         clamp(14px, 0.9vw, 20px);
+  --bug-font-size:         clamp(14px, 0.9vw, 40px);
   --bug-font-weight:       700;
   --bug-font-family:       'Source Sans 3', 'Segoe UI', system-ui, sans-serif;
-  --bug-offset-top:        clamp(8px, 1vh, 18px);
-  --bug-offset-bottom:     clamp(8px, 1vh, 18px);
-  --bug-offset-left:       clamp(8px, 1vw, 18px);
-  --bug-offset-right:      clamp(8px, 1vw, 18px);
+  --bug-offset-top:        clamp(8px, 1vh, 36px);
+  --bug-offset-bottom:     clamp(8px, 1vh, 36px);
+  --bug-offset-left:       clamp(8px, 1vw, 36px);
+  --bug-offset-right:      clamp(8px, 1vw, 36px);
 
   --qr-bug-bg:               rgba(10, 10, 12, 0.8);
   --qr-bug-radius:           16px;
   --qr-bug-padding:          10px;
-  --qr-bug-size:             clamp(84px, 6vw, 142px);
+  --qr-bug-size:             clamp(84px, 6vw, 284px);
   --qr-bug-label-color:      #f4ead0;
-  --qr-bug-label-size:       clamp(10px, 0.72vw, 15px);
+  --qr-bug-label-size:       clamp(10px, 0.72vw, 30px);
   --qr-bug-label-font-family:'Source Sans 3', 'Segoe UI', system-ui, sans-serif;
-  --qr-bug-offset-top:       clamp(8px, 1vh, 18px);
-  --qr-bug-offset-bottom:    clamp(8px, 1vh, 18px);
-  --qr-bug-offset-left:      clamp(8px, 1vw, 18px);
-  --qr-bug-offset-right:     clamp(8px, 1vw, 18px);
+  --qr-bug-offset-top:       clamp(8px, 1vh, 36px);
+  --qr-bug-offset-bottom:    clamp(8px, 1vh, 36px);
+  --qr-bug-offset-left:      clamp(8px, 1vw, 36px);
+  --qr-bug-offset-right:     clamp(8px, 1vw, 36px);
 
   /* ── Alerts ──────────────────────────────────────────────────────────── */
   --alert-color:            #f8efda;
@@ -148,7 +148,7 @@
 }
 
 .theme-brand-event {
-  width: clamp(160px, 42vw, 320px);
+  width: clamp(160px, 42vw, 640px);
   height: auto;
   display: block;
   margin: 0 auto;

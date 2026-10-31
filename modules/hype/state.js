@@ -37,6 +37,18 @@ async function load(db) {
     }
   }
 
+  // Counts live in memory; restore each channel's latest recorded count so a
+  // server restart mid-week doesn't reset the follower race to follower_base.
+  const lastCounts = await db.all(`
+    SELECT channel_id, count FROM hype_followers_history h
+    WHERE ts = (SELECT MAX(ts) FROM hype_followers_history WHERE channel_id = h.channel_id)
+  `);
+  for (const row of lastCounts) {
+    if (_state.channelById.has(row.channel_id)) {
+      _state.followers.set(row.channel_id, Math.max(_state.followers.get(row.channel_id) | 0, row.count | 0));
+    }
+  }
+
   const allStates = await db.all(`SELECT * FROM hype_photo_state`);
   _state.photoState.clear();
   for (const row of allStates) {
@@ -136,6 +148,10 @@ function getStreamChat() {
   return _state.streamChat.slice();
 }
 
+function clearStreamChat() {
+  _state.streamChat = [];
+}
+
 function markStreamChatDeleted(id) {
   const item = _state.streamChat.find(m => m.id === id);
   if (!item) return null;
@@ -184,6 +200,7 @@ module.exports = {
   setStreamStats,
   addStreamChat,
   getStreamChat,
+  clearStreamChat,
   markStreamChatDeleted,
   pickComment,
 };

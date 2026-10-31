@@ -61,6 +61,14 @@ export async function deletePhotoGroup(group) {
   return apiFetch(`/api/photos/group/${encodeURIComponent(group)}`, { method: 'DELETE' });
 }
 
+export async function deleteAllPhotos() {
+  return apiFetch('/api/photos/all', {
+    method: 'DELETE',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ confirm: 'ALLES WISSEN' }),
+  });
+}
+
 export async function loadSlides() {
   return apiFetch('/api/slides');
 }

@@ -221,22 +221,25 @@ function _confettiBurst(canvas, durationMs) {
   const dpr = Math.min(2, window.devicePixelRatio || 1);
   canvas.width = canvas.clientWidth * dpr;
   canvas.height = canvas.clientHeight * dpr;
+  // Scale particles to the actual canvas resolution (a 4K TV at dpr 1 must
+  // still get screen-filling confetti), not just devicePixelRatio.
+  const scale = Math.max(dpr, canvas.height / 1080);
 
   const colors = ['#f5d904', '#ff2d87', '#a23bff', '#2bc1ff', '#4ec9b0', '#ffffff', '#ff8c00'];
-  const N = 360;
+  const N = 180; // ponytail: halved — 360 stuttered on TV renderers
   const cx = canvas.width / 2;
   const cy = canvas.height * 0.42;
 
   const parts = Array.from({ length: N }, (_, i) => {
     const angle = (-Math.PI / 2) + (Math.random() - 0.5) * Math.PI * 1.9;
-    const speed = (8 + Math.random() * 18) * dpr;
+    const speed = (8 + Math.random() * 18) * scale;
     return {
       x: cx, y: cy,
       vx: Math.cos(angle) * speed,
-      vy: Math.sin(angle) * speed - 7 * dpr,
-      g: 0.24 * dpr,
-      w: (3 + Math.random() * 7) * dpr,
-      h: (1.5 + Math.random() * 3) * dpr,
+      vy: Math.sin(angle) * speed - 7 * scale,
+      g: 0.24 * scale,
+      w: (3 + Math.random() * 7) * scale,
+      h: (1.5 + Math.random() * 3) * scale,
       color: colors[i % colors.length],
       rot: Math.random() * Math.PI,
       vr: (Math.random() - 0.5) * 0.5,

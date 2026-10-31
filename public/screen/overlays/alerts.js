@@ -170,6 +170,8 @@ function _applyLocalTimeout(entry) {
 
 export function showAlert(alert) {
   if (!alert?.id) return;
+  const existing = _active.get(alert.id);
+  if (existing && Number(existing.alert.firedAt || 0) === Number(alert.firedAt || 0)) return;
   dismissAlert(alert.id);
 
   const el = _buildEl(alert);
@@ -215,13 +217,17 @@ export function dismissAlert(alertId) {
 
 export function setAlertSnapshot(alerts) {
   const incoming = Array.isArray(alerts) ? alerts : [];
-  const ids = new Set(incoming.map(a => a.id));
+  const byId = new Map();
+  for (const alert of incoming) {
+    if (alert?.id) byId.set(alert.id, alert);
+  }
+  const ids = new Set(byId.keys());
 
   for (const id of Array.from(_active.keys())) {
     if (!ids.has(id)) dismissAlert(id);
   }
 
-  for (const alert of incoming) {
+  for (const alert of byId.values()) {
     if (!alert?.active || alert.dismissed) continue;
     showAlert(alert);
   }

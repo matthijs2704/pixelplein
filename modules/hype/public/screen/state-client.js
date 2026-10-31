@@ -38,6 +38,12 @@ function _emit(detail) {
   }
 }
 
+function _hasTakeover(settings) {
+  return Boolean(settings?.stream?.enabled)
+    || settings?.mode === 'dashboard'
+    || settings?.mode === 'social-only';
+}
+
 export function onHypeChange(fn) {
   _listeners.add(fn);
   return () => _listeners.delete(fn);
@@ -47,6 +53,8 @@ export function getChannels()             { return _state.channels.slice(); }
 export function getChannel(id)            { return _state.channelById.get(id) || null; }
 export function getFollowerCount(id)      { return _state.followers[id] | 0; }
 export function getAllFollowers()         { return { ..._state.followers }; }
+// Counts of ~24h ago (hydrated once) — live delta = current − baseline.
+export function getFollowerBaselines()    { return { ...(_state.followerBaselines || {}) }; }
 export function getPhotoLikes(photoId)    { const st = _state.photoState.get(photoId); return st ? (st.likes | 0) : 0; }
 export function getPhotoViral(photoId)    { const st = _state.photoState.get(photoId); return !!(st && st.viral); }
 export function getPhotoChannel(photoId)  { return _state.channelByPhotoId.get(photoId) || null; }
@@ -74,6 +82,20 @@ function _ingestChannels(channels) {
   _state.channelById = new Map(_state.channels.map(c => [c.id, c]));
 }
 
+/**
+ * Keep the snapshot fresh without a WS-reconnect hook: a screen that boots
+ * before the server is up (TV and server on the same power strip) retries
+ * every 5s until the first snapshot lands; after that a 5-minute refresh
+ * catches up after server restarts. hydrate() never throws.
+ */
+export function startHydrateRefresh() {
+  const tick = async () => {
+    await hydrate();
+    setTimeout(tick, _state.ready ? 300_000 : 5_000);
+  };
+  setTimeout(tick, _state.ready ? 300_000 : 5_000);
+}
+
 export async function hydrate() {
   try {
     const res = await fetch('/api/modules/hype/snapshot', { credentials: 'same-origin' });
@@ -83,6 +105,7 @@ export async function hydrate() {
     _ingestChannels(snap.channels);
     _state.pools = snap.pools || {};
     _state.followers = snap.followers || {};
+    _state.followerBaselines = snap.followerBaselines || {};
     _state.photoState = new Map(
       (snap.photoStates || []).map(p => [p.photo_id, { likes: p.likes | 0, viral: !!p.viral }]),
     );
@@ -134,10 +157,19 @@ export function handleWsMessage(msg) {
 
   if (sub === 'settings_update') {
     const wasStreamEnabled = Boolean(_state.settings.stream?.enabled);
+    const hadTakeover = _hasTakeover(_state.settings);
     _state.settings = { ..._state.settings, ...(msg.settings || {}) };
+    const hasTakeover = _hasTakeover(_state.settings);
     _emit({ kind: 'settings' });
     if (wasStreamEnabled && !_state.settings.stream?.enabled) {
       document.body.classList.remove('hype-stream-mode');
+    }
+    if (hadTakeover !== hasTakeover) {
+      emitScreenEvent('layout:request-cycle', {
+        clear: !hasTakeover,
+        reason: hasTakeover ? 'hype-takeover-enabled' : 'hype-takeover-disabled',
+      });
+    } else if (wasStreamEnabled && !_state.settings.stream?.enabled) {
       emitScreenEvent('layout:request-cycle', { clear: true, reason: 'stream-disabled' });
     }
     return;
@@ -178,6 +210,12 @@ export function handleWsMessage(msg) {
   if (sub === 'stream_chat_update') {
     const idx = _state.streamChat.findIndex(m => m.id === msg.item?.id);
     if (idx >= 0) _state.streamChat[idx] = msg.item;
+    _emit({ kind: 'stream_chat' });
+    return;
+  }
+
+  if (sub === 'stream_chat_reset') {
+    _state.streamChat = [];
     _emit({ kind: 'stream_chat' });
     return;
   }

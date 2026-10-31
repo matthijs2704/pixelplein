@@ -193,6 +193,8 @@ function defaultConfig() {
     submissionWallShowQr: true,
     submissionWallHideWhenEmpty: true,
     enabledModules: [],
+    screensBlackout: false,       // kill switch: black out all screens, no video/rotation
+    videoPlaybackDisabled: false, // stop all video sessions; photo rotation keeps running
   };
 }
 
@@ -538,6 +540,14 @@ function _sanitizeSubmissionSettings(input, target) {
 
   if (Object.prototype.hasOwnProperty.call(input, 'submissionWallHideWhenEmpty')) {
     target.submissionWallHideWhenEmpty = Boolean(input.submissionWallHideWhenEmpty);
+  }
+
+  if (Object.prototype.hasOwnProperty.call(input, 'screensBlackout')) {
+    target.screensBlackout = Boolean(input.screensBlackout);
+  }
+
+  if (Object.prototype.hasOwnProperty.call(input, 'videoPlaybackDisabled')) {
+    target.videoPlaybackDisabled = Boolean(input.videoPlaybackDisabled);
   }
 }
 

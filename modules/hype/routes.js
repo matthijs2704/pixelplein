@@ -4,11 +4,64 @@
 // requireAuth in module.js). Mounted at /api/modules/hype.
 
 const express = require('express');
+const path = require('path');
+const fs = require('fs');
 
 const hypeDb = require('./db');
 const state  = require('./state');
 const engine = require('./engine');
 const streamChat = require('./stream-chat');
+
+/* ── OSM tile proxy + disk cache ──────────────────────────────────────
+ * The trace scene zooms over real map tiles. We proxy + cache them so the
+ * night game doesn't depend on festival wifi once prefetched from admin.
+ * Constants must match alerts/trace.js (GRID/ZOOM_MIN/ZOOM_MAX).
+ */
+const TILE_DIR = path.join(__dirname, '..', '..', 'data', 'hype-tiles');
+const TILE_UA = 'PixelPlein-DeHype/1.0 (+camp photo display)';
+const TILE_GRID = 5, TILE_ZMIN = 8, TILE_ZMAX = 17;
+
+async function _getTile(z, x, y) {
+  const file = path.join(TILE_DIR, String(z), String(x), `${y}.png`);
+  try { return await fs.promises.readFile(file); } catch { /* cache miss */ }
+  const res = await fetch(`https://tile.openstreetmap.org/${z}/${x}/${y}.png`, {
+    headers: { 'User-Agent': TILE_UA },
+  });
+  if (!res.ok) throw new Error(`tile ${z}/${x}/${y}: HTTP ${res.status}`);
+  const buf = Buffer.from(await res.arrayBuffer());
+  await fs.promises.mkdir(path.dirname(file), { recursive: true });
+  await fs.promises.writeFile(file, buf);
+  return buf;
+}
+
+function _tileXY(lat, lon, z) {
+  const n = 2 ** z;
+  const latRad = (lat * Math.PI) / 180;
+  return {
+    x: Math.floor(((lon + 180) / 360) * n),
+    y: Math.floor(((1 - Math.log(Math.tan(latRad) + 1 / Math.cos(latRad)) / Math.PI) / 2) * n),
+  };
+}
+
+// Fetch the whole zoom pyramid around a target into the cache.
+async function _prefetchTiles(lat, lon) {
+  const half = Math.floor(TILE_GRID / 2);
+  let ok = 0, failed = 0;
+  for (let z = TILE_ZMIN; z <= TILE_ZMAX; z++) {
+    const { x, y } = _tileXY(lat, lon, z);
+    const max = 2 ** z;
+    const jobs = [];
+    for (let dy = -half; dy <= half; dy++) {
+      for (let dx = -half; dx <= half; dx++) {
+        const tx = x + dx, ty = y + dy;
+        if (tx < 0 || ty < 0 || tx >= max || ty >= max) continue;
+        jobs.push(_getTile(z, tx, ty).then(() => { ok++; }, () => { failed++; }));
+      }
+    }
+    await Promise.all(jobs); // one zoom level at a time — polite to OSM
+  }
+  return { ok, failed };
+}
 
 function createPublicRouter(ctx) {
   const router = express.Router();
@@ -22,6 +75,18 @@ function createPublicRouter(ctx) {
       const pools = {};
       for (const c of channels) pools[c.id] = state.getCommentPool(c.id);
       const photoStates = await ctx.db.all(`SELECT * FROM hype_photo_state`);
+      // Follower counts of ~24h ago, for "sinds gisteren" deltas on the
+      // morning dashboard. Fallback: a channel's earliest recorded count.
+      const cutoff = Date.now() - 24 * 3600 * 1000;
+      const baselineRows = await ctx.db.all(`
+        SELECT channel_id, count FROM hype_followers_history h
+        WHERE ts = COALESCE(
+          (SELECT MAX(ts) FROM hype_followers_history WHERE channel_id = h.channel_id AND ts <= ?),
+          (SELECT MIN(ts) FROM hype_followers_history WHERE channel_id = h.channel_id)
+        )
+      `, [cutoff]);
+      const followerBaselines = {};
+      for (const row of baselineRows) followerBaselines[row.channel_id] = row.count | 0;
       const tagMap = await ctx.db.listPhotoTagsByNamespace('hype');
       const channelByPhotoId = {};
       for (const [photoId, tags] of Object.entries(tagMap || {})) {
@@ -32,6 +97,7 @@ function createPublicRouter(ctx) {
         channels,
         pools,
         followers: state.getAllFollowerCounts(),
+        followerBaselines,
         photoStates,
         channelByPhotoId,
         activity: state.getActivity(),
@@ -44,12 +110,60 @@ function createPublicRouter(ctx) {
     }
   });
 
+  // Map tiles for the trace scene. No auth: screens fetch these directly.
+  router.get('/tiles/:z/:x/:y', async (req, res) => {
+    const z = Number(req.params.z) | 0, x = Number(req.params.x) | 0, y = Number(req.params.y) | 0;
+    const max = 2 ** z;
+    if (z < 0 || z > 19 || x < 0 || y < 0 || x >= max || y >= max) {
+      return res.status(400).json({ error: 'invalid tile' });
+    }
+    try {
+      const buf = await _getTile(z, x, y);
+      res.set('Content-Type', 'image/png');
+      res.set('Cache-Control', 'public, max-age=86400');
+      res.send(buf);
+    } catch (err) {
+      res.status(502).json({ error: err.message });
+    }
+  });
+
   // Fired by the physical reboot console (tablet). Triggers the full restart
   // sequence — same as admin restart — no auth needed on the local festival network.
   router.post('/reboot-trigger', async (_req, res) => {
     try {
       await engine.restartPlatform();
       res.json({ ok: true });
+    } catch (err) {
+      res.status(500).json({ error: err.message });
+    }
+  });
+
+  // Physical showtime button (M5 Atom). Fires whatever action the operator
+  // armed in admin (settings.physicalTrigger) and then disarms — one-shot,
+  // so stray presses are harmless. No auth: local festival network, and a
+  // disarmed button does nothing.
+  router.get('/trigger', (_req, res) => {
+    res.json({ armed: state.getSettings().physicalTrigger || null });
+  });
+
+  router.post('/trigger', async (_req, res) => {
+    try {
+      const action = state.getSettings().physicalTrigger;
+      const run = {
+        launch:      () => engine.launchPlatform(),
+        reveal:      () => engine.startReveal({}),
+        trace:       () => engine.traceHacker(state.getSettings().traceTarget || {}),
+        'trace-end': () => engine.endTrace(),
+        restart:     () => engine.restartPlatform(),
+      }[action];
+      if (!run) return res.status(409).json({ error: 'geen actie geselecteerd' });
+      // Disarm BEFORE running so a double-press can't fire twice, then
+      // auto-advance to the story's next beat (reveal → trace → offline).
+      await engine.updateSettings({ physicalTrigger: null });
+      await run();
+      const next = { reveal: 'trace', trace: 'trace-end' }[action] || null;
+      if (next) await engine.updateSettings({ physicalTrigger: next });
+      res.json({ ok: true, fired: action, next });
     } catch (err) {
       res.status(500).json({ error: err.message });
     }
@@ -92,6 +206,73 @@ function createAdminRouter(ctx, engine) {
   router.post('/reset-prelaunch', async (_req, res) => {
     try {
       res.json(await engine.resetPreLaunch());
+    } catch (err) {
+      res.status(500).json({ error: err.message });
+    }
+  });
+
+  // Everything back to day 0: followers/history/activity wiped, knobs to
+  // rest, pre-launch teaser armed. The Saturday-morning button.
+  router.post('/reset-camp', async (_req, res) => {
+    try {
+      res.json(await engine.resetForCamp());
+    } catch (err) {
+      res.status(500).json({ error: err.message });
+    }
+  });
+
+  /* ── Nachtspel (Thursday-night finale) ── */
+
+  router.post('/reveal-arm', async (_req, res) => {
+    try {
+      res.json(await engine.armReveal());
+    } catch (err) {
+      res.status(500).json({ error: err.message });
+    }
+  });
+
+  router.post('/reveal', async (req, res) => {
+    try {
+      res.json(await engine.startReveal({ countdownSec: req.body?.countdownSec }));
+    } catch (err) {
+      res.status(500).json({ error: err.message });
+    }
+  });
+
+  router.post('/trace', async (req, res) => {
+    try {
+      res.json(await engine.traceHacker({
+        location: req.body?.location,
+        lat: req.body?.lat,
+        lon: req.body?.lon,
+      }));
+    } catch (err) {
+      res.status(500).json({ error: err.message });
+    }
+  });
+
+  router.post('/trace-end', async (_req, res) => {
+    try {
+      res.json(await engine.endTrace());
+    } catch (err) {
+      res.status(500).json({ error: err.message });
+    }
+  });
+
+  // Cache the tile pyramid for the trace location (operator does this in
+  // the afternoon). Also persists the target in settings.
+  router.post('/trace-prefetch', async (req, res) => {
+    const lat = Number(req.body?.lat), lon = Number(req.body?.lon);
+    if (!Number.isFinite(lat) || !Number.isFinite(lon) || Math.abs(lat) > 85 || Math.abs(lon) > 180) {
+      return res.status(400).json({ error: 'valid lat/lon required' });
+    }
+    try {
+      const saved = await engine.updateSettings({
+        traceTarget: { location: String(req.body?.location || '').slice(0, 120), lat, lon },
+      });
+      const result = await _prefetchTiles(lat, lon);
+      const { x, y } = _tileXY(lat, lon, 16);
+      res.json({ ...result, settings: saved, previewTile: `/api/modules/hype/tiles/16/${x}/${y}` });
     } catch (err) {
       res.status(500).json({ error: err.message });
     }
@@ -301,13 +482,11 @@ function createAdminRouter(ctx, engine) {
   router.get('/stream-chat/tail', (_req, res) => {
     res.json({ streamChat: state.getStreamChat(), streamStats: state.getStreamStats(), feeding: streamChat.isFeeding() });
   });
-
-  /* ── Special state alerts (proxy to base alerts API) ──────────────── */
-  // These four are pure conveniences — they construct an alert payload with
-  // the right type so existing /api/alerts plumbing fires it. Renderers on
-  // the screen side know hype-glitch / hype-hacker / hype-offline /
-  // hype-comeback.
-  // Actual implementation deferred to admin UI POSTing /api/alerts directly.
+  router.post('/stream-chat/reset', (_req, res) => {
+    state.clearStreamChat();
+    ctx.broadcast({ type: 'hype:stream_chat_reset' });
+    res.json({ ok: true });
+  });
 
   return router;
 }

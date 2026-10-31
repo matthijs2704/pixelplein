@@ -51,7 +51,7 @@ function _ensureBadge(img) {
   const ch = _resolveChannel(photoId);
   if (ch) {
     badge.style.setProperty('--ch-color', ch.color || '#7c5cff');
-    badge.innerHTML = monogramAvatar(ch.name, ch.color, 28) +
+    badge.innerHTML = monogramAvatar(ch.name, ch.color, 28, ch.avatar_url || ch.avatarUrl || '') +
       `<span class="hype-chrome-badge-handle">${escapeHtml(ch.handle || '')}</span>` +
       `<span class="hype-chrome-verified">${icon.verified(14)}</span>`;
   }
@@ -99,14 +99,14 @@ function _refreshAll() {
 function _scheduleCommentPopup() {
   if (_commentTimer) return;
   _commentTimer = setInterval(() => {
-    const imgs = Array.from(document.querySelectorAll(IMG_SELECTOR));
-    if (!imgs.length) return;
-    const img = imgs[Math.floor(Math.random() * imgs.length)];
-    const photoId = img.dataset.photoId;
-    const comments = getRecentComments(photoId, 3);
-    if (!comments.length) return;
-    const comment = comments[Math.floor(Math.random() * comments.length)];
-    _popComment(img, comment);
+    // Only pick photos that actually have comments — a random pick used to
+    // land on commentless photos most rounds, so popups almost never showed.
+    const candidates = Array.from(document.querySelectorAll(IMG_SELECTOR))
+      .map(img => ({ img, comments: getRecentComments(img.dataset.photoId, 3) }))
+      .filter(x => x.comments.length);
+    if (!candidates.length) return;
+    const { img, comments } = candidates[Math.floor(Math.random() * candidates.length)];
+    _popComment(img, comments[Math.floor(Math.random() * comments.length)]);
   }, 6000);
 }
 

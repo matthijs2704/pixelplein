@@ -33,7 +33,6 @@ export const layout = {
       if (ch) {
         footer.appendChild(el('span', { cls: 'hype-polaroid-handle', text: ch.handle }));
       }
-      footer.appendChild(el('span', { cls: 'hype-polaroid-brand', text: 'de HYPE!' }));
     });
 
     return result;

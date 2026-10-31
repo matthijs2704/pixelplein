@@ -37,7 +37,7 @@ export function renderPreLaunchAlert(alert) {
         <img class="hp-logo" src="/themes/hype/assets/logo.svg" alt="de HYPE!" />
         <div class="hp-soon">
           <strong>binnenkort live</strong>
-          <span>gaat over enkele dagen live · even geduld...</span>
+          <span>gaat over enkele momenten live · even geduld...</span>
         </div>
       </div>
       <div class="hp-taglines" aria-hidden="true">

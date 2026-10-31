@@ -72,6 +72,13 @@ details.hype-admin-section[open] > summary { margin-bottom: 12px; }
   font-size: 13px;
 }
 
+.hype-account-avatar-upload {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 54px;
+}
+
 .hype-activity-compose {
   display: grid;
   grid-template-columns: 140px minmax(0, 1fr) auto;
@@ -80,7 +87,9 @@ details.hype-admin-section[open] > summary { margin-bottom: 12px; }
 
 .hype-stream-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  /* Fixed max width (not 1fr) so a handful of fields don't stretch to fill
+     a wide panel into one giant horizontal strip — extra items wrap instead. */
+  grid-template-columns: repeat(auto-fill, minmax(200px, 260px));
   gap: 10px;
   align-items: end;
 }
@@ -158,31 +167,6 @@ details.hype-admin-section[open] > summary { margin-bottom: 12px; }
   margin-top: 2px;
 }
 
-/* Nachtspel block */
-.nachtspel-block {
-  background: #130808; border: 1px solid #8b0000;
-  border-left: 4px solid #d44; border-radius: 10px;
-  padding: 14px 16px; margin-bottom: 18px;
-  display: flex; flex-direction: column; gap: 10px;
-}
-.nachtspel-head { display: flex; align-items: baseline; gap: 12px; }
-.nachtspel-head h3 { margin: 0; color: #ff6666; }
-.nachtspel-hint { font-size: 11px; color: var(--text-muted, #9ca3b8); }
-.nachtspel-seq {
-  display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
-  font-size: 13px; color: #cfd8e6;
-}
-.seq-step { background: #1e0d0d; border: 1px solid #8b0000; border-radius: 6px; padding: 4px 10px; }
-.seq-arrow { color: #666; }
-.seq-delay { display: flex; align-items: center; gap: 4px; font-size: 12px; }
-.seq-delay input { width: 52px; text-align: center; }
-.nachtspel-block [data-start-nachtspel] { align-self: flex-start; }
-.nachtspel-manual {
-  display: flex; gap: 8px; flex-wrap: wrap;
-  padding-top: 4px; border-top: 1px solid #2a1a1a;
-}
-.nachtspel-manual .hype-admin-btn { font-size: 12px; }
-
 /* Dismiss row */
 .dismiss-row {
   display: flex; gap: 8px; flex-wrap: wrap;
@@ -190,19 +174,6 @@ details.hype-admin-section[open] > summary { margin-bottom: 12px; }
 }
 .dismiss-row .hype-admin-btn { font-size: 12px; }
 
-/* Lifecycle button row */
-.lifecycle-row {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-  gap: 10px;
-  margin-bottom: 18px;
-}
-.lifecycle-row .hype-admin-btn {
-  display: flex; flex-direction: column; align-items: flex-start;
-  gap: 4px; margin: 0; padding: 14px 16px; text-align: left;
-}
-.lifecycle-row .lc-label { font-size: 15px; font-weight: 800; }
-.lifecycle-row .lc-sub   { font-size: 11px; opacity: 0.85; font-weight: 400; }
 .hype-admin-btn.neutral  { background: #3b4a66; }
 .hype-admin-btn.neutral:hover { background: #475a7e; }
 .hype-admin-btn.restart  { background: #2bc1ff; color: #0a1622; }
@@ -260,6 +231,7 @@ details.hype-admin-section[open] > summary { margin-bottom: 12px; }
   flex-wrap: wrap;
 }
 .cc-row input[type=number] { width: 90px; }
+.cc-avatar-preview { width: 32px; height: 32px; border-radius: 50%; object-fit: cover; }
 .cc-row.foll-row strong { color: var(--text, #fff); font-variant-numeric: tabular-nums; }
 .cc-pool summary { font-size: 12px; cursor: pointer; color: var(--text-muted, #9ca3b8); padding: 4px 0; }
 .cc-pool textarea { width: 100%; min-height: 100px; font-family: monospace; margin: 6px 0; }
@@ -326,3 +298,90 @@ details.hype-admin-section[open] > summary { margin-bottom: 12px; }
 .hype-regie-photo-row { align-items: center; }
 .hype-admin-btn.is-recording { background: #d44; animation: hype-mic-pulse 1s infinite; }
 @keyframes hype-mic-pulse { 50% { opacity: 0.6; } }
+
+/* ── Draaiboek stepper (Showtime) ───────────────────────────────────── */
+.draaiboek {
+  list-style: none;
+  margin: 8px 0 16px;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.db-step {
+  display: flex;
+  gap: 12px;
+  padding: 12px 14px;
+  border: 1px solid var(--border, #2a2a36);
+  border-radius: 10px;
+  background: rgba(255,255,255,0.02);
+}
+.db-num {
+  flex: 0 0 auto;
+  width: 28px; height: 28px;
+  display: grid; place-items: center;
+  border-radius: 50%;
+  background: #2a2a36;
+  color: #cfd3e0;
+  font-weight: 700;
+  font-size: 13px;
+}
+.db-body { flex: 1; display: flex; flex-direction: column; gap: 8px; min-width: 0; }
+.db-info { display: flex; flex-direction: column; gap: 2px; }
+.db-info strong { font-size: 14px; }
+.db-info span { font-size: 11px; color: var(--text-muted, #9ca3b8); }
+.db-fields { display: flex; flex-wrap: wrap; gap: 12px; }
+.db-fields label {
+  display: flex; align-items: center; gap: 6px;
+  font-size: 12px; color: var(--text-muted, #9ca3b8);
+}
+.db-fields input[type="number"] { width: 56px; text-align: center; }
+.db-fields input[type="text"] { min-width: 200px; }
+.db-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+.db-actions .hype-admin-btn { font-size: 12px; }
+
+/* Live state: which step is on the screens right now */
+.db-step.db-active {
+  border-color: #7c5cff;
+  background: rgba(124,92,255,0.10);
+  box-shadow: 0 0 0 1px #7c5cff inset;
+}
+.db-step.db-active .db-num { background: #7c5cff; color: #fff; }
+.db-step.db-done .db-num { background: #2e7d4f; color: #fff; }
+
+.trace-preview {
+  width: 128px; height: 128px;
+  border-radius: 8px;
+  border: 1px solid var(--border, #2a2a36);
+  object-fit: cover;
+  filter: invert(1) hue-rotate(200deg) saturate(0.55) brightness(0.82);
+}
+
+/* ── Handmatig / nood ───────────────────────────────────────────────── */
+.hype-nood {
+  margin-top: 8px;
+  border: 1px solid var(--border, #2a2a36);
+  border-radius: 10px;
+  padding: 10px 14px;
+}
+.hype-nood summary {
+  cursor: pointer;
+  font-weight: 700;
+  color: #ff6666;
+  font-size: 13px;
+}
+.hype-nood h4 { margin: 14px 0 6px; font-size: 12px; color: var(--text-muted, #9ca3b8); }
+.nood-row { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
+.nood-row .hype-admin-btn { font-size: 12px; }
+
+/* ── Physical button (M5 Atom) arming ───────────────────────────────── */
+.trigger-arm-row {
+  display: flex; align-items: center; flex-wrap: wrap; gap: 10px;
+  padding: 10px 14px; margin-bottom: 14px;
+  border: 1px solid var(--border, #2a2a36);
+  border-radius: 10px;
+}
+.trigger-arm-name { font-weight: 700; font-size: 13px; }
+.trigger-arm-state { font-size: 12px; color: var(--text-muted, #9ca3b8); }
+.trigger-arm-state.armed { color: #ffb020; font-weight: 700; }
+.trigger-arm-row .hype-pool-help { flex-basis: 100%; margin: 0; }

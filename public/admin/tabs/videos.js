@@ -12,23 +12,30 @@ export function initVideosTab() {
   _bindPlayNow();
 }
 
-function _bindPlayNow() {
+async function _playVideosNow(body, label) {
   const status = document.getElementById('videos-play-status');
-  for (const [id, count] of [['videos-play-batch', 'batch'], ['videos-play-all', 'all']]) {
-    document.getElementById(id)?.addEventListener('click', async () => {
-      try {
-        const res = await fetch('/api/slides/play-videos-now', {
-          method:  'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body:    JSON.stringify({ count }),
-        });
-        if (!res.ok) throw new Error(`${res.status}`);
-        if (status) status.textContent = count === 'all' ? 'Playing all videos…' : 'Playing a batch…';
-      } catch (err) {
-        if (status) status.textContent = `Failed: ${err.message}`;
-      }
+  try {
+    const res = await fetch('/api/slides/play-videos-now', {
+      method:  'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body:    JSON.stringify(body),
     });
+    if (!res.ok) throw new Error(`${res.status}`);
+    if (status) status.textContent = label;
+  } catch (err) {
+    if (status) status.textContent = `Failed: ${err.message}`;
   }
+}
+
+function _bindPlayNow() {
+  document.getElementById('videos-play-batch')?.addEventListener('click', () =>
+    _playVideosNow({ count: 'batch' }, 'Playing a batch…'));
+  document.getElementById('videos-play-all')?.addEventListener('click', () =>
+    _playVideosNow({ count: 'all' }, 'Playing all videos…'));
+  document.getElementById('videos-play-count-btn')?.addEventListener('click', () => {
+    const n = Math.max(1, parseInt(document.getElementById('videos-play-count')?.value || '1', 10));
+    _playVideosNow({ count: n }, `Playing ${n} video${n === 1 ? '' : 's'}…`);
+  });
 }
 
 // Called whenever slides are refreshed (same event that updates the slides tab).
@@ -115,11 +122,15 @@ function _makeCard(v) {
           <input type="checkbox" ${inPool ? 'checked' : ''}>
           <span class="video-pool-slider"></span>
         </label>
+        <button class="sc-btn sc-btn-play" title="Play now">${icon('play')}</button>
         <button class="sc-btn sc-btn-edit" title="Edit">Edit</button>
         <button class="sc-btn sc-btn-del" title="Delete">${icon('x-mark')}</button>
       </div>
     </div>
   `;
+
+  card.querySelector('.sc-btn-play').addEventListener('click', () =>
+    _playVideosNow({ count: 'batch', videoId: v.id }, `Playing "${v.label || v.filename}"…`));
 
   card.querySelector('input[type=checkbox]').addEventListener('change', async (e) => {
     const enabled = e.target.checked;

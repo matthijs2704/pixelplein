@@ -79,8 +79,18 @@ function getModuleSlideTypes() {
   return out;
 }
 
+// Lets each loaded module drop its own photo-linked data (e.g. on a full wipe).
+async function clearModulePhotoData(db) {
+  for (const [name, mod] of _loaded.entries()) {
+    if (typeof mod.clearPhotoData !== 'function') continue;
+    try { await mod.clearPhotoData(db); }
+    catch (err) { console.warn(`[modules] ${name} clearPhotoData failed:`, err.message); }
+  }
+}
+
 module.exports = {
   MODULES_ROOT,
+  clearModulePhotoData,
   loadEnabledModules,
   listLoadedModuleNames,
   getModule,

@@ -1,13 +1,16 @@
 // hype:social-only — dashboard takeover. Active when mode==='dashboard'
 // or mode==='social-only'. Shows follower race, spotlight, channel ribbon.
 
-import { el } from '/shared/utils.js';
+import { el, photoUrl } from '/shared/utils.js';
 import { photoRegistry } from '/screen/photos.js';
 import {
   getAllFollowers,
+  getChannel,
   getChannels,
-  getFollowerCount,
+  getFollowerBaselines,
   getPhotoChannel,
+  getPhotoLikes,
+  getPhotoViral,
   getSettings,
   onHypeChange,
 } from './state-client.js';
@@ -16,8 +19,9 @@ import { icon } from './icons.js';
 
 function _avatar(account, size = 44) {
   const node = el('div', { cls: 'hype-social-avatar' });
-  node.style.width = `${size}px`;
-  node.style.height = `${size}px`;
+  // Size in vh (px-equivalent at 1080p) so avatars scale on 1440p/4K.
+  node.style.width = `${(size / 10.8).toFixed(2)}vh`;
+  node.style.height = `${(size / 10.8).toFixed(2)}vh`;
   node.style.setProperty('--ch-color', (account && account.color) || '#2bc1ff');
   if (account && (account.avatarUrl || account.avatar_url)) {
     node.appendChild(el('img', { src: account.avatarUrl || account.avatar_url, alt: '' }));
@@ -64,62 +68,119 @@ function _isRaceChannel(ch) {
   return ch && ch.race_participant !== false;
 }
 
-function _spotlightChannels(settings, channels) {
-  const day = Math.max(1, Math.min(6, Number(settings.spotlightDay) || 1));
-  const raceChannels = channels.filter(_isRaceChannel);
-  const featured = raceChannels.filter(ch => Array.isArray(ch.featured_days) && ch.featured_days.includes(day));
-  if (featured.length) return featured.slice(0, 2);
-  return raceChannels.slice().sort((a, b) => (getFollowerCount(b.id) | 0) - (getFollowerCount(a.id) | 0)).slice(0, 2);
+// Kid-facing highlights. Deliberately NOT the spotlight/featured channels —
+// that would spoil the mechanic (those channels "happen" to surge tomorrow).
+function _highlightsPanel(ranked, followers) {
+  const baselines = getFollowerBaselines();
+  const climber = ranked.slice().sort((a, b) => {
+    const da = (followers[a.id] | 0) - (baselines[a.id] ?? followers[a.id] | 0);
+    const db = (followers[b.id] | 0) - (baselines[b.id] ?? followers[b.id] | 0);
+    return db - da;
+  })[0] || null;
+  const climberDelta = climber
+    ? (followers[climber.id] | 0) - (baselines[climber.id] ?? followers[climber.id] | 0)
+    : 0;
+  const total = ranked.reduce((sum, ch) => sum + (followers[ch.id] | 0), 0);
+  const gap = ranked.length > 1 ? (followers[ranked[0].id] | 0) - (followers[ranked[1].id] | 0) : 0;
+
+  const panel = el('section', { cls: 'hype-dash-spotlight' }, _sectionLabel('vandaag'));
+
+  if (climber && climberDelta > 0) {
+    const card = el('article', { cls: 'hype-dash-spot-card' });
+    card.style.setProperty('--ch-color', climber.color || '#00b2ff');
+    card.appendChild(_avatar(climber, 86));
+    card.appendChild(el('div', { cls: 'hype-dash-spot-copy' },
+      el('strong', { text: climber.name }),
+      el('span', { text: climber.handle }),
+    ));
+    card.appendChild(el('div', { cls: 'hype-dash-spot-count' },
+      el('strong', { text: `+${fmtCount(climberDelta)}` }),
+      el('span', { text: 'volgers erbij' }),
+    ));
+    card.appendChild(el('div', { cls: 'hype-dash-spot-sticker', text: 'stijger van de dag' }));
+    panel.appendChild(card);
+  }
+
+  panel.appendChild(el('div', { cls: 'hype-dash-stats' },
+    el('div', { cls: 'hype-dash-stat' },
+      el('strong', { text: fmtCount(total) }),
+      el('span', { text: 'volgers totaal' }),
+    ),
+    el('div', { cls: 'hype-dash-stat' },
+      el('strong', { text: ranked.length > 1 ? fmtCount(Math.max(0, gap)) : '—' }),
+      el('span', { text: 'voorsprong #1' }),
+    ),
+  ));
+  return panel;
 }
 
-function _spotlightCard(ch, followers) {
-  const card = el('article', { cls: 'hype-dash-spot-card' });
-  card.style.setProperty('--ch-color', ch.color || '#00b2ff');
-  card.appendChild(_avatar(ch, 86));
-  card.appendChild(el('div', { cls: 'hype-dash-spot-copy' },
-    el('strong', { text: ch.name }),
-    el('span', { text: ch.handle }),
-  ));
-  card.appendChild(el('div', { cls: 'hype-dash-spot-count' },
-    el('strong', { text: fmtCount(followers) }),
-    el('span', { text: 'volgers' }),
-  ));
-  card.appendChild(el('div', { cls: 'hype-dash-spot-sticker', text: 'in de spotlight' }));
-  return card;
+// Hottest posts right now. The engine juices likes/viral automatically in
+// the background, so this column moves on its own during the day.
+function _viralPanel() {
+  const hot = _photoList()
+    .map(p => ({ p, likes: getPhotoLikes(p.id), viral: getPhotoViral(p.id) }))
+    .filter(x => x.viral || x.likes > 0)
+    .sort((a, b) => (b.viral - a.viral) || (b.likes - a.likes))
+    .slice(0, 3);
+
+  const panel = el('section', { cls: 'hype-dash-viral' }, _sectionLabel('viral vandaag'));
+  if (!hot.length) {
+    panel.appendChild(el('div', { cls: 'hype-dash-viral-empty', text: 'nog geen virals — post iets!' }));
+    return panel;
+  }
+  for (const { p, likes, viral } of hot) {
+    const ch = getChannel(getPhotoChannel(p.id));
+    const card = el('article', { cls: 'hype-dash-viral-card' });
+    card.style.setProperty('--ch-color', (ch && ch.color) || '#00b2ff');
+    card.appendChild(el('img', { src: photoUrl(p), alt: '' }));
+    if (viral) card.appendChild(el('span', { cls: 'hype-dash-viral-badge', text: 'viral' }));
+    card.appendChild(el('div', { cls: 'hype-dash-viral-meta' },
+      el('strong', { text: `♥ ${fmtCount(likes)}` }),
+      el('span', { text: (ch && ch.handle) || '@kamplive' }),
+    ));
+    panel.appendChild(card);
+  }
+  return panel;
 }
 
 function _racePanel(ranked, followers) {
   const max = Math.max(1, ...ranked.map(ch => followers[ch.id] | 0));
+  const baselines = getFollowerBaselines();
+  // Yesterday's ranking (by baseline counts) → rank-move arrows.
+  const yesterdayRank = new Map(
+    ranked.slice()
+      .sort((a, b) => (baselines[b.id] ?? followers[b.id] | 0) - (baselines[a.id] ?? followers[a.id] | 0))
+      .map((ch, i) => [ch.id, i]),
+  );
+
   const panel = el('section', { cls: 'hype-dash-race' }, _sectionLabel('follower race'));
   ranked.forEach((ch, index) => {
     const count = followers[ch.id] | 0;
+    const delta = count - (baselines[ch.id] ?? count);
+    const move = (yesterdayRank.get(ch.id) ?? index) - index; // >0 = climbed
     const row = el('div', { cls: `hype-dash-race-row rank-${index + 1}` });
     row.style.setProperty('--ch-color', ch.color || '#00b2ff');
     row.style.setProperty('--pct', `${Math.max(8, Math.round(count / max * 100))}%`);
     row.append(
       el('span', { cls: 'hype-dash-rank', text: String(index + 1) }),
+      el('span', {
+        cls: `hype-dash-move ${move > 0 ? 'up' : move < 0 ? 'down' : 'flat'}`,
+        text: move > 0 ? '▲' : move < 0 ? '▼' : '·',
+      }),
       _avatar(ch, 48),
       el('div', { cls: 'hype-dash-race-name' },
         el('strong', { text: ch.name }),
         el('span', { text: ch.handle }),
       ),
       el('div', { cls: 'hype-dash-race-bar' }, el('span', {})),
-      el('strong', { cls: 'hype-dash-race-count', text: fmtCount(count) }),
+      el('div', { cls: 'hype-dash-race-nums' },
+        el('strong', { cls: 'hype-dash-race-count', text: fmtCount(count) }),
+        el('span', { cls: `hype-dash-race-delta ${delta > 0 ? 'up' : ''}`, text: delta > 0 ? `+${fmtCount(delta)} vandaag` : 'nog geen vandaag' }),
+      ),
     );
     panel.appendChild(row);
   });
   return panel;
-}
-
-function _channelRibbon(channels, followers) {
-  const ribbon = el('footer', { cls: 'hype-dash-channel-ribbon' });
-  for (const ch of channels) {
-    const item = el('div', { cls: 'hype-dash-channel-pill' });
-    item.style.setProperty('--ch-color', ch.color || '#00b2ff');
-    item.append(_avatar(ch, 42), el('div', {}, el('strong', { text: ch.name }), el('span', { text: fmtCount(followers[ch.id] | 0) })));
-    ribbon.appendChild(item);
-  }
-  return ribbon;
 }
 
 function _sectionLabel(text) {
@@ -152,34 +213,27 @@ function _dashboardStage(settings) {
     .filter(_isRaceChannel)
     .slice()
     .sort((a, b) => (followers[b.id] | 0) - (followers[a.id] | 0));
-  const spotlight = _spotlightChannels(settings, channels);
   const top = ranked[0] || null;
-  const heat = Math.max(0, Math.min(5, Number(settings.harryHeat) || 0));
+  const raceStarted = ranked.some(ch => (followers[ch.id] | 0) > 0);
 
   const stage = el('section', { cls: 'hype-dash-stage' });
   stage.appendChild(_dashDoodles());
   stage.appendChild(el('header', { cls: 'hype-dash-hero' },
     el('div', { cls: 'hype-dash-logo-wrap' },
       el('img', { cls: 'hype-dash-logo', src: '/themes/hype/assets/logo.svg', alt: 'de HYPE!' }),
-      el('div', { cls: 'hype-dash-tagline', text: 'jouw kamp. jouw momenten. altijd hype.' }),
     ),
     el('div', { cls: 'hype-dash-now' },
-      _paintLabel('live dashboard', 'yellow'),
-      el('strong', { text: top ? `${top.name} staat bovenaan` : 'kanalen warmen op' }),
-      el('span', { text: `Harry heat ${heat}/5` }),
+      _paintLabel('tussenstand', 'yellow'),
+      el('strong', { text: raceStarted && top ? `${top.name} staat bovenaan` : 'de race gaat beginnen!' }),
+      el('span', { text: raceStarted ? 'wie pakt de meeste volgers?' : 'iedereen start op 0 volgers' }),
     ),
   ));
 
   const body = el('div', { cls: 'hype-dash-body' });
-  body.appendChild(el('section', { cls: 'hype-dash-spotlight' },
-    _sectionLabel('in de spotlight'),
-    el('div', { cls: 'hype-dash-spotlight-grid' },
-      ...spotlight.map(ch => _spotlightCard(ch, followers[ch.id] | 0)),
-    ),
-  ));
+  body.appendChild(_highlightsPanel(ranked, followers));
   body.appendChild(_racePanel(ranked, followers));
+  body.appendChild(_viralPanel());
   stage.appendChild(body);
-  stage.appendChild(_channelRibbon(channels, followers));
   return stage;
 }
 

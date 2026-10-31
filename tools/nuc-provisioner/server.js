@@ -16,7 +16,10 @@ const CONFIG_FILE = path.join(CONFIG_DIR, 'config.json');
 const USB_FILE    = 'pixelplein-screen.json';
 const ENABLE_LAUNCH = process.env.PIXELPLEIN_NUC_LAUNCH === '1';
 const SERVER_ENV_FILE = process.env.PIXELPLEIN_SERVER_ENV || '/etc/pixelplein/server.env';
-const HOTSPOT_FALLBACK_DELAY_MS = 60_000;
+const HOTSPOT_FALLBACK_DELAY_MS = 5 * 60_000;
+const WIFI_RECONNECT_INTERVAL_MS = 30_000;
+const WIFI_RECONNECT_RETRY_MS = 15_000;
+const WIFI_HOTSPOT_RECHECK_MS = 5 * 60_000;
 
 let _lastError = '';
 let _lastAppliedAt = 0;
@@ -37,6 +40,10 @@ let _agentStatus = {
 const _sessions = new Set();
 let _webPin     = '';
 let _hotspotFallbackTimer = null;
+let _wifiReconnectTimer = null;
+let _wifiReconnectInFlight = false;
+let _networkLostAt = 0;
+let _lastHotspotRecheckAt = 0;
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -217,19 +224,27 @@ function _sanitizeConfig(raw) {
       }
     : null;
 
-  // Static / DHCP IP config
-  const network = src.network && typeof src.network === 'object'
-    ? {
-        interface: String(src.network.interface || 'eth0').trim(),
-        mode:      src.network.mode === 'static' ? 'static' : 'dhcp',
-        ip:        String(src.network.ip || '').trim(),
-        prefix:    Number(src.network.prefix) || 24,
-        gateway:   String(src.network.gateway || '').trim(),
-        dns:       Array.isArray(src.network.dns)
-          ? src.network.dns.map(String).filter(Boolean).slice(0, 4)
-          : [],
-      }
-    : null;
+  // Static / DHCP IP config, keyed by interface so eth0 and wlan0 can each
+  // hold their own settings at the same time. Also accepts the legacy
+  // single-interface shape { interface, mode, ip, ... }.
+  let network = null;
+  if (src.network && typeof src.network === 'object') {
+    const entries = src.network.interface
+      ? { [String(src.network.interface).trim()]: src.network }
+      : src.network;
+    network = {};
+    for (const [iface, entry] of Object.entries(entries)) {
+      if (!iface || !entry || typeof entry !== 'object') continue;
+      network[iface] = {
+        mode:    entry.mode === 'static' ? 'static' : 'dhcp',
+        ip:      String(entry.ip || '').trim(),
+        prefix:  Number(entry.prefix) || 24,
+        gateway: String(entry.gateway || '').trim(),
+        dns:     Array.isArray(entry.dns) ? entry.dns.map(String).filter(Boolean).slice(0, 4) : [],
+      };
+    }
+    if (!Object.keys(network).length) network = null;
+  }
 
   // Hotspot
   const hotspot = src.hotspot && typeof src.hotspot === 'object'
@@ -258,6 +273,12 @@ function _sanitizeConfig(raw) {
       }
     : null;
 
+  const camera = {
+    enabled: Boolean(src.camera?.enabled),
+    device:  String(src.camera?.device || '/dev/video0').trim() || '/dev/video0',
+    fps:     Math.max(1, Math.min(30, Number(src.camera?.fps) || 30)),
+  };
+
   return {
     version:     1,
     serverUrl,
@@ -271,11 +292,12 @@ function _sanitizeConfig(raw) {
       pairingExpiresAt: Number(src.agent?.pairingExpiresAt || 0),
     },
     wifi:        wifi?.ssid ? wifi : null,
-    network:     network?.interface ? network : null,
+    network,
     hotspot:     hotspot?.ssid ? hotspot : null,
     kiosk:       { autostart: src.kiosk?.autostart !== false },
     audio:       { output: audioOutput },
     bluetooth:   bluetooth?.device ? bluetooth : null,
+    camera,
     localServer: localServer,
     webPin:      String(src.webPin || '').trim().toUpperCase() || undefined,
     updatedAt:   Date.now(),
@@ -288,16 +310,83 @@ function _sanitizeConfig(raw) {
 
 async function _applyNetwork(config) {
   if (!config.network) return;
-  const { interface: iface, mode, ip, prefix, gateway, dns } = config.network;
-  if (mode === 'static') {
-    if (!ip) throw new Error('network.ip required for static mode');
-    const dnsStr = dns.length ? dns.join(' ') : '';
-    await _run('sudo', ['nmcli', 'con', 'mod', iface, 'ipv4.addresses', `${ip}/${prefix}`, 'ipv4.gateway', gateway, 'ipv4.method', 'manual']);
-    if (dnsStr) await _run('sudo', ['nmcli', 'con', 'mod', iface, 'ipv4.dns', dnsStr]);
-  } else {
-    await _run('sudo', ['nmcli', 'con', 'mod', iface, 'ipv4.method', 'auto']);
+  const errors = [];
+  for (const [iface, entry] of Object.entries(config.network)) {
+    await _applyNetworkInterface(iface, entry, config).catch(err => {
+      console.warn(`[network] apply failed for "${iface}":`, err.message);
+      errors.push(`${iface}: ${err.message}`);
+    });
   }
-  await _run('sudo', ['nmcli', 'con', 'up', iface]).catch(() => {});
+  if (errors.length) throw new Error(errors.join('; '));
+}
+
+async function _applyNetworkInterface(iface, entry, config) {
+  const { mode, ip, prefix, gateway, dns } = entry;
+  const conName = await _networkConnectionName(iface, config);
+  if (mode === 'static') {
+    if (!ip) throw new Error(`network.${iface}.ip required for static mode`);
+    const dnsStr = dns.length ? dns.join(' ') : '';
+    const args = ['nmcli', 'con', 'mod', conName, 'ipv4.addresses', `${ip}/${prefix}`, 'ipv4.method', 'manual'];
+    if (gateway) args.push('ipv4.gateway', gateway);
+    await _run('sudo', args);
+    await _run('sudo', ['nmcli', 'con', 'mod', conName, 'ipv4.dns', dnsStr]);
+  } else {
+    await _run('sudo', ['nmcli', 'con', 'mod', conName, 'ipv4.method', 'auto']);
+  }
+  await _run('sudo', ['nmcli', 'con', 'up', conName]).catch(() => {});
+}
+
+async function _networkDeviceType(iface) {
+  const out = await _run('nmcli', ['-t', '-f', 'DEVICE,TYPE', 'device']).catch(() => '');
+  const match = out.split('\n')
+    .map(line => line.split(':'))
+    .find(([device]) => device === iface);
+  return match?.[1] || '';
+}
+
+async function _networkConnectionName(iface, config = {}) {
+  if (!iface) throw new Error('network.interface required');
+
+  const type = await _networkDeviceType(iface);
+  if (type !== 'ethernet' && type !== 'wifi') throw new Error(`Unsupported network interface "${iface}"`);
+
+  const active = await _run('nmcli', ['-t', '-f', 'NAME,DEVICE', 'connection', 'show', '--active']).catch(() => '');
+  const activeMatch = active.split('\n')
+    .map(line => {
+      const i = line.lastIndexOf(':');
+      return [line.slice(0, i), line.slice(i + 1)];
+    })
+    .find(([, device]) => device === iface);
+  if (activeMatch?.[0]) return activeMatch[0];
+
+  const deviceCon = await _run('nmcli', ['-g', 'GENERAL.CONNECTION', 'device', 'show', iface]).catch(() => '');
+  const name = String(deviceCon || '').split('\n')[0].trim();
+  if (name && name !== '--') return name;
+
+  const profiles = await _run('nmcli', ['-t', '-f', 'NAME,TYPE', 'connection', 'show']).catch(() => '');
+  const expectedType = type === 'wifi' ? '802-11-wireless' : '802-3-ethernet';
+  const configuredSsid = type === 'wifi' ? config?.wifi?.ssid || '' : '';
+  const existing = profiles.split('\n')
+    .map(line => {
+      const i = line.lastIndexOf(':');
+      return [line.slice(0, i), line.slice(i + 1)];
+    })
+    .find(([profileName, profileType]) =>
+      profileType === expectedType && (profileName === iface || profileName === configuredSsid));
+  if (existing?.[0]) return existing[0];
+
+  if (type === 'wifi') throw new Error(`No Wi-Fi connection profile found for "${iface}". Connect Wi-Fi first, then apply static IP.`);
+
+  await _run('sudo', ['nmcli', 'con', 'add', 'type', 'ethernet', 'ifname', iface, 'con-name', iface]);
+  return iface;
+}
+
+async function _networkTargetsWifi(config) {
+  if (!config?.network) return false;
+  for (const iface of Object.keys(config.network)) {
+    if (await _networkDeviceType(iface) === 'wifi') return true;
+  }
+  return false;
 }
 
 // ---------------------------------------------------------------------------
@@ -311,6 +400,139 @@ async function _applyWifi(config) {
   if (config.wifi.password) args.push('password', config.wifi.password);
   if (config.wifi.hidden) args.push('hidden', 'yes');
   await _run(args[0], args.slice(1));
+  await _run('sudo', ['nmcli', 'connection', 'modify', config.wifi.ssid, 'connection.autoconnect', 'yes']).catch(() => {});
+}
+
+async function _savedWifiNames() {
+  const out = await _run('nmcli', ['-t', '-f', 'NAME,TYPE', 'connection', 'show']).catch(() => '');
+  return out.split('\n')
+    .map(line => {
+      const i = line.lastIndexOf(':');
+      return [line.slice(0, i), line.slice(i + 1)];
+    })
+    .filter(([, type]) => type === '802-11-wireless')
+    .map(([name]) => name)
+    .filter(name => name && name !== HOTSPOT_CON);
+}
+
+async function _tryReconnectWifi(config, options = {}) {
+  const allowStopHotspot = options.allowStopHotspot === true;
+  if (await _hasNetworkConnection()) return true;
+  if (!(await _wifiDevice().catch(() => ''))) return false;
+  if (config?.hotspot?.enabled && config.hotspot.source === 'manual') return false;
+
+  const configuredSsid = config?.wifi?.ssid || '';
+  const savedNames = await _savedWifiNames();
+  const names = [...new Set([configuredSsid, ...savedNames].filter(Boolean))];
+  if (!names.length) return false;
+
+  let lastErr = null;
+  let stoppedHotspot = false;
+  if (await _hotspotActive()) {
+    // A single Wi-Fi radio can't scan/connect as a client while also
+    // running as an AP, so the hotspot has to come down before we can look.
+    if (!allowStopHotspot) return false;
+    await _stopHotspot().catch(err => { lastErr = err; });
+    stoppedHotspot = true;
+  }
+
+  await _run('sudo', ['nmcli', 'device', 'wifi', 'rescan']).catch(() => {});
+
+  for (const name of names) {
+    try {
+      if (savedNames.includes(name)) {
+        await _run('sudo', ['nmcli', 'connection', 'up', name]);
+      } else if (configuredSsid && name === configuredSsid && config?.wifi) {
+        // _applyWifi deletes+recreates the connection profile (defaults to
+        // DHCP), so any static IP for this interface must be reasserted.
+        await _applyWifi(config);
+        await _applyNetwork(config).catch(() => {});
+      } else {
+        await _run('sudo', ['nmcli', 'connection', 'up', name]);
+      }
+      if (await _hasNetworkConnection()) {
+        const cfg = await _readConfig() || {};
+        if (cfg.hotspot?.source === 'fallback') {
+          cfg.hotspot.enabled = false;
+          await _writeConfig(cfg);
+        }
+        console.log(`[wifi] Reconnected to "${name}"`);
+        return true;
+      }
+    } catch (err) {
+      lastErr = err;
+      console.warn(`[wifi] reconnect to "${name}" failed:`, err.message);
+    }
+  }
+
+  if (stoppedHotspot) {
+    // Couldn't reconnect after taking the hotspot down to check — restore
+    // it so the admin portal stays reachable instead of leaving the device
+    // with neither a real network nor a hotspot.
+    await _startFallbackHotspot().catch(err => console.warn('[hotspot] restart after failed reconnect failed:', err.message));
+  }
+
+  if (lastErr) _lastError = lastErr.message;
+  return false;
+}
+
+function _clearWifiReconnectTimer() {
+  if (_wifiReconnectTimer) clearTimeout(_wifiReconnectTimer);
+  _wifiReconnectTimer = null;
+}
+
+function _scheduleWifiReconnect(delayMs = WIFI_RECONNECT_INTERVAL_MS) {
+  _clearWifiReconnectTimer();
+  _wifiReconnectTimer = setTimeout(() => {
+    _wifiReconnectTimer = null;
+    _wifiReconnectStep().catch(err => console.warn('[wifi] reconnect monitor failed:', err.message));
+  }, delayMs);
+}
+
+async function _wifiReconnectStep() {
+  if (_wifiReconnectInFlight) {
+    _scheduleWifiReconnect(WIFI_RECONNECT_RETRY_MS);
+    return;
+  }
+
+  _wifiReconnectInFlight = true;
+  let keepMonitoring = true;
+  try {
+    const cfg = await _readConfig();
+    if (!cfg) return;
+    if (cfg.hotspot?.enabled && cfg.hotspot.source === 'manual') {
+      keepMonitoring = false;
+      return;
+    }
+    if (await _hasNetworkConnection()) {
+      _networkLostAt = 0;
+      _clearHotspotFallbackTimer();
+      return;
+    }
+    if (await _hotspotActive()) {
+      // Single Wi-Fi radio can't scan for a known network while also
+      // serving as an AP, so checking requires briefly dropping the
+      // hotspot. Do that rarely, not every poll, to avoid kicking off
+      // connected hotspot clients too often; _tryReconnectWifi restores
+      // the hotspot itself if no known network is actually reachable.
+      const dueForRecheck = Date.now() - _lastHotspotRecheckAt > WIFI_HOTSPOT_RECHECK_MS;
+      if (dueForRecheck) {
+        _lastHotspotRecheckAt = Date.now();
+        await _tryReconnectWifi(cfg, { allowStopHotspot: true });
+      }
+      return;
+    }
+
+    _scheduleHotspotFallbackAfterNetworkLoss();
+    const connected = await _tryReconnectWifi(cfg);
+    if (connected) {
+      _networkLostAt = 0;
+      _clearHotspotFallbackTimer();
+    }
+  } finally {
+    _wifiReconnectInFlight = false;
+    if (keepMonitoring) _scheduleWifiReconnect();
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -318,7 +540,7 @@ async function _applyWifi(config) {
 // ---------------------------------------------------------------------------
 
 async function _applyLocalServer(config) {
-  if (!config.localServer) return;
+  if (!config?.localServer) return;
 
   const { enabled, publicBaseUrl } = config.localServer;
 
@@ -575,15 +797,23 @@ async function applyProvisioning(raw) {
   const config = _sanitizeConfig(merged);
   await _writeConfig(config);
   if (config.webPin) _webPin = config.webPin;
-  // Order: network → wifi → hotspot → bluetooth → audio → local-server control
+  // Wi-Fi profiles must exist before static IP can be applied to them.
+  const networkTargetsWifi = await _networkTargetsWifi(config);
+  if (networkTargetsWifi && shouldApplyWifi) await _applyWifi(config);
   await _applyNetwork(config);
-  if (shouldApplyWifi) await _applyWifi(config);
+  if (!networkTargetsWifi && shouldApplyWifi) await _applyWifi(config);
   if (shouldApplyHotspot) await _applyHotspot(config);
   await _applyBluetooth(config);
   await _applyAudio(config);
   await _applyLocalServer(config);
+  _applyCamera(config);
   _lastAppliedAt = Date.now();
   _lastError = '';
+  if (config.hotspot?.enabled && config.hotspot.source === 'manual') {
+    _clearWifiReconnectTimer();
+  } else {
+    _scheduleWifiReconnect(shouldApplyWifi ? WIFI_RECONNECT_RETRY_MS : WIFI_RECONNECT_INTERVAL_MS);
+  }
   _scheduleAgentConnect(0);
   return config;
 }
@@ -648,10 +878,10 @@ async function _wifiStatus() {
 
 async function _hasNetworkConnection() {
   try {
-    const out = await _run('nmcli', ['-t', '-f', 'TYPE,STATE', 'device']);
+    const out = await _run('nmcli', ['-t', '-f', 'NAME,TYPE,DEVICE', 'connection', 'show', '--active']);
     return out.split('\n').some(l => {
-      const [type, state] = l.split(':');
-      return (type === 'ethernet' || type === 'wifi') && String(state || '').startsWith('connected');
+      const [name, type, device] = l.split(':');
+      return device && name !== HOTSPOT_CON && (type === '802-3-ethernet' || type === '802-11-wireless');
     });
   } catch {
     return false;
@@ -744,6 +974,12 @@ function _scheduleHotspotFallback(delayMs) {
   }, delayMs);
 }
 
+function _scheduleHotspotFallbackAfterNetworkLoss() {
+  if (!_networkLostAt) _networkLostAt = Date.now();
+  const elapsed = Date.now() - _networkLostAt;
+  _scheduleHotspotFallback(Math.max(0, HOTSPOT_FALLBACK_DELAY_MS - elapsed));
+}
+
 async function _startFallbackHotspot() {
   const cfg = await _readConfig() || {};
   if (await _hasNetworkConnection()) {
@@ -758,6 +994,175 @@ async function _startFallbackHotspot() {
 
   cfg.hotspot = { enabled: true, ssid, password, source: 'fallback' };
   await _writeConfig(cfg);
+}
+
+// ---------------------------------------------------------------------------
+// Camera stream — re-publishes an attached webcam as MJPEG over HTTP so
+// multiple screens (on other devices) can show the same feed via a module's
+// "Stream URL" source, instead of each screen opening its own local
+// getUserMedia camera. ffmpeg does the v4l2 capture + MJPEG muxing; this
+// process just fans the resulting byte stream out to any connected clients.
+// ---------------------------------------------------------------------------
+
+const CAMERA_DEVICE_POLL_MS = 3000;
+const CAMERA_RESPAWN_MS = 2000;
+
+let _camProc = null;
+let _camClients = new Set();
+let _camRetryTimer = null;
+let _camDesired = false;
+let _camDevice = '/dev/video0';
+let _camFps = 10;
+let _camLastError = '';
+
+function _stopCameraStream() {
+  _camDesired = false;
+  if (_camRetryTimer) { clearTimeout(_camRetryTimer); _camRetryTimer = null; }
+  if (_camProc) { _camProc.kill('SIGTERM'); _camProc = null; }
+  for (const res of _camClients) res.end();
+  _camClients.clear();
+}
+
+function _scheduleCameraRetry(delayMs) {
+  if (_camRetryTimer) clearTimeout(_camRetryTimer);
+  _camRetryTimer = setTimeout(() => {
+    _camRetryTimer = null;
+    _spawnCameraProc();
+  }, delayMs);
+}
+
+// Device disappearing (unplugged) or ffmpeg exiting (device error) both just
+// fall through to a retry loop — same handling either way, so reconnecting
+// the webcam recovers automatically without operator action.
+function _spawnCameraProc() {
+  if (!_camDesired || _camProc) return;
+  if (!fs.existsSync(_camDevice)) {
+    _scheduleCameraRetry(CAMERA_DEVICE_POLL_MS);
+    return;
+  }
+
+  const proc = childProcess.spawn('ffmpeg', [
+    // Most USB webcams can only do 1080p in their hardware-compressed MJPEG
+    // mode, not raw capture (raw 1080p exceeds USB2 bandwidth) — request
+    // that format explicitly and remux instead of re-encoding.
+    '-f', 'v4l2', '-input_format', 'mjpeg', '-framerate', String(_camFps), '-video_size', '1920x1080', '-i', _camDevice,
+    '-c:v', 'copy', '-f', 'mpjpeg', '-boundary_tag', 'pixelplein',
+    'pipe:1',
+  ], { stdio: ['ignore', 'pipe', 'pipe'] });
+
+  _camProc = proc;
+  proc.stdout.once('data', () => { _camLastError = ''; });
+  proc.stdout.on('data', chunk => {
+    // A slow/congested client (e.g. weak wifi to one screen) shouldn't stall
+    // or backlog frames for the others — drop this chunk for anyone who
+    // hasn't drained their previous write yet instead of buffering it.
+    for (const res of _camClients) {
+      if (res._pixelpleinBackpressured) continue;
+      if (!res.write(chunk)) {
+        res._pixelpleinBackpressured = true;
+        res.once('drain', () => { res._pixelpleinBackpressured = false; });
+      }
+    }
+  });
+  let stderrTail = '';
+  proc.stderr.on('data', chunk => {
+    stderrTail = (stderrTail + chunk.toString('utf8')).slice(-2000);
+  });
+  proc.on('exit', code => {
+    if (_camProc === proc) _camProc = null;
+    if (code !== 0 && code !== null) _camLastError = stderrTail.trim().split('\n').slice(-5).join('\n') || `ffmpeg exited ${code}`;
+    for (const res of _camClients) res.end();
+    _camClients.clear();
+    if (_camDesired) _scheduleCameraRetry(CAMERA_RESPAWN_MS);
+  });
+  proc.on('error', err => {
+    if (_camProc === proc) _camProc = null;
+    _camLastError = err.message;
+  });
+}
+
+function _applyCamera(config) {
+  const nextDevice = config?.camera?.device || '/dev/video0';
+  const nextFps = Math.max(1, Math.min(30, Number(config?.camera?.fps) || 30));
+  const changed = nextDevice !== _camDevice || nextFps !== _camFps;
+  _camDevice = nextDevice;
+  _camFps = nextFps;
+  if (config?.camera?.enabled) {
+    _camDesired = true;
+    // Kill and let the exit handler's retry respawn with the new settings —
+    // don't spawn a replacement here, the old process may still hold the
+    // v4l2 device for a moment after SIGTERM.
+    if (changed && _camProc) { _camProc.kill('SIGTERM'); }
+    else if (!_camProc && !_camRetryTimer) _spawnCameraProc();
+  } else {
+    _stopCameraStream();
+  }
+}
+
+// GET /camera/stream — multipart MJPEG. 503 while the camera isn't
+// producing frames so the screen client's reconnect loop retries quickly
+// instead of hanging on an open-but-silent connection. CORS is open because
+// screens fetch() this cross-origin (different host:port than the app
+// server) to demux it themselves — Chrome doesn't repaint a multipart
+// response embedded via plain <img src>.
+function _handleCameraStream(req, res) {
+  if (!_camDesired || !_camProc) {
+    res.writeHead(503, { 'Content-Type': 'text/plain', 'Access-Control-Allow-Origin': '*' });
+    res.end('camera unavailable');
+    return;
+  }
+  res.writeHead(200, {
+    'Content-Type': 'multipart/x-mixed-replace;boundary=pixelplein',
+    'Cache-Control': 'no-cache, no-store, must-revalidate',
+    'Access-Control-Allow-Origin': '*',
+    Connection: 'close',
+  });
+  _camClients.add(res);
+  req.on('close', () => _camClients.delete(res));
+}
+
+// Pulls a single JPEG frame off the already-running mjpeg producer (rather
+// than opening the v4l2 device a second time, which most webcams refuse
+// while it's already in use by the stream). Used by the admin "snapshot"
+// button to inject the current frame into the chat sidecar.
+function _grabCameraSnapshot() {
+  return new Promise((resolve, reject) => {
+    if (!_camProc) return reject(new Error('camera not running'));
+    let buf = Buffer.alloc(0);
+    const timer = setTimeout(() => { cleanup(); reject(new Error('snapshot timed out')); }, 4000);
+    const onData = chunk => {
+      buf = Buffer.concat([buf, chunk]);
+      const headerEnd = buf.indexOf('\r\n\r\n');
+      if (headerEnd === -1) return;
+      const header = buf.slice(0, headerEnd).toString('latin1');
+      const m = /Content-Length:\s*(\d+)/i.exec(header);
+      if (!m) return;
+      const len = Number(m[1]);
+      const start = headerEnd + 4;
+      if (buf.length < start + len) return;
+      cleanup();
+      resolve(buf.slice(start, start + len));
+    };
+    const cleanup = () => { clearTimeout(timer); _camProc?.stdout.off('data', onData); };
+    _camProc.stdout.on('data', onData);
+  });
+}
+
+// Public + CORS: fetched cross-origin from the app admin page (a different
+// origin than the provisioner) to build a data URL for the chat sidecar.
+async function _handleCameraSnapshot(req, res) {
+  try {
+    const jpeg = await _grabCameraSnapshot();
+    res.writeHead(200, {
+      'Content-Type': 'image/jpeg',
+      'Access-Control-Allow-Origin': '*',
+      'Cache-Control': 'no-store',
+    });
+    res.end(jpeg);
+  } catch (err) {
+    res.writeHead(503, { 'Content-Type': 'text/plain', 'Access-Control-Allow-Origin': '*' });
+    res.end(err.message);
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -1106,6 +1511,13 @@ function _launchChromium(config) {
         '--kiosk',
         '--noerrdialogs',
         '--disable-infobars',
+        '--disable-session-crashed-bubble',
+        '--disable-restore-session-state',
+        '--disable-component-update',
+        '--disable-translate',
+        '--no-first-run',
+        '--autoplay-policy=no-user-gesture-required',
+        '--disable-features=TranslateUI,Translate',
         url,
       ], {
         detached: true,
@@ -1312,23 +1724,20 @@ ${pairingSection}
     </select>
   </div>
   <hr style="border:none;border-top:1px solid #272736;margin:12px 0">
-  <details>
+  <div class="row">
+    <label class="label" for="f-cameraEnabled">Camera-stream</label>
+    <input id="f-cameraEnabled" type="checkbox"${cfg?.camera?.enabled ? ' checked' : ''} style="width:auto">
+  </div>
+  <div class="row"><label class="label" for="f-cameraDevice">Camera device</label><input id="f-cameraDevice" type="text" placeholder="/dev/video0" value="${_esc(cfg?.camera?.device || '/dev/video0')}"></div>
+  <div class="row"><label class="label" for="f-cameraFps">Camera fps</label><input id="f-cameraFps" type="number" min="1" max="30" value="${_esc(String(cfg?.camera?.fps || 30))}"></div>
+  <p style="font-size:12px;color:#7070a0;margin:-4px 0 0">Stream-URL voor de andere schermen: <code>http://${_esc(_getLocalIPs()[0] || '<nuc-ip>')}:${PORT}/camera/stream</code></p>
+  <div class="row"><span class="label">Camera-status</span><span class="pill ${_camProc ? 'on' : (cfg?.camera?.enabled ? 'warn' : 'off')}">${_camProc ? 'Actief' : (cfg?.camera?.enabled ? 'Bezig met verbinden…' : 'Uit')}</span></div>
+  ${_camLastError ? `<pre style="font-size:11px;color:#ff6b6b;white-space:pre-wrap;background:#1a1420;border-radius:7px;padding:8px;margin:4px 0">${_esc(_camLastError)}</pre>` : ''}
+  <hr style="border:none;border-top:1px solid #272736;margin:12px 0">
+  <details open>
     <summary style="cursor:pointer;font-size:12px;color:#7070a0;margin-bottom:10px">Vaste IP-instellingen</summary>
-    <div class="row" style="margin-top:10px"><label class="label" for="f-interface">Interface</label>
-      <select id="f-interface" style="background:#222230;color:#e2e2f0;border:1px solid #272736;border-radius:7px;padding:9px 12px;font-size:13px">
-        <option value="">Laden…</option>
-      </select>
-    </div>
-    <div class="row"><label class="label" for="f-netmode">IP-modus</label>
-      <select id="f-netmode" style="background:#222230;color:#e2e2f0;border:1px solid #272736;border-radius:7px;padding:9px 12px;font-size:13px">
-        <option value="dhcp"${cfg?.network?.mode!=='static'?' selected':''}>DHCP</option>
-        <option value="static"${cfg?.network?.mode==='static'?' selected':''}>Statisch</option>
-      </select>
-    </div>
-    <div class="row"><label class="label" for="f-ip">IP-adres</label><input id="f-ip" type="text" placeholder="192.168.1.20" value="${_esc(cfg?.network?.ip||'')}"></div>
-    <div class="row"><label class="label" for="f-prefix">Prefix</label><input id="f-prefix" type="number" min="1" max="32" placeholder="24" value="${_esc(String(cfg?.network?.prefix||''))}"></div>
-    <div class="row"><label class="label" for="f-gateway">Gateway</label><input id="f-gateway" type="text" placeholder="192.168.1.1" value="${_esc(cfg?.network?.gateway||'')}"></div>
-    <div class="row"><label class="label" for="f-dns">DNS (kommagescheiden)</label><input id="f-dns" type="text" placeholder="8.8.8.8,1.1.1.1" value="${_esc((cfg?.network?.dns||[]).join(','))}"></div>
+    <p style="font-size:12px;color:#7070a0;margin-bottom:8px">Ethernet en Wi-Fi kunnen tegelijk een eigen (vaste) IP hebben.</p>
+    <div id="network-ifaces"><span style="color:#7070a0;font-size:12px">Interfaces laden…</span></div>
   </details>
   <p style="margin-top:12px"><button onclick="saveConfig()" class="primary">Toepassen</button></p>
   <div id="cfg-msg"></div>
@@ -1391,8 +1800,23 @@ async function api(url,body){const r=await fetch(url,{method:'POST',headers:{'Co
 function msg(id,text,ok){const el=document.getElementById(id);if(el){el.textContent=text;el.className=ok?'success':'error';}}
 function v(id){const el=document.getElementById(id);return el?el.value.trim():'';}
 function _e(s){return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
+function collectNetwork(){
+  const network={};
+  document.querySelectorAll('.net-iface').forEach(el=>{
+    const iface=el.dataset.iface;
+    const mode=el.querySelector('.net-mode').value;
+    const dns=el.querySelector('.net-dns').value.trim();
+    network[iface]={
+      mode,
+      ip:el.querySelector('.net-ip').value.trim(),
+      prefix:Number(el.querySelector('.net-prefix').value)||24,
+      gateway:el.querySelector('.net-gateway').value.trim(),
+      dns:dns?dns.split(',').map(s=>s.trim()).filter(Boolean):[],
+    };
+  });
+  return Object.keys(network).length?network:null;
+}
 async function saveConfig(){
-  const dns=v('f-dns'),iface=v('f-interface');
   const body={
     serverUrl:v('f-serverUrl'),
     screenId:v('f-screenId'),
@@ -1400,7 +1824,8 @@ async function saveConfig(){
     localServer:{enabled:document.getElementById('f-localServer').checked,publicBaseUrl:v('f-publicBaseUrl')},
     kiosk:{autostart:document.getElementById('f-autostart').checked},
     audio:{output:v('f-audioOutput')},
-    network:iface?{interface:iface,mode:v('f-netmode'),ip:v('f-ip'),prefix:Number(v('f-prefix'))||24,gateway:v('f-gateway'),dns:dns?dns.split(',').map(s=>s.trim()).filter(Boolean):[]}:null,
+    camera:{enabled:document.getElementById('f-cameraEnabled').checked,device:v('f-cameraDevice'),fps:Number(v('f-cameraFps'))||30},
+    network:collectNetwork(),
   };
   const r=await api('/api/apply',body);
   msg('cfg-msg',r.ok?'Toegepast':'Fout: '+r.error,r.ok);
@@ -1486,10 +1911,25 @@ loadSavedWifi();
 loadBluetooth();
 (async function loadInterfaces(){
   const r=await fetch('/api/network/interfaces').then(x=>x.json()).catch(()=>({interfaces:[]}));
-  const sel=document.getElementById('f-interface');
-  const saved=${JSON.stringify(cfg?.network?.interface||'')};
-  sel.innerHTML='<option value="">— geen —</option>'+
-    (r.interfaces||[]).map(i=>'<option value="'+_e(i.device)+'"'+(i.device===saved?' selected':'')+'>'+_e(i.device)+' ('+_e(i.type)+(i.state==='connected'?' · verbonden':'')+')'+' </option>').join('');
+  const savedNetwork=${JSON.stringify(cfg?.network||{})};
+  const box=document.getElementById('network-ifaces');
+  const ifaces=r.interfaces||[];
+  if(!ifaces.length){box.innerHTML='<span style="color:#7070a0;font-size:12px">Geen interfaces gevonden</span>';return;}
+  box.innerHTML=ifaces.map(i=>{
+    const s=savedNetwork[i.device]||{};
+    const mode=s.mode==='static'?'static':'dhcp';
+    return '<div class="net-iface" data-iface="'+_e(i.device)+'" style="border:1px solid #272736;border-radius:8px;padding:10px;margin-bottom:10px">'
+      +'<div style="font-size:12px;color:#a0a0c0;margin-bottom:8px">'+_e(i.device)+' ('+_e(i.type)+(i.state==='connected'?' · verbonden':'')+')</div>'
+      +'<div class="row"><label class="label">IP-modus</label><select class="net-mode" style="background:#222230;color:#e2e2f0;border:1px solid #272736;border-radius:7px;padding:9px 12px;font-size:13px">'
+        +'<option value="dhcp"'+(mode!=='static'?' selected':'')+'>DHCP</option>'
+        +'<option value="static"'+(mode==='static'?' selected':'')+'>Statisch</option>'
+      +'</select></div>'
+      +'<div class="row"><label class="label">IP-adres</label><input class="net-ip" type="text" placeholder="192.168.1.20" value="'+_e(s.ip||'')+'"></div>'
+      +'<div class="row"><label class="label">Prefix</label><input class="net-prefix" type="number" min="1" max="32" placeholder="24" value="'+_e(String(s.prefix||''))+'"></div>'
+      +'<div class="row"><label class="label">Gateway</label><input class="net-gateway" type="text" placeholder="192.168.1.1" value="'+_e(s.gateway||'')+'"></div>'
+      +'<div class="row"><label class="label">DNS (kommagescheiden)</label><input class="net-dns" type="text" placeholder="8.8.8.8,1.1.1.1" value="'+_e((s.dns||[]).join(','))+'"></div>'
+    +'</div>';
+  }).join('');
 })();
 setInterval(async()=>{try{const r=await fetch('/api/status').then(x=>x.json());const a=r.agent||{};const sig=(a.connected?'1':'0')+'|'+(a.pairingCode||'')+'|'+(a.lastError||'')+'|'+(a.reconnectAttempts||0);if(sig!==initialAgentSig)location.reload();}catch{}},3000);
 </script>
@@ -1549,6 +1989,18 @@ const server = http.createServer(async (req, res) => {
       return res.end(data);
     }
 
+    // Public — screens on other devices load this as a plain <img src>, not
+    // an authenticated provisioner-portal session.
+    // Path-only match (not exact req.url) — the screen client cache-busts
+    // reconnect attempts with a ?_= query param.
+    const urlPath = req.url.split('?')[0];
+    if (req.method === 'GET' && urlPath === '/camera/stream') {
+      return _handleCameraStream(req, res);
+    }
+    if (req.method === 'GET' && urlPath === '/camera/snapshot') {
+      return _handleCameraSnapshot(req, res);
+    }
+
     // Auth gate — all other routes require a valid session
     if (!_isAuthed(req)) {
       if (req.method === 'GET' && req.url === '/') {
@@ -1567,7 +2019,7 @@ const server = http.createServer(async (req, res) => {
       const out = await _run('nmcli', ['-t', '-f', 'DEVICE,TYPE,STATE', 'device']).catch(() => '');
       const ifaces = out.split('\n')
         .map(l => { const p = l.split(':'); return { device: p[0], type: p[1], state: p[2] }; })
-        .filter(i => i.device && i.type !== 'loopback' && i.type !== 'wifi' && i.device !== 'lo');
+        .filter(i => i.device && (i.type === 'ethernet' || i.type === 'wifi') && i.device !== 'lo' && !i.device.startsWith('p2p-dev-'));
       return _json(res, 200, { ok: true, interfaces: ifaces });
     }
     if (req.method === 'GET'  && req.url === '/api/wifi/saved') {
@@ -1658,6 +2110,12 @@ const server = http.createServer(async (req, res) => {
         cfg.hotspot.source = 'fallback';
       }
       await _writeConfig(cfg);
+      // _applyWifi deletes+recreates the profile (defaults to DHCP), so any
+      // configured static IP for the Wi-Fi interface must be reasserted.
+      await _applyNetwork(cfg).catch(() => {});
+      _networkLostAt = 0;
+      _clearHotspotFallbackTimer();
+      _scheduleWifiReconnect();
       return _json(res, 200, { ok: true });
     }
     if (req.method === 'POST' && req.url === '/api/hotspot/start') {
@@ -1665,9 +2123,11 @@ const server = http.createServer(async (req, res) => {
       if (!ssid) return _json(res, 400, { ok: false, error: 'ssid vereist' });
       // Persist hotspot config
       _clearHotspotFallbackTimer();
+      _clearWifiReconnectTimer();
       const cfg = await _readConfig() || {};
       cfg.hotspot = { enabled: true, ssid, password: password || '', source: 'manual' };
       await _writeConfig(cfg);
+      _networkLostAt = 0;
       await _startHotspot(ssid, password);
       return _json(res, 200, { ok: true });
     }
@@ -1680,6 +2140,9 @@ const server = http.createServer(async (req, res) => {
         await _writeConfig(cfg);
       }
       await _stopHotspot();
+      _networkLostAt = Date.now();
+      _scheduleHotspotFallbackAfterNetworkLoss();
+      _scheduleWifiReconnect(WIFI_RECONNECT_RETRY_MS);
       return _json(res, 200, { ok: true });
     }
     if (req.method === 'POST' && req.url === '/api/revert-pairing') {
@@ -1711,9 +2174,12 @@ async function _boot() {
   const hasNet = await _hasNetworkConnection();
   const manualHotspot = cfg?.hotspot?.enabled && cfg.hotspot.source === 'manual';
   if (manualHotspot) {
+    _networkLostAt = 0;
+    _clearWifiReconnectTimer();
     await _startHotspot(cfg.hotspot.ssid || 'PixelPlein', cfg.hotspot.password || '')
       .catch(err => console.warn('[hotspot] manual start failed:', err.message));
   } else if (hasNet) {
+    _networkLostAt = 0;
     _clearHotspotFallbackTimer();
     await _stopHotspot().catch(() => {});
     if (cfg?.hotspot?.enabled) {
@@ -1721,11 +2187,29 @@ async function _boot() {
       cfg.hotspot.source = 'fallback';
       await _writeConfig(cfg);
     }
-  } else if (await _knownWifiAvailable(cfg)) {
-    console.log(`[hotspot] No network detected — waiting ${Math.round(HOTSPOT_FALLBACK_DELAY_MS / 1000)}s for known Wi-Fi`);
-    _scheduleHotspotFallback(HOTSPOT_FALLBACK_DELAY_MS);
+    _scheduleWifiReconnect();
   } else {
-    await _startFallbackHotspot().catch(err => console.warn('[hotspot] auto-start failed:', err.message));
+    if (await _hotspotActive()) {
+      await _stopHotspot().catch(err => console.warn('[hotspot] stop fallback before Wi-Fi retry failed:', err.message));
+    }
+    if (cfg?.hotspot?.enabled && cfg.hotspot.source === 'fallback') {
+      cfg.hotspot.enabled = false;
+      await _writeConfig(cfg);
+    }
+
+    await _tryReconnectWifi(cfg, { allowStopHotspot: true })
+      .catch(err => console.warn('[wifi] boot reconnect failed:', err.message));
+
+    if (await _hasNetworkConnection()) {
+      _networkLostAt = 0;
+      _clearHotspotFallbackTimer();
+      await _stopHotspot().catch(() => {});
+    } else {
+      _networkLostAt = Date.now();
+      console.log(`[hotspot] No network detected — trying infrastructure Wi-Fi for ${Math.round(HOTSPOT_FALLBACK_DELAY_MS / 1000)}s before fallback hotspot`);
+      _scheduleWifiReconnect(WIFI_RECONNECT_RETRY_MS);
+      _scheduleHotspotFallbackAfterNetworkLoss();
+    }
   }
 
   if (cfg?.audio?.output === 'bluetooth' && cfg?.bluetooth?.device) {
@@ -1734,6 +2218,7 @@ async function _boot() {
   }
 
   await _applyLocalServer(cfg);
+  _applyCamera(cfg);
 
   // Auto-scan USB on startup
   try {

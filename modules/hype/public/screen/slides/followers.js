@@ -54,9 +54,10 @@ export function buildFollowersSlide(slide) {
       const card = el('div', { cls: 'hype-foll-card' });
       card.style.setProperty('--ch-color', ch.color || '#7c5cff');
       const avatar = el('div', { cls: 'hype-foll-avatar', text: String(ch.name || ch.handle || '?').charAt(0).toUpperCase() });
-      if (ch.avatar_url) {
+      const avatarUrl = ch.avatar_url || ch.avatarUrl || '';
+      if (avatarUrl) {
         avatar.textContent = '';
-        avatar.appendChild(el('img', { src: ch.avatar_url, alt: '' }));
+        avatar.appendChild(el('img', { src: avatarUrl, alt: '' }));
       }
       const top = el('div', { cls: 'hype-foll-top' },
         avatar,

@@ -15,6 +15,7 @@ import {
   stopCycle,
   updateConfig,
   updateHeroLocks,
+  canStartWithoutPhotos,
   displayState,
 } from './layouts/index.js';
 import { startHeartbeat, stopHeartbeat } from './heartbeat.js';
@@ -49,9 +50,10 @@ import {
   saveMeta    as idbSaveMeta,
   loadMeta    as idbLoadMeta,
   removePhotos as idbRemovePhotos,
+  clearAllData as idbClearAllData,
 } from './idb.js';
 import { initSettings } from './settings.js';
-import { dispatchModuleWsMessage } from './module-registry.js';
+import { dispatchModuleWsMessage, onScreenEvent } from './module-registry.js';
 import { moduleReady } from './modules-loader.js';
 
 // ---------------------------------------------------------------------------
@@ -191,6 +193,32 @@ function clearDeviceTrust() {
   localStorage.removeItem(PAIRING_SECRET_KEY);
 }
 
+async function clearLocalScreenCache() {
+  stopCycle();
+  removeAllOverlays();
+  resetPhotoState();
+  resetSlidePreload();
+  resetSyncStatus();
+  hideOfflineBadge();
+  hideSyncStatus();
+  _cycleRunning = false;
+  _bootedFromCache = false;
+
+  clearTimeout(retryTimer);
+  clearTimeout(cycleStartTimer);
+  retryTimer = null;
+  cycleStartTimer = null;
+
+  try {
+    const keys = await caches.keys();
+    await Promise.all(keys.map(k => caches.delete(k)));
+  } catch {}
+
+  try {
+    await idbClearAllData();
+  } catch {}
+}
+
 async function _apiJson(url, payload) {
   const res = await fetch(url, {
     method: 'POST',
@@ -207,10 +235,11 @@ function scheduleCycleStart() {
 
   const tick = () => {
     cycleStartTimer = null;
-    if (!photoRegistry.size) return;
+    const allowEmpty = canStartWithoutPhotos();
+    if (!photoRegistry.size && !allowEmpty) return;
 
     const waitedMs = Date.now() - startedAt;
-    if (getPreloadedCount() > 0 || waitedMs >= PRELOAD_WAIT_MAX_MS) {
+    if (allowEmpty || getPreloadedCount() > 0 || waitedMs >= PRELOAD_WAIT_MAX_MS) {
       hideWaiting();
       if (!_cycleRunning) {
         _cycleRunning = true;
@@ -225,6 +254,8 @@ function scheduleCycleStart() {
 
   cycleStartTimer = setTimeout(tick, PRELOAD_INITIAL_DELAY);
 }
+
+onScreenEvent('layout:request-cycle', () => scheduleCycleStart());
 
 // ---------------------------------------------------------------------------
 // Boot from IDB cache (offline / pre-connect path)
@@ -244,7 +275,7 @@ async function bootFromCache() {
   }
 
   const readyPhotos = (photos || []).filter(photo => photo?.status === 'ready');
-  if (!readyPhotos.length) return; // nothing usable cached yet
+  if (!readyPhotos.length && !config) return; // nothing usable cached yet
 
   if (config) {
     updateConfig(config);
@@ -257,7 +288,7 @@ async function bootFromCache() {
   for (const photo of readyPhotos) addPhoto(photo);
 
   _bootedFromCache = true;
-  preloadBatch(readyPhotos);
+  if (readyPhotos.length) preloadBatch(readyPhotos);
   if (slides && playlists) preloadSlideAssets(slides, playlists);
   scheduleCycleStart();
 }
@@ -425,10 +456,7 @@ async function handleMessage(msg) {
     case 'screen_revoked':
       if (msg.type === 'screen_revoked' && msg.deviceId && msg.deviceId !== getDeviceId()) break;
       clearDeviceTrust();
-      try {
-        const keys = await caches.keys();
-        await Promise.all(keys.map(k => caches.delete(k)));
-      } catch {}
+      await clearLocalScreenCache();
       location.reload();
       break;
 
@@ -468,9 +496,7 @@ async function handleMessage(msg) {
       if (msg.eventSchedule)   setSchedule(msg.eventSchedule);
       if (msg.approvedSubmissions) setApprovedSubmissions(msg.approvedSubmissions);
 
-      if (photoRegistry.size > 0) {
-        scheduleCycleStart();
-      }
+      scheduleCycleStart();
 
       if (ws && ws.readyState === 1) {
         const knownIds    = Array.from(photoRegistry.keys());
@@ -497,15 +523,13 @@ async function handleMessage(msg) {
         showSyncStatus(msg.progress.sent || 0, msg.progress.total || 0);
       }
 
-      if (photoRegistry.size > 0) {
-        scheduleCycleStart();
-      }
+      scheduleCycleStart();
       break;
     }
 
     case 'sync_complete':
       hideSyncStatus();
-      if (photoRegistry.size > 0) {
+      if (photoRegistry.size > 0 || canStartWithoutPhotos()) {
         scheduleCycleStart();
         // Persist the full up-to-date registry so cache is consistent
         idbSavePhotos(Array.from(photoRegistry.values())).catch(() => {});
@@ -575,7 +599,7 @@ async function handleMessage(msg) {
       break;
 
     case 'play_videos_now':
-      requestVideoSession(msg.count);
+      requestVideoSession(msg.count, msg.videoId);
       break;
 
     case 'slide_advance':
@@ -584,10 +608,7 @@ async function handleMessage(msg) {
 
     case 'reload':
       setTimeout(async () => {
-        try {
-          const keys = await caches.keys();
-          await Promise.all(keys.map(k => caches.delete(k)));
-        } catch {}
+        await clearLocalScreenCache();
         location.reload();
       }, msg.delayMs ?? 1500);
       break;

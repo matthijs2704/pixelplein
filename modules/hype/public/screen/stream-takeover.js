@@ -162,6 +162,130 @@ async function _connectCamera(stage, media, video, deviceId) {
   }
 }
 
+// Network camera: another device on the LAN (e.g. the NUC provisioner) is
+// re-publishing its attached webcam as MJPEG over HTTP, so both screens can
+// show the same feed instead of each opening its own local getUserMedia
+// camera. Playback is a plain <img>, but Chrome does NOT reliably repaint an
+// <img src="..."> for a multipart/x-mixed-replace response (it only works
+// for a direct top-level navigation to the URL) — so this demuxes the
+// multipart stream itself via fetch()+ReadableStream and swaps in each JPEG
+// frame as an object URL, which every browser handles correctly.
+const NET_CAMERA_STALL_MS = 8000;
+const NET_CAMERA_MAX_BUFFER = 5_000_000;
+
+function _stopNetCameraStage(stage) {
+  if (!stage) return;
+  if (stage._netCamRetryTimer) { clearTimeout(stage._netCamRetryTimer); stage._netCamRetryTimer = null; }
+  if (stage._netCamWatchdog) { clearInterval(stage._netCamWatchdog); stage._netCamWatchdog = null; }
+  if (stage._netCamAbort) { stage._netCamAbort.abort(); stage._netCamAbort = null; }
+  if (stage._netCamBlobUrl) { URL.revokeObjectURL(stage._netCamBlobUrl); stage._netCamBlobUrl = null; }
+  stage._netCamGeneration = (stage._netCamGeneration || 0) + 1; // invalidate any in-flight read loop
+}
+
+function _scheduleNetCameraReconnect(stage, media, img, url, reason) {
+  if (!stage.isConnected) return;
+  if (stage._netCamRetryTimer) return;
+
+  const attempts = Number(stage.dataset.netCamAttempts || 0) + 1;
+  stage.dataset.netCamAttempts = String(attempts);
+  const delay = Math.min(10000, 1500 * attempts);
+
+  _setCameraStandby(stage, media, 'netwerk-camera opnieuw verbinden', reason || 'controleer of de camera-stream aan staat');
+  stage._netCamRetryTimer = setTimeout(() => {
+    stage._netCamRetryTimer = null;
+    _connectNetCamera(stage, media, img, url);
+  }, delay);
+}
+
+function _concatBytes(a, b) {
+  const out = new Uint8Array(a.length + b.length);
+  out.set(a, 0);
+  out.set(b, a.length);
+  return out;
+}
+
+// Pulls one complete "--boundary\r\nheaders\r\n\r\n<jpeg bytes>" part off the
+// front of buf, once enough bytes have arrived. Only decodes a small header
+// window to text (never the binary payload) so this stays cheap per frame.
+function _extractMjpegFrame(buf) {
+  const headerWindow = buf.subarray(0, Math.min(buf.length, 512));
+  const text = new TextDecoder('latin1').decode(headerWindow);
+  const headerEnd = text.indexOf('\r\n\r\n');
+  if (headerEnd === -1) return null;
+  const match = /Content-Length:\s*(\d+)/i.exec(text.slice(0, headerEnd));
+  if (!match) return null;
+  const len = Number(match[1]);
+  const start = headerEnd + 4;
+  if (buf.length < start + len) return null;
+  return { jpeg: buf.slice(start, start + len), rest: buf.slice(start + len) };
+}
+
+async function _connectNetCamera(stage, media, img, url) {
+  if (stage._netCamAbort) stage._netCamAbort.abort();
+  const generation = (stage._netCamGeneration = (stage._netCamGeneration || 0) + 1);
+  const controller = new AbortController();
+  stage._netCamAbort = controller;
+  stage._netCamLastFrameAt = Date.now();
+
+  try {
+    const res = await fetch(url, { cache: 'no-store', signal: controller.signal });
+    if (!res.ok || !res.body) throw new Error(`HTTP ${res.status}`);
+    const reader = res.body.getReader();
+    let buf = new Uint8Array(0);
+    for (;;) {
+      const { done, value } = await reader.read();
+      if (stage._netCamGeneration !== generation) return; // superseded by a newer connect/reconnect
+      if (done) throw new Error('stream ended');
+      // Proof-of-life on every chunk, not just on a completed frame — a big
+      // 1080p frame can take longer than one read() to arrive, and that
+      // shouldn't look like a stall to the watchdog below.
+      stage._netCamLastFrameAt = Date.now();
+      buf = _concatBytes(buf, value);
+      if (buf.length > NET_CAMERA_MAX_BUFFER) buf = new Uint8Array(0); // desynced — drop and resync
+
+      // Drain every complete frame out of the buffer, but only render the
+      // newest one — if decoding fell behind the producer, this catches
+      // back up immediately instead of visibly playing out a stale backlog.
+      let latest = null;
+      let frame;
+      while ((frame = _extractMjpegFrame(buf))) {
+        buf = frame.rest;
+        latest = frame.jpeg;
+      }
+      if (latest) {
+        const blobUrl = URL.createObjectURL(new Blob([latest], { type: 'image/jpeg' }));
+        img.src = blobUrl;
+        if (stage._netCamBlobUrl) URL.revokeObjectURL(stage._netCamBlobUrl);
+        stage._netCamBlobUrl = blobUrl;
+        stage._netCamLastFrameAt = Date.now();
+        stage.classList.remove('stream-error');
+        stage.dataset.netCamAttempts = '0';
+        media.querySelector('.hype-stream-standby')?.remove();
+      }
+    }
+  } catch (err) {
+    if (stage._netCamGeneration === generation) {
+      _scheduleNetCameraReconnect(stage, media, img, url, err?.message || 'camera-stream niet bereikbaar');
+    }
+  }
+}
+
+function _initNetCamera(stage, media, url) {
+  const img = el('img', { cls: 'hype-stream-netcam' });
+  media.appendChild(img);
+
+  // fetch() can hang without ever erroring if the connection stalls
+  // silently — force a reconnect if no frame has arrived in a while.
+  stage._netCamWatchdog = setInterval(() => {
+    if (stage._netCamRetryTimer) return;
+    if (Date.now() - (stage._netCamLastFrameAt || 0) > NET_CAMERA_STALL_MS) {
+      _scheduleNetCameraReconnect(stage, media, img, url, 'camera-stream reageert niet');
+    }
+  }, 2000);
+
+  _connectNetCamera(stage, media, img, url);
+}
+
 function _buildStreamStage(settings) {
   if (!_streamStartedAt) _streamStartedAt = Date.now();
   const videos = getVideos();
@@ -180,6 +304,8 @@ function _buildStreamStage(settings) {
     video.muted = true; video.defaultMuted = true; video.playsInline = true;
     media.appendChild(video);
     _connectCamera(stage, media, video, stream.deviceId);
+  } else if (stream.sourceType === 'network-camera' && stream.url) {
+    _initNetCamera(stage, media, stream.url);
   } else if (stream.sourceType === 'url' && stream.url) {
     const video = el('video', { attrs: { autoplay: '', muted: '', playsinline: '', preload: 'auto' } });
     video.muted = true; video.defaultMuted = true; video.playsInline = true;
@@ -275,7 +401,10 @@ function _retryVisibleCamera(root) {
 }
 
 function _cleanupStreamRoot(root) {
-  root.querySelectorAll('.hype-stream-live').forEach(stage => _stopCameraStage(stage));
+  root.querySelectorAll('.hype-stream-live').forEach(stage => {
+    _stopCameraStage(stage);
+    _stopNetCameraStage(stage);
+  });
 }
 
 function _teardownStreamRoot(root) {
@@ -442,8 +571,14 @@ function _streamChatRow(item) {
 
 export const streamTakeover = {
   id: 'hype:stream',
-  active() {
-    return Boolean(getSettings().stream?.enabled);
+  active(ctx) {
+    const stream = getSettings().stream;
+    if (!stream?.enabled) return false;
+    // No screenId configured → takeover applies to every screen (legacy
+    // behaviour). Otherwise only the selected screen goes fullscreen-stream;
+    // the rest keep cycling their own content.
+    if (!stream.screenId) return true;
+    return String(ctx?.screenId ?? '') === String(stream.screenId);
   },
   async build() {
     const root = el('div', { cls: 'hype-social-root' });

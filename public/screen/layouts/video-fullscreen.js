@@ -10,19 +10,23 @@
 import { el } from '../../shared/utils.js';
 import { buildVideoSlide } from '../slides/video.js';
 import { getModuleSlideBuilder, onScreenEvent, emitScreenEvent } from '../module-registry.js';
+import { getVideoPool } from '../video-pool.js';
+import { displayState } from './index.js';
 
 const SCROLL_MS = 650;
 
 let _cyclesSinceVideo = 0;
-let _pendingRun = null; // 'all' | 'batch'
+let _pendingRun = null;   // 'all' | 'batch' | positive integer
+let _pendingVideoId = null;
 
 onScreenEvent('layout:cycle', ({ layoutType }) => {
   _cyclesSinceVideo = layoutType === 'video-fullscreen' ? 0 : _cyclesSinceVideo + 1;
 });
 
 // Called from app.js on the 'play_videos_now' WS message.
-export function requestVideoSession(count) {
-  _pendingRun = count === 'all' ? 'all' : 'batch';
+export function requestVideoSession(count, videoId) {
+  _pendingRun = count === 'all' ? 'all' : Number.isInteger(count) && count > 0 ? count : 'batch';
+  _pendingVideoId = videoId || null;
   emitScreenEvent('layout:request-cycle'); // cut the current layout short
 }
 
@@ -59,9 +63,17 @@ export const layout = {
 
   pick(cfg, helpers) {
     const run = _pendingRun;
+    const forcedId = _pendingVideoId;
     _pendingRun = null;
+    _pendingVideoId = null;
+
+    if (forcedId) {
+      const forced = getVideoPool().find(v => v.id === forcedId);
+      if (forced) return { videos: [forced] };
+    }
+
     const batch = Math.max(1, Number(cfg?.videoBatchSize) || 1);
-    const want = run === 'all' ? Infinity : batch;
+    const want = run === 'all' ? Infinity : typeof run === 'number' ? run : batch;
 
     const videos = [];
     let lastId = null;
@@ -111,6 +123,9 @@ export const layout = {
           }
 
           current = page;
+          // Report the playing video as "visible" so module engagement
+          // logic keyed on visibleIds treats it like a photo.
+          displayState.visibleIds = [video.id];
           await page.play(signal);
         }
       },

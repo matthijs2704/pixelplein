@@ -10,15 +10,17 @@ import { buildArticleSlide }  from './article.js';
 import { getScreenCfg }       from '../../shared/utils.js';
 import { sendSlideReady, sendSlideEnded } from '../ws-send.js';
 import { getModuleSlideBuilder } from '../module-registry.js';
+import { displayState } from '../layouts/index.js';
 
 // ---------------------------------------------------------------------------
 // State
 // ---------------------------------------------------------------------------
 
-let _slides    = [];
-let _playlists = [];
-let _screenId  = null;
-let _config    = null;
+let _slides       = [];
+let _playlists    = [];
+let _screenId     = null;
+let _config       = null;
+let _globalConfig = null;
 
 // Per-screen playlist pointer
 let _playlistId  = null;
@@ -44,6 +46,7 @@ export function initSlides(container, screenId) {
 }
 
 export function updateSlidesConfig(config) {
+  _globalConfig = config || null;
   _config = getScreenCfg(config, _screenId);
   _playlistId = _config.playlistId || null;
 }
@@ -60,9 +63,22 @@ export function updatePlaylists(playlists) {
   _clearLookahead();
 }
 
+
+// A slide is schedulable when enabled, its asset exists, and — for video
+// types — there is actually a video to play (an empty video slide would
+// just show black).
+function _isSchedulable(slide) {
+  if (!slide || slide.enabled === false || slide._missing) return false;
+  if (slide.type === 'video' || slide.type === 'pool-video') {
+    if (!slide.filename) return false;
+    if (_globalConfig?.videoPlaybackDisabled) return false;
+  }
+  return true;
+}
+
 export function triggerPlaySoon(slideId) {
   const slide = _slides.find(s => s.id === slideId);
-  if (!slide || slide.enabled === false || slide._missing) return;
+  if (!_isSchedulable(slide)) return;
 
   const pl = _getActivePlaylist();
   if (!pl || pl.slideIds.includes(slideId)) {
@@ -125,7 +141,7 @@ export async function runNextSlide(opts = {}) {
     for (let i = 0; i < pl.slideIds.length; i++) {
       const candidate = pl.slideIds[(_pointer + i) % pl.slideIds.length];
       const s = _slides.find(sl => sl.id === candidate);
-      if (s && s.enabled !== false && !s._missing) {
+      if (_isSchedulable(s)) {
         slideId = candidate;
         _pointer = (_pointer + i + 1) % pl.slideIds.length;
         found = true;
@@ -136,7 +152,7 @@ export async function runNextSlide(opts = {}) {
   }
 
   const slide = _slides.find(s => s.id === slideId);
-  if (!slide || slide.enabled === false || slide._missing) return false;
+  if (!_isSchedulable(slide)) return false;
 
   // ── 2. Use pre-built lookahead element, or build fresh ───────────────────
   let built = _lookahead.get(slideId);
@@ -158,6 +174,11 @@ export async function runNextSlide(opts = {}) {
   const shown = await opts.showRenderable({
     el: built.el,
     async onDidShow({ signal }) {
+      // Report video slides as "visible" so module engagement logic keyed
+      // on visibleIds treats them like a photo.
+      if (slide.type === 'video' || slide.type === 'pool-video') {
+        displayState.visibleIds = [slide.id];
+      }
       await _playBuilt(built, signal);
       if (signal.aborted) return;
 
@@ -203,7 +224,7 @@ async function _buildLookahead(rev) {
   for (let i = 0; i < pl.slideIds.length; i++) {
     const id    = pl.slideIds[(_pointer + i) % pl.slideIds.length];
     const slide = _slides.find(s => s.id === id);
-    if (!slide || slide.enabled === false || slide._missing) continue;
+    if (!_isSchedulable(slide)) continue;
 
     if (_lookahead.has(id)) return;
 

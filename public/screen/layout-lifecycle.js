@@ -29,6 +29,9 @@ export function createLayoutLifecycle(container) {
     const prev    = _current;
 
     if (prev) {
+      if (prev.el?.querySelector?.('video')) {
+        console.warn('[layout-lifecycle] replacing a renderable that contains a <video> before it finished — this is what cuts video playback short.');
+      }
       _safeCall(prev.onWillHide, { reason: 'replace', signal: prev.controller.signal });
       prev.controller.abort();
     }

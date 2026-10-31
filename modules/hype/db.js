@@ -146,7 +146,7 @@ function _normalizeChannel(row) {
   try {
     const parsed = JSON.parse(row.featured_days || '[]');
     if (Array.isArray(parsed)) {
-      featured = parsed.map(n => Math.max(1, Math.min(6, Number(n) | 0))).filter(Boolean);
+      featured = parsed.map(n => Math.max(1, Math.min(7, Number(n) | 0))).filter(Boolean);
     }
   } catch {}
   return { ...row, featured_days: featured, race_participant: row.race_participant !== 0 };
@@ -257,7 +257,7 @@ async function insertComment(db, { photoId, channelId, author, text, source }) {
 async function upsertChannel(db, c) {
   const featured = JSON.stringify(
     Array.isArray(c.featured_days)
-      ? c.featured_days.map(n => Math.max(1, Math.min(6, Number(n) | 0))).filter(Boolean)
+      ? c.featured_days.map(n => Math.max(1, Math.min(7, Number(n) | 0))).filter(Boolean)
       : [],
   );
   const existing = await db.get(`SELECT id FROM hype_channels WHERE id = ?`, [c.id]);
@@ -337,6 +337,10 @@ async function clearActivity(db) {
   await db.run(`DELETE FROM hype_activity`);
 }
 
+async function clearFollowerHistory(db) {
+  await db.run(`DELETE FROM hype_followers_history`);
+}
+
 async function upsertVideo(db, item) {
   const now = Date.now();
   if (item.id) {
@@ -367,10 +371,22 @@ function _mergeSettings(raw) {
     ...DEFAULT_SETTINGS,
     mode: ['dashboard', 'social-only'].includes(src.mode) ? src.mode : 'normal',
     harryHeat: Math.max(0, Math.min(5, Number(src.harryHeat) | 0)),
-    spotlightDay: Math.max(1, Math.min(6, Number(src.spotlightDay || DEFAULT_SETTINGS.spotlightDay) | 0)),
+    spotlightDay: Math.max(1, Math.min(7, Number(src.spotlightDay || DEFAULT_SETTINGS.spotlightDay) | 0)),
     platformOff: Boolean(src.platformOff),
     preLaunch: src.preLaunch === undefined ? true : Boolean(src.preLaunch),
     launchActive: Boolean(src.launchActive),
+    launchedAt: Number(src.launchedAt) > 0 ? Number(src.launchedAt) : null,
+    nachtspelStage: ['armed', 'reveal', 'offline', 'trace'].includes(src.nachtspelStage)
+      ? src.nachtspelStage : null,
+    physicalTrigger: ['launch', 'reveal', 'trace', 'trace-end', 'restart'].includes(src.physicalTrigger)
+      ? src.physicalTrigger : null,
+    traceTarget: {
+      location: String(src.traceTarget?.location || '').slice(0, 120),
+      lat: Number.isFinite(Number(src.traceTarget?.lat)) && src.traceTarget?.lat !== null && src.traceTarget?.lat !== ''
+        ? Number(src.traceTarget.lat) : null,
+      lon: Number.isFinite(Number(src.traceTarget?.lon)) && src.traceTarget?.lon !== null && src.traceTarget?.lon !== ''
+        ? Number(src.traceTarget.lon) : null,
+    },
     activeVideo: src.activeVideo || DEFAULT_SETTINGS.activeVideo,
     generalAccount: {
       ...DEFAULT_SETTINGS.generalAccount,
@@ -417,6 +433,7 @@ module.exports = {
   insertActivity,
   listRecentActivity,
   clearActivity,
+  clearFollowerHistory,
   upsertVideo,
   listVideos,
 };

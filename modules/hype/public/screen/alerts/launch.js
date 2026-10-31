@@ -96,7 +96,7 @@ export function renderLaunchAlert(alert) {
         <div class="hlp-boot-meter"><span></span></div>
         <div class="hlp-boot-steps">
           ${_bootStep('netwerk verbonden', 'connect')}
-          ${_bootStep('profielen klaar', 'account')}
+          ${_bootStep('accounts worden aangemaakt', 'account')}
           ${_bootStep('reactions actief', 'security')}
           ${_bootStep('dashboard open', 'feed')}
         </div>
@@ -189,7 +189,7 @@ function _runLaunchTimeline(root) {
   _at(root, LAUNCH_SYNC.logoReveal, () => {
     add('hlp-logo-live');
     flash();
-    if (canvas) _confettiBurst(canvas, 720, { count: 42, originY: 0.46, spread: 1.05 });
+    if (canvas) _confettiBurst(canvas, 720, { count: 24, originY: 0.46, spread: 1.05 });
   });
   _at(root, LAUNCH_SYNC.logoSettle, () => add('hlp-logo-settle'));
   _at(root, LAUNCH_SYNC.creatorsWake, () => {
@@ -204,7 +204,7 @@ function _runLaunchTimeline(root) {
   _at(root, LAUNCH_SYNC.climaxHit, () => {
     add('hlp-channel-lock');
     flash();
-    if (canvas) _confettiBurst(canvas, 1400, { count: 270, originY: 0.54, spread: 1.75 });
+    if (canvas) _confettiBurst(canvas, 1400, { count: 140, originY: 0.54, spread: 1.75 });
   });
   _at(root, LAUNCH_SYNC.dashboardOpen, () => add('hlp-dashboard-open'));
   _at(root, LAUNCH_SYNC.quietSettle, () => add('hlp-quiet-settle'));
@@ -222,7 +222,7 @@ function _runLaunchTimeline(root) {
   _at(root, LAUNCH_SYNC.finalHit, () => {
     add('hlp-final-live');
     flash();
-    if (canvas) _confettiBurst(canvas, 1900, { count: 420, originY: 0.5, spread: 1.95 });
+    if (canvas) _confettiBurst(canvas, 1900, { count: 220, originY: 0.5, spread: 1.95 });
   });
   _at(root, LAUNCH_SYNC.tailHold, () => add('hlp-tail-hold'));
   _at(root, LAUNCH_SYNC.handoff, () => add('hlp-dashboard-handoff'));
@@ -264,11 +264,10 @@ function _bootStep(label, key) {
 }
 
 function _channelCard(c, _index) {
-  const iconName = _channelIcon(c.id);
   return `
     <article class="hlp-channel-card" style="--ch-color:${escape(c.color || '#00b2ff')}">
       <div class="hlp-channel-ring">
-        <div class="hlp-channel-icon">${icon[iconName] ? icon[iconName](44) : icon.compass(44)}</div>
+        ${_channelAvatar(c)}
       </div>
       <div class="hlp-channel-copy">
         <strong>${escape(c.name || 'Kanaal')}</strong>
@@ -280,6 +279,15 @@ function _channelCard(c, _index) {
       </div>
     </article>
   `;
+}
+
+function _channelAvatar(c) {
+  const avatarUrl = c.avatar_url || c.avatarUrl || '';
+  if (avatarUrl) {
+    return `<img class="hlp-channel-avatar" src="${escape(avatarUrl)}" alt="" />`;
+  }
+  const iconName = _channelIcon(c.id);
+  return `<div class="hlp-channel-icon">${icon[iconName] ? icon[iconName](44) : icon.compass(44)}</div>`;
 }
 
 function _raceRow(c, index) {
@@ -340,24 +348,26 @@ function _confettiBurst(canvas, durationMs, opts = {}) {
   const dpr = Math.min(2, window.devicePixelRatio || 1);
   canvas.width = canvas.clientWidth * dpr;
   canvas.height = canvas.clientHeight * dpr;
+  // Scale to actual resolution: a 4K TV at dpr 1 needs screen-filling confetti.
+  const scale = Math.max(dpr, canvas.height / 1080);
 
   const colors = ['#f5d904', '#f52368', '#32d74b', '#ff8a00', '#7c4dff', '#27d6c6', '#00b2ff', '#ffffff'];
-  const N = Number(opts.count) || 320;
+  const N = Number(opts.count) || 160;
   const spread = Number(opts.spread) || 1.6;
   const cx = canvas.width / 2;
   const cy = canvas.height * (Number(opts.originY) || 0.55);
   const parts = [];
   for (let i = 0; i < N; i++) {
     const angle = (-Math.PI / 2) + (Math.random() - 0.5) * Math.PI * spread;
-    const speed = (6 + Math.random() * 14) * dpr;
+    const speed = (6 + Math.random() * 14) * scale;
     const ribbon = Math.random() < 0.28;
     parts.push({
       x: cx, y: cy,
       vx: Math.cos(angle) * speed,
-      vy: Math.sin(angle) * speed - 6 * dpr,
-      g: ribbon ? 0.12 * dpr : 0.2 * dpr,
-      size: (3 + Math.random() * 5) * dpr,
-      len: ribbon ? (22 + Math.random() * 30) * dpr : 0,
+      vy: Math.sin(angle) * speed - 6 * scale,
+      g: ribbon ? 0.12 * scale : 0.2 * scale,
+      size: (3 + Math.random() * 5) * scale,
+      len: ribbon ? (22 + Math.random() * 30) * scale : 0,
       ribbon,
       color: colors[i % colors.length],
       rot: Math.random() * Math.PI,

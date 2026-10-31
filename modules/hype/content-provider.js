@@ -4,12 +4,20 @@
 // has the same shape a future AI provider can implement.
 
 const GENERAL_COMMENTS = [
-  'kamp update net binnen',
   'dit is precies de vibe vandaag',
-  'welpen takeover op De Hype',
   'wie heeft deze foto gemaakt?',
-  'kamp live gaat hard vandaag',
   'dit verdient meer likes',
+  'ik sta erop!! 😂',
+  'beste kampdag tot nu toe',
+  'stuur deze naar mijn ouders pls',
+  'iedereen kijkt zo blij',
+  'was jij dit??',
+  'deze moet in de kampkrant 📰',
+  'legendarisch moment',
+  'ik was hier ook!!',
+  'mooiste foto van vandaag',
+  'kamp is echt het beste',
+  'wie maakt hier eigenlijk al die foto\'s?',
 ];
 
 const CHAT_POOL = [

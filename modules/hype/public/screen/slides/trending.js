@@ -56,9 +56,10 @@ export function buildTrendingSlide(slide) {
       card.style.setProperty('--ch-color', ch.color || '#7c5cff');
       card.appendChild(el('div', { cls: 'hype-trend-rank', text: `#${idx + 1}` }));
       const avatar = el('div', { cls: 'hype-trend-avatar', text: String(ch.name || ch.handle || '?').charAt(0).toUpperCase() });
-      if (ch.avatar_url) {
+      const avatarUrl = ch.avatar_url || ch.avatarUrl || '';
+      if (avatarUrl) {
         avatar.textContent = '';
-        avatar.appendChild(el('img', { src: ch.avatar_url, alt: '' }));
+        avatar.appendChild(el('img', { src: avatarUrl, alt: '' }));
       }
       card.appendChild(avatar);
       card.appendChild(el('div', { cls: 'hype-trend-name',   text: ch.name }));

@@ -46,6 +46,14 @@ export function renderGlitchAlert(alert) {
     <div class="hype-glitch-blackout" aria-hidden="true"></div>
   `;
 
+  // Randomize tear positions per fire so repeated glitches never look
+  // identical — a real broken signal doesn't repeat itself.
+  root.querySelectorAll('.hype-glitch-tears span').forEach(s => {
+    s.style.setProperty('--tear-y', `${(2 + Math.random() * 90).toFixed(1)}vh`);
+    s.style.setProperty('--tear-x', `${(Math.random() * 24 - 12).toFixed(1)}vw`);
+    s.style.setProperty('--tear-h', `${[2, 2, 3, 4, 6, 8][Math.floor(Math.random() * 6)]}px`);
+  });
+
   // Shake the actual screen container via a body class.
   document.body.classList.add('hype-glitching', cfg.bodyClass);
 

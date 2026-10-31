@@ -145,16 +145,29 @@ RSYNC_EXCLUDES=(
 )
 
 if [[ $INCLUDE_PHOTOS -ne 1 ]]; then
-	RSYNC_EXCLUDES+=(--exclude 'photos/')
+	RSYNC_EXCLUDES+=(--exclude '/photos/')
 fi
 
 if [[ $INCLUDE_DATA -ne 1 ]]; then
-	RSYNC_EXCLUDES+=(--exclude 'data/')
+	RSYNC_EXCLUDES+=(--exclude '/data/')
 fi
 
-rsync -az --delete \
+rsync -azc --delete \
 	"${RSYNC_EXCLUDES[@]}" \
 	"$REPO_ROOT/" "$REMOTE:$APP_DIR/"
+
+VERIFY_OUTPUT="$(rsync -azcn --delete --itemize-changes \
+	"${RSYNC_EXCLUDES[@]}" \
+	"$REPO_ROOT/" "$REMOTE:$APP_DIR/")"
+
+if [[ -n "$VERIFY_OUTPUT" ]]; then
+	echo "$VERIFY_OUTPUT" | sed -n '1,80p' >&2
+	if [[ "$(echo "$VERIFY_OUTPUT" | wc -l | tr -d ' ')" -gt 80 ]]; then
+		echo "... output truncated ..." >&2
+	fi
+	echo "ERROR: deploy verification failed; remote files still differ from local working tree" >&2
+	exit 1
+fi
 
 if [[ -n "$ADMIN_REMOTE" ]]; then
 	echo "Updating sudoers and service files via $ADMIN_REMOTE (may prompt for sudo password)..."

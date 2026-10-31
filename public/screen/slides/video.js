@@ -20,7 +20,6 @@ export async function buildVideoSlide(slide) {
   video.playsInline = true;
   video.setAttribute('playsinline', '');
   video.setAttribute('webkit-playsinline', '');
-  video.autoplay    = true;
   video.src         = src;
   if (slide.fit && slide.fit !== 'contain') video.style.objectFit = slide.fit;
 
@@ -29,7 +28,7 @@ export async function buildVideoSlide(slide) {
   const playCount       = typeof slide.playCount === 'number' ? slide.playCount : 1;
   const MAX_DURATION_MS = 5 * 60 * 1000;
   const ERROR_HOLD_MS   = 2_000; // if a frame decoded, show it briefly before advancing
-  const STARTUP_GRACE_MS = 4_000;
+  const STARTUP_GRACE_MS = 9_000; // slow blob decode warm-up on weaker kiosk hardware
 
   function play(signal) {
     return new Promise(resolve => {
@@ -46,6 +45,10 @@ export async function buildVideoSlide(slide) {
 
       const safetyTimer = setTimeout(finish, MAX_DURATION_MS);
 
+      try {
+        if (video.currentTime > 0) video.currentTime = 0;
+      } catch {}
+
       function finish() {
         if (done) return;
         done = true;
@@ -60,11 +63,16 @@ export async function buildVideoSlide(slide) {
       }
 
       function onAbort() {
+        console.warn('[video] aborted externally — layout/slide was cut short, not a playback failure. currentTime:', video.currentTime.toFixed(1), '/', video.duration);
         try { video.pause(); } catch {}
         finish();
       }
 
       function onEnded() {
+        console.log('[video] ended — currentTime:', video.currentTime.toFixed(1), '/ reported duration:', video.duration);
+        if (Number.isFinite(video.duration) && video.duration - video.currentTime > 1) {
+          console.warn('[video] "ended" fired', (video.duration - video.currentTime).toFixed(1), 's before the reported duration — likely bad container/duration metadata on this file, not a code bug.');
+        }
         playsLeft -= 1;
         if (playsLeft <= 0) {
           finish();
@@ -76,7 +84,7 @@ export async function buildVideoSlide(slide) {
       }
 
       function onError() {
-        console.warn('[video] onError, readyState:', video.readyState, 'error:', video.error?.message);
+        console.warn('[video] onError, readyState:', video.readyState, 'error:', video.error?.message, 'currentTime:', video.currentTime.toFixed(1), '/', video.duration, 'started:', started);
         if (video.readyState >= 1) {
           setTimeout(finish, ERROR_HOLD_MS);
         } else {

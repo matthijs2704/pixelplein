@@ -45,10 +45,18 @@ export const icon = {
 
 /** Render a circular monogram avatar (Twitter/X default style) with the
  *  channel's brand colour and a story-ring gradient frame. */
-export function monogramAvatar(name, color, size = 40) {
+export function monogramAvatar(name, color, size = 40, avatarUrl = '') {
   const initial = String(name || '?').trim().charAt(0).toUpperCase() || '?';
-  const px = `${size}px`;
-  return `<span class="hype-avatar" style="width:${px};height:${px};--ch-color:${color || '#444'};">
-    <span style="font-size:${Math.round(size * 0.42)}px;font-weight:800;">${initial}</span>
+  // Size in vh (px-equivalent at 1080p) so avatars scale up on 1440p/4K.
+  const dim = `${(size / 10.8).toFixed(2)}vh`;
+  if (avatarUrl) {
+    return `<span class="hype-avatar" style="width:${dim};height:${dim};--ch-color:${color || '#444'};">
+      <img src="${String(avatarUrl).replace(/[&<>"']/g, c => (
+        { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]
+      ))}" alt="">
+    </span>`;
+  }
+  return `<span class="hype-avatar" style="width:${dim};height:${dim};--ch-color:${color || '#444'};">
+    <span style="font-size:${(size * 0.42 / 10.8).toFixed(2)}vh;font-weight:800;">${initial}</span>
   </span>`;
 }

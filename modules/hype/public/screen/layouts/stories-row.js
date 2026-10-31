@@ -6,7 +6,7 @@ import { el, photoUrl } from '/shared/utils.js';
 import { applySmartFit } from '/screen/fit.js';
 import { startKenBurns } from '/screen/transitions.js';
 import { getPhotoChannel, getChannel, getGeneralAccount } from '../state-client.js';
-import { icon } from '../icons.js';
+import { icon, monogramAvatar } from '../icons.js';
 
 export const layout = {
   id:        'hype:stories-row',
@@ -40,7 +40,9 @@ export const layout = {
       frame.appendChild(el('div', { cls: 'hype-storyrow-progress' }, fill));
 
       const head = el('div', { cls: 'hype-storyrow-head' });
-      head.innerHTML = `<span>${ch.handle}</span><span class="hype-storyrow-verified">${icon.verified(13)}</span>`;
+      head.innerHTML =
+        monogramAvatar(ch.name, ch.color, 30, ch.avatar_url || ch.avatarUrl || '') +
+        `<span>${ch.handle}</span><span class="hype-storyrow-verified">${icon.verified(13)}</span>`;
       frame.appendChild(head);
 
       const img = el('img', { src: photoUrl(photo), alt: photo.name || '' });
@@ -62,7 +64,10 @@ export const layout = {
         imgs.forEach(img => startKenBurns(img, durationMs));
         for (const fill of fills) {
           fill.style.transition = `transform ${durationMs}ms linear`;
-          requestAnimationFrame(() => { fill.style.transform = 'scaleX(1)'; });
+          // Reflow commits the scaleX(0) start state; without it the browser
+          // can coalesce the styles and the bar appears instantly full.
+          void fill.offsetWidth;
+          fill.style.transform = 'scaleX(1)';
         }
       },
     };

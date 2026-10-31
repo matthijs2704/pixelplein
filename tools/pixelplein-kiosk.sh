@@ -7,7 +7,7 @@ set -euo pipefail
 readonly CONFIG_FILE="$HOME/.config/pixelplein-screen/config.json"
 readonly DEFAULT_URL="http://127.0.0.1:3987"
 readonly LOG_TAG="pixelplein-kiosk"
-readonly DEFAULT_CHROMIUM_EXTRA_FLAGS="--no-sandbox --enable-logging=stderr --log-level=0"
+readonly DEFAULT_CHROMIUM_EXTRA_FLAGS="--no-sandbox --enable-logging=stderr --log-level=0 --ignore-gpu-blocklist --enable-gpu-rasterization --enable-zero-copy"
 readonly KIOSK_BACKEND="${PIXELPLEIN_KIOSK_BACKEND:-wayland}"
 
 # Logging helpers (uses systemd journal when available)
@@ -229,6 +229,7 @@ main() {
 			--disable-session-crashed-bubble \
 			--disable-restore-session-state \
 			--disable-component-update \
+			--disable-translate \
 			--no-first-run \
 			--check-for-update-interval=31536000 \
 			--autoplay-policy=no-user-gesture-required \

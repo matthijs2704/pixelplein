@@ -26,10 +26,18 @@ module.exports = {
     { type: 'hype-followers', label: 'Followers counter (Hype)' },
     { type: 'hype-feed',      label: 'Activity feed (Hype)' },
     { type: 'hype-trending',  label: 'Trending (Hype)' },
+    { type: 'hype-viral',     label: 'Gaat nu viral (Hype)' },
   ],
 
   async migrate(db) {
     await hypeDb.migrate(db);
+  },
+
+  // Called by the core "delete all photos" wipe.
+  async clearPhotoData(db) {
+    await db.run('DELETE FROM hype_photo_state');
+    await db.run('DELETE FROM hype_comments');
+    await state.load(db);
   },
 
   async register(ctx) {
@@ -42,11 +50,11 @@ module.exports = {
     streamChat.start(ctx);
 
     // If the platform has never been launched (or someone reset preLaunch),
-    // arm the idle teaser so screens connecting from now on see it. Done on
-    // a tiny delay so any clients still finishing their initial render get
-    // the alert via the regular broadcast path.
+    // ensure the idle teaser exists in the persisted alert store before
+    // screens connect. Screens receive it via the normal WS init snapshot;
+    // broadcasting again during boot can double-play the teaser on reconnect.
     if (state.getSettings().preLaunch) {
-      setTimeout(() => engine.firePreLaunch(), 500);
+      engine.ensurePreLaunchAlert();
     }
 
     console.log(`[hype] module ready — ${state.getChannels().length} channels loaded`);

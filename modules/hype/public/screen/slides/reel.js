@@ -2,7 +2,7 @@
 // and wraps them in a TikTok-style layout with channel info + side rail.
 
 import { buildVideoSlide } from '/screen/slides/video.js';
-import { getChannel, getGeneralAccount } from '../state-client.js';
+import { getChannel, getGeneralAccount, getPhotoLikes, getPhotoChannel } from '../state-client.js';
 import { icon } from '../icons.js';
 import { el } from '/shared/utils.js';
 
@@ -30,10 +30,16 @@ function _railBtn(svgHtml, num, extraCls) {
 export async function buildReelSlide(slide) {
   const base = await buildVideoSlide(slide);
 
-  const ch    = (slide.channelId && getChannel(slide.channelId)) || getGeneralAccount();
+  const liveChannelId = getPhotoChannel(slide.id) || slide.channelId;
+  const ch    = (liveChannelId && getChannel(liveChannelId)) || getGeneralAccount();
   const color = ch?.color || '#7c5cff';
   const seed  = String(slide.filename || slide.id || 'reel');
-  const likes = _stableInt(seed, 2400, 11800);
+  // Real likes accrue via the same hype engine tick as photos (keyed by
+  // slide.id, reported visible in video-fullscreen.js / slides/index.js);
+  // until the engine's first tick seeds it, fall back to a stable placeholder
+  // so a freshly-added video never flashes "0".
+  const liveLikes = getPhotoLikes(slide.id);
+  const likes = liveLikes > 0 ? liveLikes : _stableInt(seed, 2400, 11800);
 
   const root = el('div', { cls: 'hype-reel-wrap' });
   root.style.setProperty('--ch-color', color);

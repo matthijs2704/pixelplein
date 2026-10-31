@@ -70,18 +70,18 @@
   --hype-display: 'Bebas Neue', 'DM Sans', system-ui, 'Noto Color Emoji', 'Apple Color Emoji', 'Segoe UI Emoji', sans-serif;
 
   /* ── Shell metrics ────────────────────────────────────────────────── */
-  --hype-tab-h:  clamp(52px, 5.0vh, 76px);
+  --hype-tab-h:  clamp(52px, 5.0vh, 152px);
   --hype-nav-h:  var(--hype-tab-h);
 
   /* Reserve room for the chrome so photos never hide behind it */
   --screen-padding-top:    var(--hype-nav-h);
-  --screen-padding-right:  clamp(14px, 1vw, 30px);
+  --screen-padding-right:  clamp(14px, 1vw, 60px);
   --screen-padding-bottom: var(--hype-tab-h);
-  --screen-padding-left:   clamp(14px, 1vw, 30px);
+  --screen-padding-left:   clamp(14px, 1vw, 60px);
   --screen-bg: var(--hype-bg-1);
 
   /* ── Tiles (mosaic / side-by-side / featured-duo / fullscreen) ────── */
-  --tile-gap:     clamp(8px, 0.6vw, 16px);
+  --tile-gap:     clamp(8px, 0.6vw, 32px);
   --tile-radius:  8px;
   --tile-shadow:  0 1px 0 rgba(255,255,255,0.05) inset,
                   0 18px 40px rgba(0, 0, 0, 0.55);
@@ -107,7 +107,7 @@
 
   /* ── Ticker font (infobar-ticker inherits these) ──────────────────── */
   --ticker-color:          var(--hype-text);
-  --ticker-font-size:      clamp(19px, 1.4vw, 28px);
+  --ticker-font-size:      clamp(19px, 1.4vw, 56px);
   --ticker-font-weight:    400;
   --ticker-font-family:    var(--hype-display);
   --ticker-letter-spacing: 0;
@@ -118,7 +118,7 @@
   --infobar-height:          var(--hype-tab-h);
   --infobar-border-top:      3px solid var(--hype-pink);
   --infobar-font-family:     var(--hype-display);
-  --infobar-font-size:       clamp(19px, 1.4vw, 28px);
+  --infobar-font-size:       clamp(19px, 1.4vw, 56px);
   --infobar-clock-color:     var(--hype-muted);
   --infobar-event-color:     var(--hype-text);
   --infobar-countdown-color: var(--hype-yellow);
@@ -129,7 +129,7 @@
   --bug-radius:      6px;
   --bug-padding:     6px 13px;
   --bug-color:       var(--hype-text);
-  --bug-font-size:   clamp(13px, 0.85vw, 19px);
+  --bug-font-size:   clamp(13px, 0.85vw, 38px);
   --bug-font-weight: 700;
   --bug-font-family: var(--hype-font);
 }
@@ -151,7 +151,7 @@ body, #screen {
   height: var(--hype-nav-h);
   z-index: 9100;
   display: flex; align-items: center; justify-content: space-between;
-  padding: 0 clamp(16px, 1.6vw, 36px);
+  padding: 0 clamp(16px, 1.6vw, 72px);
   background:
     linear-gradient(90deg, rgba(11,13,18,0.96), rgba(11,13,18,0.78)),
     rgba(11, 13, 18, 0.86);
@@ -163,7 +163,7 @@ body, #screen {
 
 .hype-nav-brand { display: flex; align-items: center; gap: 12px; }
 .hype-brand-logo {
-  height: clamp(52px, 6.1vh, 96px);
+  height: clamp(52px, 6.1vh, 192px);
   width: auto; display: block;
   filter: drop-shadow(0 12px 22px rgba(0,0,0,0.42));
 }
@@ -171,7 +171,7 @@ body, #screen {
   display: inline-flex; align-items: center; gap: 6px;
   background: var(--hype-yellow); color: #0b0d12;
   font-family: var(--hype-display);
-  font-weight: 400; font-size: clamp(18px, 1.35vw, 30px);
+  font-weight: 400; font-size: clamp(18px, 1.35vw, 60px);
   letter-spacing: 0; text-transform: uppercase;
   padding: 5px 16px 3px; border-radius: 4px;
   transform: rotate(-2deg);
@@ -185,10 +185,10 @@ body, #screen {
 @keyframes hype-live-blink { 0%,100% { opacity: 1; } 50% { opacity: 0.25; } }
 
 .hype-nav-icons {
-  display: flex; align-items: center; gap: clamp(14px, 1.2vw, 26px);
+  display: flex; align-items: center; gap: clamp(14px, 1.2vw, 52px);
   color: var(--hype-text);
 }
-.hype-nav-icons svg { width: clamp(20px, 1.5vw, 27px); height: clamp(20px, 1.5vw, 27px); }
+.hype-nav-icons svg { width: clamp(20px, 1.5vw, 54px); height: clamp(20px, 1.5vw, 54px); }
 
 /* ── Bottom tab bar icons (now inside infobar slot-end) ─────────────────── */
 
@@ -196,19 +196,19 @@ body, #screen {
   display: flex;
   align-items: center;
   justify-content: flex-end;
-  gap: clamp(18px, 1.8vw, 34px);
-  padding-left: clamp(18px, 1.8vw, 42px);
-  padding-right: clamp(18px, 1.8vw, 42px);
+  gap: clamp(18px, 1.8vw, 68px);
+  padding-left: clamp(18px, 1.8vw, 84px);
+  padding-right: clamp(18px, 1.8vw, 84px);
 }
 .hype-tab {
-  width:  clamp(24px, 2vw, 32px);
-  height: clamp(24px, 2vw, 32px);
+  width:  clamp(24px, 2vw, 64px);
+  height: clamp(24px, 2vw, 64px);
 }
 .hype-tab.active { color: var(--hype-text); }
 /* Center "create" button — filled yellow, like a real app */
 .hype-tab.plus {
-  width:  clamp(40px, 3.4vw, 56px);
-  height: clamp(28px, 2.4vw, 38px);
+  width:  clamp(40px, 3.4vw, 112px);
+  height: clamp(28px, 2.4vw, 76px);
   color: #0b0d12;
   background: var(--hype-gradient);
   border-radius: 6px;
@@ -256,8 +256,8 @@ body:has(.hype-stream-live) #hype-shell { display: none !important; }
 #overlay-infobar #overlay-infobar-slot-end {
   display: flex;
   align-items: center;
-  gap: clamp(18px, 1.8vw, 34px);
-  padding-right: clamp(18px, 1.8vw, 42px);
+  gap: clamp(18px, 1.8vw, 68px);
+  padding-right: clamp(18px, 1.8vw, 84px);
   flex-shrink: 0;
 }
 

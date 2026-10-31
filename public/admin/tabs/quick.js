@@ -41,6 +41,12 @@ export function refreshFromConfig() {
   const kbEl = document.getElementById('q-ken-burns');
   if (kbEl) kbEl.checked = cfg.kenBurnsEnabled !== false;
 
+  const globalCfg = _getConfig();
+  const videoDisabledEl = document.getElementById('q-video-disabled');
+  if (videoDisabledEl) videoDisabledEl.checked = globalCfg.videoPlaybackDisabled ?? false;
+  const blackoutEl = document.getElementById('q-blackout');
+  if (blackoutEl) blackoutEl.checked = globalCfg.screensBlackout ?? false;
+
   _refreshGroupSelector();
   _renderGroupVisibility();
 }
@@ -82,6 +88,22 @@ function _bindControls() {
       for (const id of _activeScreenIds(cfg)) {
         cfg.screens[id].kenBurnsEnabled = kbEl.checked;
       }
+      _notify();
+    });
+  }
+
+  const videoDisabledEl = document.getElementById('q-video-disabled');
+  if (videoDisabledEl) {
+    videoDisabledEl.addEventListener('change', () => {
+      _getConfig().videoPlaybackDisabled = videoDisabledEl.checked;
+      _notify();
+    });
+  }
+
+  const blackoutEl = document.getElementById('q-blackout');
+  if (blackoutEl) {
+    blackoutEl.addEventListener('change', () => {
+      _getConfig().screensBlackout = blackoutEl.checked;
       _notify();
     });
   }

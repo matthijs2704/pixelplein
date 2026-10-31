@@ -741,7 +741,7 @@ body.s-keyin #bg-paint-r, body.s-both #bg-paint-r, body.s-booting #bg-paint-r {
 // ── CONFIG ─────────────────────────────────────────────────────────────────────
 // Empty = same origin. Served from photodisplay at /modules/hype/reboot/.
 const SERVER_URL = '';
-const WS_URL = 'ws://192.168.3.139/ws';
+const WS_URL = 'ws://192.168.1.201/ws';
 
 // ── BOOT LOG (audio-locked to reboot.wav, 13.842s, 122 BPM) ──────────────────
 // Identical steps to the display sequence — same text, same audio-locked times.
@@ -761,6 +761,15 @@ const BOOT_LINES = [
 // this console is a reflector.
 // Phases: idle → armed → recharge → sync → ignite → booting → online.
 let phase = 'idle', ws = null, wsOn = false;
+let simonRoundLive = 0;
+let wsReconnectTimer = null;
+let wsConnectTimer = null;
+let wsWatchdogTimer = null;
+let lastWsMsgAt = 0;
+
+const WS_RECONNECT_MS = 500;
+const WS_CONNECT_TIMEOUT_MS = 4000;
+const WS_STALE_MS = 7000;
 
 // Delay between receiving "booting" (and firing the big-screen trigger) and
 // starting this console's own boot visuals — matches the Arduino's
@@ -852,8 +861,10 @@ function gateState(state, n) {
   document.querySelectorAll('.ck-game').forEach(el => el.classList.remove('active'));
   gate.classList.add('show');
   if (state === 'count') {
-    count.textContent = n;
-    count.classList.remove('pop'); void count.offsetWidth; count.classList.add('pop');
+    count.textContent = n > 0 ? n : '';
+    if (n > 0) {
+      count.classList.remove('pop'); void count.offsetWidth; count.classList.add('pop');
+    }
   } else {
     count.textContent = '';
   }
@@ -899,6 +910,7 @@ function handshakeDrop() {
 // The Arduino streams the flash it is showing RIGHT NOW (simon_flash events),
 // so tablet and strip blink in lockstep — no client-side timing to drift.
 function resetSimon() {
+  simonRoundLive = 0;
   document.getElementById('sm-flash').className = '';
   document.getElementById('sm-dots').innerHTML = '';
   document.getElementById('sm-msg').textContent = '';
@@ -907,12 +919,16 @@ function resetSimon() {
 }
 function simonSeq(seq, round) {
   resetSimon();
+  simonRoundLive = round | 0;
   document.getElementById('sm-round').textContent = 'RONDE ' + round;
 }
-function simonFlash(c) {
+function simonFlash(d) {
+  if (d.round && simonRoundLive && (d.round | 0) !== simonRoundLive) return;
+  const c = d.c;
   document.getElementById('sm-flash').className = c === 'Y' ? 'y' : c === 'R' ? 'r' : '';
 }
 function simonState(d) {
+  if (d.round) simonRoundLive = d.round | 0;
   const dots = document.getElementById('sm-dots');
   if (dots.children.length !== d.len) {
     dots.innerHTML = '';
@@ -1161,16 +1177,33 @@ async function triggerScreen() {
 
 // ── WEBSOCKET ─────────────────────────────────────────────────────────────────
 // Arduino → console: {event:'phase',phase}, {event:'charge',a,b}, {event:'surge'|'surge_end'}.
+function scheduleWSReconnect() {
+  if (wsReconnectTimer) return;
+  wsReconnectTimer = setTimeout(() => {
+    wsReconnectTimer = null;
+    connectWS();
+  }, WS_RECONNECT_MS);
+}
+function cleanupWS() {
+  if (wsConnectTimer) { clearTimeout(wsConnectTimer); wsConnectTimer = null; }
+}
 function connectWS() {
+  if (ws && (ws.readyState === WebSocket.CONNECTING || ws.readyState === WebSocket.OPEN)) return;
+  cleanupWS();
   try {
     ws = new WebSocket(WS_URL);
-    ws.onopen  = () => { wsOn = true;  renderWS(); };
-    ws.onclose = () => { wsOn = false; ws = null; renderWS(); setTimeout(connectWS, 3000); };
+    wsConnectTimer = setTimeout(() => {
+      if (ws && ws.readyState === WebSocket.CONNECTING) ws.close();
+    }, WS_CONNECT_TIMEOUT_MS);
+    ws.onopen  = () => { cleanupWS(); lastWsMsgAt = Date.now(); wsOn = true; renderWS(); };
+    ws.onclose = () => { cleanupWS(); wsOn = false; ws = null; renderWS(); scheduleWSReconnect(); };
     ws.onerror = () => {};
     ws.onmessage = e => {
       try {
+        lastWsMsgAt = Date.now();
         const d = JSON.parse(e.data);
         if (d.event === 'phase')          { if (d.phase === 'booting') startBoot(); else setPhase(d.phase); }
+        else if (d.event === 'heartbeat') { if (d.phase && d.phase !== phase && d.phase !== 'booting') setPhase(d.phase); }
         else if (d.event === 'charge')      updateCharge(d.a, d.b);
         else if (d.event === 'surge')       showSurge();
         else if (d.event === 'overload')    showOverload();
@@ -1182,15 +1215,20 @@ function connectWS() {
         else if (d.event === 'handshake_drop') handshakeDrop();
         else if (d.event === 'packet')      updatePacket(d.p | 0, !!d.f);
         else if (d.event === 'simon_seq')   simonSeq(String(d.seq || ''), d.round | 0);
-        else if (d.event === 'simon_flash') simonFlash(d.c);
+        else if (d.event === 'simon_flash') simonFlash(d);
         else if (d.event === 'simon')       simonState(d);
         else if (d.event === 'simon_fail')  simonFail();
         else if (d.event === 'gate')        gateState(d.state, d.n | 0);
         else if (d.event === 'check_passed') checkPassed();
       } catch {}
     };
-  } catch {}
+  } catch { scheduleWSReconnect(); }
 }
+
+wsWatchdogTimer = setInterval(() => {
+  if (!ws || ws.readyState !== WebSocket.OPEN) return;
+  if (Date.now() - lastWsMsgAt > WS_STALE_MS) ws.close();
+}, 500);
 
 // ── KEYBOARD SIM (laptop rehearsal ONLY) ────────────────────────────────────────
 // On-site the Arduino owns the sequence and pushes phase/charge/surge/ignite;
@@ -1212,8 +1250,9 @@ function simAdvance() {
   if (CHECK_ORDER.includes(phase) && !simKeyed) { simKeyed = true; gateState('wait', 0); return; } // key turned
   if (CHECK_ORDER.includes(phase) && !simGated) {
     simGated = true;
-    [3, 2, 1].forEach((n, i) => setTimeout(() => gateState('count', n), i * 700));
-    setTimeout(() => { gateState('run', 0); if (phase === 'simon') { simonSeq('YR', 1); simonState({len:2,pos:0,show:true}); } }, 2100);
+    gateState('count', 0);
+    [3, 2, 1].forEach((n, i) => setTimeout(() => gateState('count', n), 180 + i * 700));
+    setTimeout(() => { gateState('run', 0); if (phase === 'simon') { simonSeq('YR', 1); simonState({len:2,pos:0,show:true}); } }, 2280);
     return;
   }
   if (phase === 'fans') {

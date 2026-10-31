@@ -18,7 +18,10 @@
 // Fully self-contained: own styles, own reconnect loop. If the Arduino is
 // unreachable the overlay simply never shows.
 
-const ARDUINO_WS = 'ws://192.168.3.139/ws'; // same rig the reboot console talks to
+const ARDUINO_WS = 'ws://192.168.1.201/ws'; // same rig the reboot console talks to
+const WS_RECONNECT_MS = 500;
+const WS_CONNECT_TIMEOUT_MS = 4000;
+const WS_STALE_MS = 7000;
 
 const PHASE_TITLES = {
   armed: 'NOODSTROOM INGESCHAKELD',
@@ -177,6 +180,11 @@ const CSS = `
 
 let root = null;
 let phase = 'idle';
+let activeWs = null;
+let reconnectTimer = null;
+let connectTimer = null;
+let watchdogTimer = null;
+let lastMsgAt = 0;
 
 function _el(cls, html) {
   const d = document.createElement('div');
@@ -316,6 +324,10 @@ function _gameWidgets() { // gate finished — swap in the actual game view
 
 function _onMsg(d) {
   if (d.event === 'phase') { _showFor(d.phase); return; }
+  if (d.event === 'heartbeat') {
+    if (d.phase && d.phase !== phase && d.phase !== 'booting') _showFor(d.phase);
+    return;
+  }
   if (!root.classList.contains('show')) return;
   switch (d.event) {
     case 'charge': {
@@ -337,8 +349,10 @@ function _onMsg(d) {
       const c = $('.gm-count');
       if (d.state === 'count') {
         _widgets([]);
-        c.textContent = d.n;
-        c.classList.remove('pop'); void c.offsetWidth; c.classList.add('pop');
+        c.textContent = d.n > 0 ? d.n : '';
+        if (d.n > 0) {
+          c.classList.remove('pop'); void c.offsetWidth; c.classList.add('pop');
+        }
         $('.gm-sub').textContent = '';
       } else if (d.state === 'run') {
         c.textContent = '';
@@ -382,15 +396,50 @@ function _onMsg(d) {
 }
 
 function _connect() {
-  let ws;
-  try { ws = new WebSocket(ARDUINO_WS); } catch { setTimeout(_connect, 5000); return; }
-  ws.onmessage = e => { try { _onMsg(JSON.parse(e.data)); } catch { } };
-  ws.onclose = () => { root.classList.remove('show'); setTimeout(_connect, 5000); };
-  ws.onerror = () => { };
+  if (activeWs && (activeWs.readyState === WebSocket.CONNECTING || activeWs.readyState === WebSocket.OPEN)) return;
+  if (connectTimer) { clearTimeout(connectTimer); connectTimer = null; }
+  try {
+    activeWs = new WebSocket(ARDUINO_WS);
+  } catch {
+    _scheduleReconnect();
+    return;
+  }
+  connectTimer = setTimeout(() => {
+    if (activeWs && activeWs.readyState === WebSocket.CONNECTING) activeWs.close();
+  }, WS_CONNECT_TIMEOUT_MS);
+  activeWs.onopen = () => {
+    if (connectTimer) { clearTimeout(connectTimer); connectTimer = null; }
+    lastMsgAt = Date.now();
+  };
+  activeWs.onmessage = e => {
+    try {
+      lastMsgAt = Date.now();
+      _onMsg(JSON.parse(e.data));
+    } catch { }
+  };
+  activeWs.onclose = () => {
+    if (connectTimer) { clearTimeout(connectTimer); connectTimer = null; }
+    activeWs = null;
+    root.classList.remove('show');
+    _scheduleReconnect();
+  };
+  activeWs.onerror = () => { };
+}
+
+function _scheduleReconnect() {
+  if (reconnectTimer) return;
+  reconnectTimer = setTimeout(() => {
+    reconnectTimer = null;
+    _connect();
+  }, WS_RECONNECT_MS);
 }
 
 export function initGameMirror() {
   if (root) return;
   _build();
   _connect();
+  watchdogTimer = setInterval(() => {
+    if (!activeWs || activeWs.readyState !== WebSocket.OPEN) return;
+    if (Date.now() - lastMsgAt > WS_STALE_MS) activeWs.close();
+  }, 1000);
 }

@@ -3,7 +3,7 @@
 
 import { el, photoUrl } from '/shared/utils.js';
 import { getPhotoChannel, getChannel, getGeneralAccount, getPhotoLikes } from '../state-client.js';
-import { icon } from '../icons.js';
+import { icon, monogramAvatar } from '../icons.js';
 
 function _fmt(n) {
   if (n >= 10_000) return Math.round(n / 1000) + 'K';
@@ -52,7 +52,9 @@ function _build(photo) {
     const info = el('div', { cls: 'hype-reels-info' });
     info.style.setProperty('--ch-color', ch.color || '#7c5cff');
     const handleEl = el('div', { cls: 'hype-reels-handle' });
-    handleEl.innerHTML = `<span>${ch.handle}</span><span class="hype-reels-verified">${icon.verified(14)}</span>`;
+    handleEl.innerHTML =
+      monogramAvatar(ch.name, ch.color, 32, ch.avatar_url || ch.avatarUrl || '') +
+      `<span>${ch.handle}</span><span class="hype-reels-verified">${icon.verified(14)}</span>`;
     info.appendChild(handleEl);
     info.appendChild(el('div', {
       cls: 'hype-reels-caption',

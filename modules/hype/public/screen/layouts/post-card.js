@@ -53,10 +53,14 @@ export function buildCard(photo) {
   card.appendChild(el('div', { cls: 'hype-post-photo' }, img));
 
   card.appendChild(el('p', { cls: 'hype-post-caption', text: _caption(channelId, photo.id) }));
+  // Hype count: derived from likes plus a per-photo seeded offset, so posts
+  // differ even while like counts are still low (early in the week every
+  // post showed exactly "1 hype").
+  const hypeSeed = _seed(photo.id) % 7;
   card.appendChild(el('footer', { cls: 'hype-post-reactions' },
-    _reaction('heartFill', fmtCount(likes), 'vindt dit hype'),
+    _reaction('heartFill', fmtCount(likes), 'vindt dit leuk'),
     _reaction('comment', fmtCount(Math.max(comments.length, Math.round(likes / 15))), 'reacties'),
-    _reaction('flame', fmtCount(Math.max(1, Math.round(likes / 5))), 'hype'),
+    _reaction('flame', fmtCount(Math.max(1, Math.round(likes / 5) + hypeSeed)), 'hype'),
     _reaction('send', 'deel', ''),
   ));
 
@@ -139,11 +143,15 @@ const CAPTIONS_GENERAL = [
   'Kampleven op z\'n best 🌲',
 ];
 
-function _caption(channelId, photoId) {
-  const pool = channelId ? CAPTIONS_CHANNEL : CAPTIONS_GENERAL;
+function _seed(photoId) {
   let h = 0;
   const seed = String(photoId || '');
   for (let i = 0; i < seed.length; i++) h = (h * 31 + seed.charCodeAt(i)) >>> 0;
-  return pool[h % pool.length];
+  return h;
+}
+
+function _caption(channelId, photoId) {
+  const pool = channelId ? CAPTIONS_CHANNEL : CAPTIONS_GENERAL;
+  return pool[_seed(photoId) % pool.length];
 }
 

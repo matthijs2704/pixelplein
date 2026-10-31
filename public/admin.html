@@ -196,6 +196,17 @@
                 </label>
               </div>
 
+              <div class="field" style="border-top:1px solid var(--border);padding-top:12px;margin-top:4px">
+                <label style="display:flex;align-items:center;gap:8px;cursor:pointer">
+                  <input type="checkbox" id="q-video-disabled">
+                  Disable video playback
+                </label>
+                <label style="display:flex;align-items:center;gap:8px;cursor:pointer;margin-top:8px">
+                  <input type="checkbox" id="q-blackout">
+                  <span class="btn-danger" style="padding:2px 8px;border-radius:6px">Blackout all screens</span>
+                </label>
+              </div>
+
             </div>
           </div>
 
@@ -416,6 +427,8 @@
         <div class="videos-actions">
           <button id="videos-play-batch" class="btn">▶ Play a batch now</button>
           <button id="videos-play-all" class="btn">▶ Play all videos now</button>
+          <input id="videos-play-count" type="number" min="1" max="50" value="3" style="width:56px">
+          <button id="videos-play-count-btn" class="btn">▶ Play N now</button>
           <span id="videos-play-status" class="slides-inline-status"></span>
         </div>
 
@@ -1225,6 +1238,23 @@
             <div class="action-row">
               <button class="btn btn-primary btn-sm" id="btn-save-oidc">Save OIDC config</button>
               <button class="btn btn-danger btn-sm" id="btn-disable-oidc">Disable OIDC</button>
+            </div>
+          </div>
+        </details>
+
+        <details class="section" open>
+          <summary>Danger zone</summary>
+          <div class="section-body">
+            <div class="section-label" style="margin-bottom:8px">Blackout</div>
+            <div class="quick-hint">Blackt alle schermen direct volledig zwart en stopt alle foto- en videoweergave. Blijft actief tot je hem hier weer uitzet.</div>
+            <div class="check-row" style="margin-top:8px">
+              <input type="checkbox" id="settings-blackout">
+              <label for="settings-blackout" class="btn-danger" style="padding:4px 10px;border-radius:6px">Alle schermen zwart</label>
+            </div>
+            <div class="section-label" style="margin:16px 0 8px">Fotodatabase wissen</div>
+            <div class="quick-hint">Verwijdert permanent alle foto's, caches, metadata, tags en module-data. Voor de start van een nieuw evenement.</div>
+            <div class="action-row" style="margin-top:8px">
+              <button class="btn btn-danger btn-sm" id="settings-delete-all-photos">Alle foto's wissen</button>
             </div>
           </div>
         </details>
