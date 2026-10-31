@@ -1,0 +1,6 @@
+{
+  "name": "Regio Utrechtse Heuvelrug",
+  "description": "Minimaal regio-thema — donker bosgroen, Utrechts rood, vlagmerk in de infobalk. Algemeen bruikbaar voor regio-activiteiten.",
+  "cssFile": "style.css",
+  "frameFile": "frame.html"
+}

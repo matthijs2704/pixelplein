@@ -1,0 +1,249 @@
+/* ─── Regio Utrechtse Heuvelrug theme ─────────────────────────────────────
+   Minimal, general-purpose theme for regional events. Colours come from
+   the regio logo: Utrecht red #ec1d24, white, branch green #00a550, on a
+   near-black canvas. System font stack (same as regio-uh.nl), so nothing
+   has to be downloaded at the event location.
+──────────────────────────────────────────────────────────────────────────── */
+
+:root {
+  /* ── Brand palette ───────────────────────────────────────────────────── */
+  --ruh-red:        #ec1d24;
+  --ruh-red-dark:   #b5151b;
+  --ruh-green:      #00a550;
+  --ruh-white:      #ffffff;
+  --ruh-ink:        #0e100f;
+  --ruh-ink-2:      #171a18;
+  --ruh-text:       #f4f5f3;
+  --ruh-muted:      rgba(244, 245, 243, 0.62);
+  --ruh-font:       -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial,
+                    'Noto Color Emoji', 'Apple Color Emoji', 'Segoe UI Emoji', sans-serif;
+
+  /* ── Layout: thin dark mat, bottom edge clears the info bar ─────────── */
+  --ruh-pad:               clamp(8px, 0.6vw, 32px);
+
+  --screen-bg:             var(--ruh-ink);
+  --screen-padding-top:    var(--ruh-pad);
+  --screen-padding-right:  var(--ruh-pad);
+  --screen-padding-left:   var(--ruh-pad);
+  /* --infobar-height is published on :root by infobar.js while the bar is
+     mounted and removed when it is not, so this collapses with the bar. */
+  --screen-padding-bottom: calc(var(--infobar-height, 0px) + var(--ruh-pad));
+
+  --tile-gap:              var(--ruh-pad);
+  --tile-radius:           6px;
+  --tile-shadow:           none;
+  --tile-border:           none;
+
+  /* ── Polaroids ───────────────────────────────────────────────────────── */
+  --polaroid-bg:           transparent;
+  --polaroid-card-bg:      #ffffff;
+  --polaroid-card-radius:  6px;
+  --polaroid-card-shadow:  0 14px 32px rgba(0, 0, 0, 0.45);
+
+  /* ── Slides ──────────────────────────────────────────────────────────── */
+  --textcard-bg:           var(--ruh-ink-2);
+  --textcard-color:        var(--ruh-text);
+  --textcard-accent:       var(--ruh-red);
+  --textcard-font:         var(--ruh-font);
+  --textcard-title-size:   clamp(2rem, 4.2vw, 5.2rem);
+  --textcard-body-size:    clamp(1rem, 1.6vw, 2rem);
+
+  --qr-bg:                 #ffffff;
+  --qr-color:              #141414;
+  --qr-muted-color:        #5f6360;
+
+  /* ── Ticker (standalone) ─────────────────────────────────────────────── */
+  --ticker-bg:             rgba(14, 16, 15, 0.88);
+  --ticker-height:         clamp(32px, 2.6vh, 96px);
+  --ticker-radius:         0px;
+  --ticker-color:          var(--ruh-text);
+  --ticker-font-size:      clamp(16px, 1.1vw, 48px);
+  --ticker-font-weight:    600;
+  --ticker-font-family:    var(--ruh-font);
+  --ticker-letter-spacing: 0.01em;
+
+  /* ── Info bar ────────────────────────────────────────────────────────── */
+  --infobar-bg:                 var(--ruh-ink);
+  --infobar-color:              var(--ruh-text);
+  --infobar-border-top:         3px solid var(--ruh-red);
+  --infobar-font-family:        var(--ruh-font);
+  --infobar-letter-spacing:     0.01em;
+  --infobar-clock-color:        var(--ruh-muted);
+  --infobar-event-label-color:  var(--ruh-muted);
+  --infobar-event-color:        var(--ruh-text);
+  --infobar-event-loc-color:    var(--ruh-muted);
+  --infobar-countdown-color:    #ff6b70;
+  --infobar-divider-color:      rgba(255, 255, 255, 0.16);
+
+  /* ── Corner bug / QR bug ─────────────────────────────────────────────── */
+  --bug-bg:                rgba(14, 16, 15, 0.78);
+  --bug-radius:            6px;
+  --bug-padding:           6px 12px;
+  --bug-color:             var(--ruh-text);
+  --bug-font-size:         clamp(14px, 0.9vw, 40px);
+  --bug-font-weight:       700;
+  --bug-font-family:       var(--ruh-font);
+
+  --qr-bug-bg:               #ffffff;
+  --qr-bug-radius:           10px;
+  --qr-bug-padding:          clamp(8px, 0.5vw, 20px);
+  --qr-bug-size:             clamp(84px, 6vw, 284px);
+  --qr-bug-label-color:      #141414;
+  --qr-bug-label-size:       clamp(10px, 0.72vw, 30px);
+  --qr-bug-label-font-family: var(--ruh-font);
+
+  /* ── Alerts ──────────────────────────────────────────────────────────── */
+  --alert-color:            var(--ruh-text);
+  --alert-font-family:      var(--ruh-font);
+  --alert-banner-bg:        rgba(14, 16, 15, 0.94);
+  --alert-popup-bg:         rgba(14, 16, 15, 0.96);
+  --alert-countdown-bg:     rgba(14, 16, 15, 0.96);
+  --alert-countdown-time:   #ff6b70;
+  --alert-banner-border:    var(--ruh-red);
+  --alert-popup-border:     var(--ruh-red);
+  --alert-countdown-border: var(--ruh-red);
+  --alert-title-color:      #ffffff;
+  --alert-urgent-glow:      rgba(236, 29, 36, 0.4);
+
+  /* ── Waiting screen ──────────────────────────────────────────────────── */
+  --waiting-bg:          var(--ruh-ink);
+  --waiting-fg:          var(--ruh-text);
+  --waiting-muted:       var(--ruh-muted);
+  --waiting-font-family: var(--ruh-font);
+  --waiting-glow-a:      rgba(236, 29, 36, 0.14);
+  --waiting-glow-b:      rgba(0, 165, 80, 0.10);
+
+  /* ── Submission wall ─────────────────────────────────────────────────── */
+  --submission-wall-bg:            transparent;
+  --submission-wall-message-color: #141414;
+  --submission-wall-meta-color:    var(--ruh-red-dark);
+  --submission-wall-message-font:  var(--ruh-font);
+  --submission-wall-meta-font:     var(--ruh-font);
+
+  /* ── Public submit page ──────────────────────────────────────────────── */
+  --submit-bg:                    var(--ruh-ink);
+  --submit-text-color:            var(--ruh-text);
+  --submit-sub-color:             var(--ruh-muted);
+  --submit-hint-color:            var(--ruh-muted);
+  --submit-card-bg:               var(--ruh-ink-2);
+  --submit-card-border:           rgba(255, 255, 255, 0.10);
+  --submit-label-color:           var(--ruh-muted);
+  --submit-input-bg:              rgba(0, 0, 0, 0.35);
+  --submit-input-border:          rgba(255, 255, 255, 0.16);
+  --submit-photo-bg:              rgba(255, 255, 255, 0.03);
+  --submit-photo-border:          rgba(255, 255, 255, 0.16);
+  --submit-btn-text:              #ffffff;
+  --submit-btn-bg:                var(--ruh-red);
+  --submit-btn-secondary-bg:      rgba(255, 255, 255, 0.06);
+  --submit-btn-secondary-border:  rgba(255, 255, 255, 0.16);
+  --submit-status-color:          var(--ruh-text);
+}
+
+/* ── Info bar sizing ──────────────────────────────────────────────────────
+   Scales with the screen so it stays readable on 4K. Set on the bar itself
+   (not :root) so the admin font-size override, which writes an inline
+   --infobar-height on the bar, still wins.
+──────────────────────────────────────────────────────────────────────────── */
+#overlay-infobar {
+  --infobar-height:    clamp(46px, 4.4vh, 150px);
+  --infobar-font-size: clamp(15px, 1.6vh, 52px);
+}
+
+/* ── Info bar brand slot (logo + wordmark, from frame.html) ──────────────
+   Hidden until infobar.js adopts it into the bar.
+──────────────────────────────────────────────────────────────────────────── */
+#overlay-infobar-slot-start { display: none; }
+
+#overlay-infobar #overlay-infobar-slot-start {
+  display: flex;
+  align-items: center;
+  gap: 0.6em;
+  flex-shrink: 0;
+  height: 100%;
+  padding: 0 1.1em 0 var(--ruh-pad);
+}
+
+#overlay-infobar .ruh-logo {
+  height: 78%;
+  width: auto;
+  display: block;
+}
+
+#overlay-infobar .ruh-wordmark {
+  display: flex;
+  flex-direction: column;
+  line-height: 1.05;
+  white-space: nowrap;
+}
+
+#overlay-infobar .ruh-wordmark-top {
+  font-size: 0.68em;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--ruh-muted);
+}
+
+#overlay-infobar .ruh-wordmark-main {
+  font-weight: 700;
+  color: var(--ruh-text);
+}
+
+/* Event slots may shrink so the brand never gets pushed out */
+#overlay-infobar #overlay-infobar-event,
+#overlay-infobar #overlay-infobar-event2 {
+  flex-shrink: 1;
+  min-width: 0;
+}
+
+/* ── Submit page brand header (submit-brand.html) ───────────────────────── */
+.theme-brand {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  padding: 16px 0 4px;
+  font-family: var(--ruh-font);
+}
+
+.theme-brand-logo {
+  width: 56px;
+  height: 56px;
+  display: block;
+}
+
+.theme-brand-text {
+  display: flex;
+  flex-direction: column;
+  line-height: 1.15;
+  text-align: left;
+}
+
+.theme-brand-top {
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--ruh-muted);
+}
+
+.theme-brand-main {
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--ruh-text);
+}
+
+/* Selected submission type: red instead of the default warm gold */
+.mode-btn.active {
+  border-color: var(--ruh-red);
+  background: rgba(236, 29, 36, 0.10);
+  box-shadow: 0 0 0 1px rgba(236, 29, 36, 0.25), 0 8px 24px rgba(0, 0, 0, 0.22);
+}
+
+.theme-brand-bar {
+  height: 3px;
+  width: 64px;
+  margin: 14px auto 0;
+  border-radius: 2px;
+  background: var(--ruh-red);
+}
